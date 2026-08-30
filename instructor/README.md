@@ -4,16 +4,67 @@ A grading and thesis-review tool for a university instructor teaching across
 three levels. It runs entirely in a browser from a folder of static files.
 There is no server, no account, and no build step.
 
-Open `instructor/index.html` through any static web server and it works.
+## Getting it running
+
+**1. Start the app.**
 
 ```bash
 cd instructor
-python3 -m http.server 8099
-# then open http://localhost:8099
+./start.sh            # macOS / Linux   (or: .\start.ps1 on Windows)
 ```
 
-A plain `file://` open will not work: the app is written as ES modules, which
-browsers refuse to load from the filesystem. Any static server will do.
+Then open <http://localhost:8099>. That is the whole install — everything
+except AI review works now, with no network and no model.
+
+A plain `file://` open will *not* work: the app is written as ES modules, which
+browsers refuse to load from the filesystem. Any static server will do;
+`start.sh` just runs Python's.
+
+**2. Try it on the fixtures** in `samples/`, which are built to exercise each
+feature. Five minutes, in this order:
+
+| Do this | You should see |
+|---|---|
+| Thesis review → paste `samples/thesis-v1.txt` → Analyse | Stress **68, Overloaded**. 36 findings highlighted in the text. |
+| Argument stress tab | Six over-stressed claims; 6 of 14 claims backed. |
+| Citations tab, toggle **APA 7 → MLA 9** | Findings change as the style changes. |
+| Assign it to a student, **Save review**. Then analyse `samples/other-student.txt` and save that too. | Two saved reviews. |
+| Re-analyse `thesis-v1.txt` → Originality → **Run comparison** | **19% overlap** with the other student, and the shared paragraph quoted. |
+| Originality → AI indicators | **12/100.** Now try `samples/ai-flavoured.txt`: **68/100.** That gap is the whole signal — and note how thin it is. |
+| Compare drafts → `thesis-v1.txt` and `thesis-v2.txt` | 1 paragraph edited with a word-level diff, 1 cut, 2 added, 16 untouched. |
+| Gradebook, then **Export Excel** | A `.xlsx` with a sheet per course plus statistics. |
+
+**3. Add a local model** (only needed for AI review — everything above already
+works without it).
+
+```bash
+# once
+brew install ollama          # or: curl -fsSL https://ollama.com/install.sh | sh
+ollama pull qwen2.5:14b      # ~9 GB. llama3.1:8b is ~5 GB and weaker.
+
+# every time, in a second terminal
+OLLAMA_ORIGINS=http://localhost:8099 OLLAMA_CONTEXT_LENGTH=32768 ollama serve
+```
+
+Then in the app: **Settings → AI review → enable → Local → Ollama →** model
+`qwen2.5:14b`, context `32768` → **Test connection**. It should report which
+URL answered and list your installed models.
+
+Those two environment variables are not optional:
+
+- **`OLLAMA_ORIGINS`** lets this page talk to Ollama at all. Without it the
+  browser blocks the request before it is sent and reports only
+  "Failed to fetch".
+- **`OLLAMA_CONTEXT_LENGTH`** is the one that quietly ruins results. Ollama's
+  default context is a few thousand tokens and it does **not** error when you
+  exceed it — it drops the overflow. A 60-page thesis would be reviewed from
+  its first three pages while the interface reported a review of the whole
+  document. The app refuses to send anything that does not fit and shows the
+  arithmetic, but it can only do that if the number in Settings matches the
+  number Ollama is actually running.
+
+Roughly: 32k tokens ≈ 90 pages. For a longer thesis, raise both figures or run
+the review a chapter at a time.
 
 ---
 

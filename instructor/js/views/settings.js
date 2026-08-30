@@ -77,7 +77,10 @@ export default function renderSettings(root, ctx) {
                   banner('privacy', 'With a local model, the thesis text goes to a server you run — Ollama, LM Studio, llama.cpp or vLLM — and no further. This keeps the privacy guarantee intact.'),
                   field('Endpoint', el('input', { value: ai.endpoint || '', placeholder: 'http://localhost:11434/v1', onChange: (e) => setAi({ endpoint: e.target.value }) }),
                     'The OpenAI-compatible base URL. Ollama: http://localhost:11434/v1 — LM Studio: http://localhost:1234/v1'),
-                  field('API key (usually blank for local servers)', el('input', { type: 'password', value: ai.apiKey || '', onChange: (e) => setAi({ apiKey: e.target.value }) }))
+                  field('API key (usually blank for local servers)', el('input', { type: 'password', value: ai.apiKey || '', onChange: (e) => setAi({ apiKey: e.target.value }) })),
+                  field('Context window (tokens)',
+                    el('input', { type: 'number', min: '2048', step: '1024', value: ai.contextTokens || 8192, onChange: (e) => setAi({ contextTokens: Number(e.target.value) }) }),
+                    'Must match what the server is actually running. Ollama defaults to a few thousand tokens and silently drops anything beyond it — a whole thesis would be reviewed from its first pages only. Start Ollama with OLLAMA_CONTEXT_LENGTH=32768 and put 32768 here.')
                 )
               : el('div', {},
                   banner('warn', 'With the Claude API, the full thesis text is transmitted to Anthropic for the review. Do not use this for material a student has not agreed to share, or where your institution’s data policy forbids it.'),

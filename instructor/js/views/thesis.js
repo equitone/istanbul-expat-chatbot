@@ -6,7 +6,7 @@ import { getState, LEVEL_LABEL, saveThesis, loadThesisDocument, removeThesis } f
 import { analyseThesis, buildSegments, dominantIssue, CATEGORY_META } from '../analysis/index.js';
 import { compareAgainstCorpus, voiceConsistency, aiIndicators } from '../analysis/similarity.js';
 import { verifyReference, findPriorWork, setContactEmail } from '../analysis/verify.js';
-import { reviewThesis, toIssues, isConfigured } from '../analysis/ai.js';
+import { reviewThesis, toIssues, isConfigured, planReview } from '../analysis/ai.js';
 import { extractText, SUPPORTED, downloadText } from '../io/files.js';
 
 /* View-local state: an analysed thesis survives store updates. */
@@ -549,13 +549,19 @@ function researchPanel(root, ctx) {
       el('h2', { text: 'AI second opinion' }),
       el('p', { text: 'Asks a language model the questions the rule engine cannot answer: does the cited evidence actually support the claim, is that counterargument a strawman, does a key term shift meaning between chapters.' }),
       isConfigured(s.settings)
-        ? el('div', {},
-            el('div', { class: 'row' },
-              el('button', { class: 'primary', disabled: Boolean(S.busy), text: 'Run AI review', onClick: () => runAiReview(root, ctx) }),
-              el('span', { class: 'hint', text: s.settings.ai.provider === 'local' ? `local model at ${s.settings.ai.endpoint}` : `sends the thesis text to ${s.settings.ai.model}` })
-            ),
-            ex.aiReview ? aiReviewResult(ex.aiReview) : null
-          )
+        ? (() => {
+            const plan = planReview(S.text, s.settings);
+            return el('div', {},
+              plan.fits
+                ? el('p', { class: 'hint', text: `${plan.words.toLocaleString()} words ≈ ${plan.promptTokens.toLocaleString()} tokens, against a ${plan.budget.toLocaleString()}-token context. Fits, with ${plan.headroom.toLocaleString()} to spare.` })
+                : banner('warn', `This thesis needs about ${plan.promptTokens.toLocaleString()} tokens but the configured context is ${plan.budget.toLocaleString()}. Reviewing it now would cover only the opening pages while appearing to cover all of it, so the button is disabled. Raise the context (restart Ollama with OLLAMA_CONTEXT_LENGTH=32768 and set the same figure in Settings), or paste one chapter at a time.`),
+              el('div', { class: 'row' },
+                el('button', { class: 'primary', disabled: Boolean(S.busy) || !plan.fits, text: 'Run AI review', onClick: () => runAiReview(root, ctx) }),
+                el('span', { class: 'hint', text: s.settings.ai.provider === 'local' ? `local model at ${s.settings.ai.endpoint}` : `sends the thesis text to ${s.settings.ai.model}` })
+              ),
+              ex.aiReview ? aiReviewResult(ex.aiReview) : null
+            );
+          })()
         : el('div', {},
             el('p', { class: 'hint', text: 'AI review is off. Turn it on in Settings — you can point it at a local model (Ollama, LM Studio) so no text leaves your machine, or at the Claude API with your own key.' }),
             el('button', { text: 'Open settings', onClick: () => ctx.go('settings') })

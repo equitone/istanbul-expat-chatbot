@@ -1,0 +1,19 @@
+Abstract
+
+This dissertation examines the reception of translated poetry in Turkish literary magazines between 1960 and 1980.
+
+1. Introduction
+
+Translation reception is shaped less by fidelity than by the institutional context in which a translation is read. The critical literature has approached this question from several directions. Jameson (1981) reads formal discontinuity as a symptom of an unrepresentable totality, and Said (1993, p. 190) traces the same pressure through the imperial archive. Their accounts differ in emphasis but converge on the claim that modernist difficulty is historically produced rather than merely stylistic.
+
+The corpus consists of 240 reviews published between 1990 and 2015, coded for evaluative stance by two coders who achieved 0.81 agreement.
+
+2. Discussion
+
+Venuti (1995) argues that fluent translation renders the translator invisible, and the review corpus bears this out: reviewers comment on style far more often than on translation choices. However, the pattern weakens after 1975, which suggests that the norm was contested rather than settled.
+
+References
+
+Jameson, F. (1981). The political unconscious: Narrative as a socially symbolic act. Cornell University Press.
+Said, E. W. (1993). Culture and imperialism. Knopf.
+Venuti, L. (1995). The translator's invisibility: A history of translation. Routledge.

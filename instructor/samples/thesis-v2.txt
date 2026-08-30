@@ -1,0 +1,41 @@
+Abstract
+
+This thesis argues that the fragmentation of modernist narrative registers a crisis of imperial authority rather than a purely aesthetic development. Drawing on manuscript evidence and contemporary reviews, it shows that formal difficulty concentrates precisely where imperial content appears.
+
+1. Introduction
+
+Many modernist writers appear to have been responding to imperial decline, though the relationship is not uniform. Fragmentation may signal political anxiety in some cases, which suggests that aesthetic form is partly conditioned by historical circumstance (Jameson, 1981).
+
+The critical literature has approached this question from several directions. Jameson (1981) reads formal discontinuity as a symptom of an unrepresentable totality, and Said (1993, p. 190) traces the same pressure through the imperial archive. Their accounts differ in emphasis but converge on the claim that modernist difficulty is historically produced rather than merely stylistic.
+
+Woolf's prose is crucial. The style is significant and demonstrates a profound shift. This shows the importance of the period.
+
+2. Literature Review
+
+Fragmentation is a technique in which narrative continuity is broken. Narrative continuity being broken is what fragmentation means, and therefore fragmentation is the breaking of narrative continuity in modernist writing of the period under discussion here.
+
+However, this reading may overstate the case. Critics such as Levenson (2011) contend that fragmentation predates the imperial crisis by two decades, and the chronology arguably supports them. Admittedly, the evidence assembled here is suggestive rather than conclusive, and a larger manuscript sample would be needed to settle the question.
+
+3. Methodology
+
+These result shows that a manuscript-led approach is viable. The corpus consists of 240 reviews published between 1990 and 2015, which were coded for evaluative stance by two coders who achieved 0.81 agreement. The implementation of the categorisation of the identification of stance markers required a reconciliation procedure, and the data is available on request.
+
+There is many reasons for adopting this approach, it is not clear which one matters most. In order to due to the fact that the archive is incomplete, we can't be sure that the sample is representative, and I think the amount of missing material is huge.
+
+4. Discussion
+
+Nevertheless, the manuscript record indicates a pattern that a purely aesthetic account cannot explain. Because the revisions cluster around a single thematic field, the correlation seems unlikely to be incidental, though a larger sample would be needed to confirm it. The participants was interviewed and the results has been reported in Table 2.
+
+Although the framework is useful in many respects.
+
+References
+
+Jameson, F. (1981). The political unconscious: Narrative as a socially symbolic act. Cornell University Press.
+Levenson, M. (2011). Modernism. Yale University Press.
+Said, E. W. (1993). Culture and imperialism. Knopf.
+Spivak, G. C. (1993). Outside in the teaching machine. Routledge.
+
+
+5. Conclusion
+
+The manuscript evidence assembled in this chapter supports a qualified version of the historical thesis, and points toward a larger study of the revision record.

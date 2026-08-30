@@ -27,6 +27,46 @@ export const DEFAULT_MODEL = 'claude-opus-5';
    pathological inputs (an OCR dump of scanned images, say). */
 const MAX_CHARS = 400000;
 
+/*
+ * Context budgets, in tokens.
+ *
+ * This matters far more for local models than it looks. Ollama's default
+ * context is a few thousand tokens, and it does not error when you exceed it —
+ * it silently drops the overflow. Send a 60-page thesis and the model reviews
+ * the first three pages while the interface reports a review of the whole
+ * thing, which is the worst possible failure: confident and wrong.
+ *
+ * So the budget is checked before the request, and an over-long text is
+ * refused with instructions rather than quietly truncated.
+ */
+const DEFAULT_CONTEXT = { anthropic: 900000, local: 8192 };
+const RESERVED_FOR_OUTPUT = 3000;
+
+/* English academic prose runs about 3.6 characters per token. Deliberately
+   conservative: under-estimating the count is what causes silent truncation. */
+export const estimateTokens = (text) => Math.ceil(String(text || '').length / 3.6);
+
+/**
+ * Decide whether this text can be reviewed in one request.
+ * Returns the numbers so the interface can show them before anything is sent.
+ */
+export function planReview(text, settings) {
+  const ai = settings.ai || {};
+  const provider = ai.provider === 'local' ? 'local' : 'anthropic';
+  const budget = Number(ai.contextTokens) || DEFAULT_CONTEXT[provider];
+  const promptTokens = estimateTokens(text) + estimateTokens(SYSTEM_PROMPT) + 200;
+  const usable = budget - RESERVED_FOR_OUTPUT;
+  return {
+    provider,
+    budget,
+    usable,
+    promptTokens,
+    words: (String(text || '').match(/[\p{L}\p{N}]+/gu) || []).length,
+    fits: promptTokens <= usable,
+    headroom: usable - promptTokens
+  };
+}
+
 const SYSTEM_PROMPT = `You are assisting a university instructor who is marking a student thesis.
 
 A deterministic rule engine has ALREADY reported: spelling, punctuation, subject-verb agreement, comma splices, passive voice, wordiness, missing citations, unsupported claims, booster/hedge counts, and paragraph cohesion. Do NOT repeat that class of finding.
@@ -162,6 +202,17 @@ export function isConfigured(settings) {
 export async function reviewThesis(text, settings, { signal } = {}) {
   const ai = settings.ai || {};
   if (!isConfigured(settings)) throw new Error('AI review is not configured. Enable it in Settings first.');
+
+  const plan = planReview(text, settings);
+  if (!plan.fits) {
+    throw new Error(
+      `This text needs about ${plan.promptTokens.toLocaleString()} tokens but the configured context is ${plan.budget.toLocaleString()}. ` +
+      'Sending it anyway would review only the opening pages while reporting a review of the whole document, so the request is refused. ' +
+      (plan.provider === 'local'
+        ? 'Either raise the context (restart Ollama with OLLAMA_CONTEXT_LENGTH=32768, and set the same number in Settings), or review one chapter at a time.'
+        : 'Review one chapter at a time.')
+    );
+  }
 
   const body = String(text || '').slice(0, MAX_CHARS);
   const truncated = String(text || '').length > MAX_CHARS;
