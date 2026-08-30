@@ -149,7 +149,10 @@ export const CONFUSION_PATTERNS = [
   { id: 'its-verb', re: /\bits\s+(is|was|are|were|been|being|not\b)/gi, message: "Looks like “it's” (it is) was intended.", suggest: "it's" },
   { id: 'affect-article', re: /\b(the|an|this|that|its|his|her|their|any|no|some|main|primary|overall|net)\s+(affect)s?\b/gi, message: 'After an article/possessive you almost always want the noun “effect”.', suggest: 'effect' },
   { id: 'effect-verb', re: /\b(to|will|would|may|might|can|could|does|did|not)\s+(effect)\s+(the|a|an|their|its|his|her|this|these|those)\b/gi, message: 'As a verb meaning “to influence”, use “affect”.', suggest: 'affect' },
-  { id: 'then-compare', re: /\b(more|less|fewer|greater|higher|lower|better|worse|larger|smaller|rather|other)\s+then\b/gi, message: 'Comparison takes “than”, not “then”.', suggest: 'than' },
+  /* Allows one adjective between the comparative and the error — "more
+     significant then" is at least as common as the adjacent "more then", and
+     requiring a following word keeps the temporal "…more work then." clear. */
+  { id: 'then-compare', re: /\b(more|less|fewer|greater|higher|lower|better|worse|larger|smaller|rather|other|earlier|later)\s+(?:[a-z]+(?:ant|ent|ive|ful|able|ible|ical|ic|al|ous|ary|ory|ing|est)\s+)?then\s+(?=[a-z])/gi, message: 'Comparison takes “than”, not “then”.', suggest: 'than' },
   { id: 'there-poss', re: /\bthere\s+(own|respective|findings|results|argument|arguments|claim|claims|work|study|analysis|data|participants|responses|views|methods)\b/gi, message: 'Possessive here — use “their”.', suggest: 'their' },
   { id: 'their-is', re: /\btheir\s+(is|are|was|were)\b/gi, message: 'Existential “there is/are”, not “their”.', suggest: 'there' },
   { id: 'lead-past', re: /\b(has|have|had|was|were|which|that|this)\s+lead\s+to\b/gi, message: 'Past tense of “lead” is “led”.', suggest: 'led' },

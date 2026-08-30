@@ -75,6 +75,10 @@ function isSentenceBoundary(source, sentenceStart, first, last) {
 
   if (terminator === '.') {
     const before = source.slice(sentenceStart, first);
+    /* "1." opening a paragraph is a list marker or a section number; splitting
+       there would strand it as its own sentence and skew every per-sentence
+       statistic in a numbered methods chapter. */
+    if (/^\s*\d{1,3}$/.test(before)) return false;
     const wordMatch = before.match(/([A-Za-z][A-Za-z.]*)$/);
     if (wordMatch) {
       const bare = wordMatch[1].replace(/\./g, '').toLowerCase();
@@ -158,7 +162,18 @@ export function buildDocument(text) {
     list.forEach((s) => {
       const id = sentences.length;
       p.sentenceIds.push(id);
-      sentences.push({ ...s, id, paragraph: p.index, isHeading: p.isHeading, words: tokenizeWords(s.text, s.start) });
+      /* A leading "1." / "3)" is scaffolding, not prose. Record its length so
+         rules anchored to the start of a sentence can skip past it while
+         still reporting offsets into the original document. */
+      const marker = s.text.match(/^\s*\d{1,3}[.)]\s+/);
+      sentences.push({
+        ...s,
+        id,
+        paragraph: p.index,
+        isHeading: p.isHeading,
+        lead: marker ? marker[0].length : 0,
+        words: tokenizeWords(s.text, s.start)
+      });
     });
   });
   const words = sentences.flatMap((s) => s.words);

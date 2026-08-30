@@ -1,0 +1,35 @@
+Grammar Test Fixture
+
+Each numbered sentence below contains one deliberate fault. The expected finding is listed in samples/README.md, so you can check the engine against a known answer rather than guessing whether it worked.
+
+1. The the results of this study are inconclusive.
+
+2. The data was recieved from three seperate archives.
+
+3. These result shows a clear downward trend across the period.
+
+4. The participants was interviewed in June and the findings has been reported.
+
+5. The criteria is not met by any of the four cases examined here.
+
+6. There is many reasons to doubt this conclusion, it is not clear which matters.
+
+7. The sample was small, however the authors claim the finding is robust.
+
+8. However the chronology does not support that reading of the evidence.
+
+9. Although the theoretical framework is useful in several respects.
+
+10. This demonstrates the importance of reading the archive closely.
+
+11. Its is clear that the argument depends on a single contested premise.
+
+12. The effect of the reform was more significant then the authors anticipated.
+
+13. In order to due to the fact that the archive is incomplete, we can't be sure.
+
+14. The amount of participants who withdrew was less than the researchers expected.
+
+15. A unexpected outcome emerged during the second phase of the fieldwork.
+
+16. The scholarship on this topic were reviewed and a lot of gaps were identified in it.

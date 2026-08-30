@@ -40,6 +40,7 @@ export function analyseGrammar(doc) {
   doc.bodySentences.forEach((s) => {
     if (s.isHeading) return; // headings are not sentences; every rule below assumes prose
     const w = s.words;
+    const prose = s.lead ? s.text.slice(s.lead) : s.text;
     const lowers = w.map((x) => x.lower);
 
     /* ------------------------------------------ subject–verb agreement */
@@ -136,7 +137,7 @@ export function analyseGrammar(doc) {
     /* --------------------------------------------------------- fragments */
     const wordCount = w.length;
     if (wordCount >= 4 && wordCount <= 30) {
-      const startsSubordinate = /^(because|although|though|while|whereas|since|if|when|unless|whilst|which|whereby|wherein|given that|despite|in spite of)\b/i.test(s.text);
+      const startsSubordinate = /^(because|although|though|while|whereas|since|if|when|unless|whilst|which|whereby|wherein|given that|despite|in spite of)\b/i.test(prose);
       if (startsSubordinate && !/[,;]/.test(s.text) && countFiniteVerbs(s.text) <= 1) {
         add({ rule: 'fragment', severity: 'medium', start: s.start, end: s.end, message: 'Likely sentence fragment: a subordinate clause with no main clause.', suggestion: '' });
       }
@@ -163,7 +164,10 @@ export function analyseGrammar(doc) {
     );
 
     /* ------------------------------------------- sentence opening with digits */
-    if (w[0] && w[0].isNumber && w[0].text.length <= 4) {
+    /* "1. The results…" is a list marker, not a sentence opening on a
+       numeral, and numbered lists are common in a methods chapter. */
+    const isListItem = /^\s*\d+[.)](\s|$)/.test(s.text);
+    if (w[0] && w[0].isNumber && w[0].text.length <= 4 && !isListItem) {
       add({ rule: 'sentence-initial-numeral', severity: 'low', start: w[0].start, end: w[0].end, message: 'Do not begin a sentence with a numeral — spell it out or rephrase.', suggestion: '' });
     }
 
@@ -262,9 +266,12 @@ const cap = (s) => s[0].toUpperCase() + s.slice(1);
 /* Run a regex inside one sentence, reporting absolute document offsets. */
 function scanIn(sentence, re, fn) {
   const rx = new RegExp(re.source, re.flags.includes('g') ? re.flags : re.flags + 'g');
+  /* Skip any list marker so that ^-anchored rules see the prose, not "9. ". */
+  const lead = sentence.lead || 0;
+  const body = lead ? sentence.text.slice(lead) : sentence.text;
   let m;
-  while ((m = rx.exec(sentence.text)) !== null) {
-    fn(m, sentence.start + m.index);
+  while ((m = rx.exec(body)) !== null) {
+    fn(m, sentence.start + lead + m.index);
     if (m[0].length === 0) rx.lastIndex++;
   }
 }

@@ -105,7 +105,8 @@ export function analyseMechanics(doc) {
   /* ----------------------------------------------------- capitalisation */
   doc.sentences.forEach((s) => {
     if (s.isHeading) return;
-    const first = s.words[0];
+    /* Past any list marker: "9. although" should still be flagged. */
+    const first = s.words.find((w) => w.start >= s.start + (s.lead || 0));
     if (!first || first.isNumber) return;
     if (/^[a-z]/.test(first.text) && !/^[a-z]\)/.test(s.text)) {
       add({ rule: 'sentence-capitalisation', severity: 'medium', start: first.start, end: first.end, message: 'Sentence does not begin with a capital letter.', suggestion: capitalise(first.text) });
