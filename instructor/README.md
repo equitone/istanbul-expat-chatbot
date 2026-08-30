@@ -147,6 +147,47 @@ Two features reach the network, both only when you press a button:
    machine, or the Claude API, which transmits the thesis text to Anthropic and
    says so in the interface.
 
+### Local model backends
+
+Settings → AI review → Local carries presets for the common runtimes. They
+differ only in where they mount their OpenAI-compatible API:
+
+| Backend | Endpoint | API key |
+|---|---|---|
+| Ollama | `http://localhost:11434/v1` | none |
+| Open WebUI | `http://localhost:3000/api` | required — Settings → Account |
+| LM Studio | `http://localhost:1234/v1` | none |
+| llama.cpp (`llama-server`) | `http://localhost:8080/v1` | none |
+
+**Open WebUI is useful here as an installer and model manager, not as a
+feature.** It bundles Ollama, gives you a GUI for pulling and switching models,
+and then exposes them on the endpoint above. If you are already comfortable
+running Ollama directly, it adds a layer you do not need — point this app at
+Ollama and skip it.
+
+**Whichever you choose, the CORS setting is the part that will bite you.** This
+app runs on its own origin and calls the model server on another, so the server
+has to be told to allow it. Otherwise the browser blocks the request before it
+is sent, and reports only "Failed to fetch":
+
+```bash
+# Ollama
+OLLAMA_ORIGINS=http://localhost:8099 ollama serve
+
+# Open WebUI (docker)
+docker run -d -p 3000:8080 \
+  -e CORS_ALLOW_ORIGIN=http://localhost:8099 \
+  -v open-webui:/app/backend/data \
+  ghcr.io/open-webui/open-webui:main
+```
+
+LM Studio has a CORS toggle in its Developer/server panel.
+
+Use **Test connection** in Settings before running a review. It reports which
+URL answered and lists the model names that server will accept, and if it
+fails it names the origin that needs allowing rather than leaving you with a
+bare network error.
+
 An API key entered for the Claude option is stored in local storage in plain
 text and is readable by anyone with access to the computer. Use a key you can
 revoke.

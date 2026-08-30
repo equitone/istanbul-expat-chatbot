@@ -4,7 +4,7 @@ import {
 } from '../store.js';
 import { DEFAULT_LETTER_SCHEME } from '../stats.js';
 import { downloadText } from '../io/files.js';
-import { DEFAULT_MODEL } from '../analysis/ai.js';
+import { DEFAULT_MODEL, testConnection } from '../analysis/ai.js';
 
 export default function renderSettings(root, ctx) {
   const s = getState();
@@ -65,6 +65,15 @@ export default function renderSettings(root, ctx) {
             ),
             ai.provider === 'local'
               ? el('div', {},
+                  el('div', { class: 'row tight', style: 'margin-bottom:10px' },
+                    el('span', { class: 'hint', text: 'Common backends:' }),
+                    LOCAL_PRESETS.map((preset) => el('button', {
+                      class: 'sm',
+                      title: preset.note,
+                      text: preset.label,
+                      onClick: () => setAi({ endpoint: preset.endpoint })
+                    }))
+                  ),
                   banner('privacy', 'With a local model, the thesis text goes to a server you run — Ollama, LM Studio, llama.cpp or vLLM — and no further. This keeps the privacy guarantee intact.'),
                   field('Endpoint', el('input', { value: ai.endpoint || '', placeholder: 'http://localhost:11434/v1', onChange: (e) => setAi({ endpoint: e.target.value }) }),
                     'The OpenAI-compatible base URL. Ollama: http://localhost:11434/v1 — LM Studio: http://localhost:1234/v1'),
@@ -76,7 +85,15 @@ export default function renderSettings(root, ctx) {
                     'Stored in this browser’s local storage in plain text, and sent to Anthropic with each request. Anyone with access to this computer or this page can read it. Use a key you can revoke.')
                 )
           )
-        : el('p', { class: 'hint', text: 'While this is off, no text ever leaves this machine except the reference strings you explicitly send with the Deep research buttons.' })
+        : el('p', { class: 'hint', text: 'While this is off, no text ever leaves this machine except the reference strings you explicitly send with the Deep research buttons.' }),
+      ai.enabled
+        ? el('div', { style: 'margin-top:12px' },
+            el('div', { class: 'row' },
+              el('button', { id: 'ai-test', text: 'Test connection', onClick: runTest }),
+              el('span', { id: 'ai-test-result', class: 'hint' })
+            )
+          )
+        : null
     ),
 
     el('div', { class: 'card' },
@@ -149,4 +166,32 @@ function setAi(patch) {
 function patchScheme(index, patch) {
   const scheme = getState().settings.letterScheme.map((row, i) => (i === index ? { ...row, ...patch } : row));
   updateSettings({ letterScheme: scheme });
+}
+
+
+/* Base URLs for the local runtimes an instructor is most likely to already
+   have. Each mounts its OpenAI-compatible surface at a different path. */
+const LOCAL_PRESETS = [
+  { label: 'Ollama', endpoint: 'http://localhost:11434/v1', note: 'Ollama serves an OpenAI-compatible API at /v1. No key needed.' },
+  { label: 'Open WebUI', endpoint: 'http://localhost:3000/api', note: 'Open WebUI mounts its OpenAI-compatible API at /api and requires a key from Settings → Account.' },
+  { label: 'LM Studio', endpoint: 'http://localhost:1234/v1', note: 'Start the server from LM Studio’s Developer tab and enable CORS there.' },
+  { label: 'llama.cpp', endpoint: 'http://localhost:8080/v1', note: 'llama-server serves /v1 by default.' }
+];
+
+async function runTest(e) {
+  const btn = e.currentTarget;
+  const out = document.getElementById('ai-test-result');
+  btn.disabled = true;
+  out.textContent = 'Testing…';
+  out.style.color = '';
+  try {
+    const result = await testConnection(getState().settings);
+    out.textContent = result.detail;
+    out.style.color = 'var(--good)';
+  } catch (err) {
+    out.textContent = err.message;
+    out.style.color = 'var(--high)';
+  } finally {
+    btn.disabled = false;
+  }
 }

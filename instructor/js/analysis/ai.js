@@ -56,6 +56,102 @@ Respond with JSON only, no prose outside it, in exactly this shape:
   ]
 }`;
 
+/*
+ * Probe the configured backend and report what actually answered.
+ *
+ * Worth having because every local runtime mounts its OpenAI-compatible
+ * surface at a different base — Ollama at /v1, LM Studio at /v1, Open WebUI
+ * at /api — and the failure that matters most (a CORS rejection) surfaces in
+ * the browser as an opaque "Failed to fetch" with no status code. Naming that
+ * case explicitly saves an afternoon.
+ */
+export async function testConnection(settings, { signal } = {}) {
+  const ai = settings.ai || {};
+  if (!ai.enabled) throw new Error('AI review is switched off.');
+
+  if (ai.provider !== 'local') {
+    if (!ai.apiKey) throw new Error('No API key set.');
+    const res = await fetch(ANTHROPIC_URL, {
+      method: 'POST',
+      signal,
+      headers: {
+        'content-type': 'application/json',
+        'x-api-key': ai.apiKey,
+        'anthropic-version': ANTHROPIC_VERSION,
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({
+        model: ai.model || DEFAULT_MODEL,
+        max_tokens: 16,
+        messages: [{ role: 'user', content: 'Reply with the single word: ready' }]
+      })
+    }).catch((err) => { throw networkHint(err, ANTHROPIC_URL); });
+    if (!res.ok) throw new Error(await describeHttpError(res));
+    const data = await res.json();
+    return { ok: true, detail: `Claude API reachable — answered as ${data.model || ai.model}.` };
+  }
+
+  const base = String(ai.endpoint || '').replace(/\/+$/, '');
+  if (!base) throw new Error('No endpoint set.');
+
+  /* Ask for the model list first: it is cheap, and it tells the instructor
+     which model names this server will actually accept. */
+  let models = [];
+  try {
+    const listUrl = `${base.replace(/\/chat\/completions$/, '')}/models`;
+    const res = await fetch(listUrl, {
+      signal,
+      headers: ai.apiKey ? { authorization: `Bearer ${ai.apiKey}` } : {}
+    });
+    if (res.ok) {
+      const data = await res.json();
+      models = (data.data || data.models || []).map((m) => m.id || m.name).filter(Boolean);
+    }
+  } catch { /* not fatal — some servers do not expose /models */ }
+
+  const url = /\/chat\/completions$/.test(base) ? base : `${base}/chat/completions`;
+  const res = await fetch(url, {
+    method: 'POST',
+    signal,
+    headers: {
+      'content-type': 'application/json',
+      ...(ai.apiKey ? { authorization: `Bearer ${ai.apiKey}` } : {})
+    },
+    body: JSON.stringify({
+      model: ai.model || models[0] || 'llama3.1',
+      messages: [{ role: 'user', content: 'Reply with the single word: ready' }],
+      stream: false
+    })
+  }).catch((err) => { throw networkHint(err, url); });
+
+  if (!res.ok) throw new Error(await describeHttpError(res));
+  const data = await res.json();
+  const reply = data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
+  if (!reply) throw new Error('The server answered, but with no message content. Check that the model name is one it actually serves.');
+
+  return {
+    ok: true,
+    models,
+    detail: `Answered from ${url}${models.length ? ` · ${models.length} model(s) available: ${models.slice(0, 6).join(', ')}${models.length > 6 ? '…' : ''}` : ''}`
+  };
+}
+
+/*
+ * A cross-origin block and a dead server are the same TypeError in the
+ * browser, so guess from what we know: if the host is reachable at all, the
+ * usual cause is that it has not been told to allow this page's origin.
+ */
+function networkHint(err, url) {
+  if (err.name === 'AbortError') return err;
+  let host = url;
+  try { host = new URL(url).origin; } catch { /* keep the raw string */ }
+  return new Error(
+    `Could not reach ${host}. Either it is not running, or it is refusing this page's origin (${location.origin}). ` +
+    'A local server must be told to allow it: Ollama OLLAMA_ORIGINS, Open WebUI CORS_ALLOW_ORIGIN, LM Studio the CORS toggle in its server panel. ' +
+    `Original error: ${err.message}`
+  );
+}
+
 export function isConfigured(settings) {
   const ai = settings.ai || {};
   if (!ai.enabled) return false;
