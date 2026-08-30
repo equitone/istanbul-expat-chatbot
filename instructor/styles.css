@@ -32,6 +32,7 @@
   --cat-structure: #0d8a72;
   --cat-ai:        #2b6cb0;
   --cat-citation:  #9a5b13;
+  --cat-style:     #8a8f9a;
 
   --radius: 8px;
   --radius-sm: 5px;
@@ -71,6 +72,7 @@
     --cat-structure: #4dc0a8;
     --cat-ai:        #6aa5e0;
     --cat-citation:  #d0a15e;
+    --cat-style:     #98a0ae;
     --shadow: 0 1px 2px rgba(0,0,0,.35);
   }
 }
@@ -317,16 +319,47 @@ tfoot td { background: var(--surface-2); font-weight: 600; }
 .reader mark.structure { background: color-mix(in srgb, var(--cat-structure) 18%, transparent); border-bottom: 2px solid var(--cat-structure); }
 .reader mark.ai        { background: color-mix(in srgb, var(--cat-ai) 18%, transparent); border-bottom: 2px solid var(--cat-ai); }
 .reader mark.citation  { background: color-mix(in srgb, var(--cat-citation) 20%, transparent); border-bottom: 2px solid var(--cat-citation); }
+.reader mark.style     { background: color-mix(in srgb, var(--cat-style) 15%, transparent); border-bottom: 1px dotted var(--cat-style); }
 .reader mark.sev-low   { border-bottom-style: dotted; }
 .reader mark.focus { outline: 2px solid var(--accent); outline-offset: 1px; background: var(--accent-soft); }
 
-.legend { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; align-items: center; }
+.legend-label {
+  font-size: 11px; text-transform: uppercase; letter-spacing: .06em;
+  color: var(--text-faint); width: 62px; flex: none;
+}
 .legend button {
   display: inline-flex; align-items: center; gap: 6px;
-  font-size: 12px; padding: 4px 10px; border-radius: 999px;
+  font-size: 12px; padding: 4px 11px; border-radius: 999px;
+  border: 1px solid var(--border-strong);
 }
-.legend button .swatch { width: 9px; height: 9px; border-radius: 2px; }
-.legend button[aria-pressed="false"] { opacity: .42; }
+.legend button .swatch {
+  width: 10px; height: 10px; border-radius: 3px; flex: none;
+  border: 1px solid currentColor;
+}
+
+/* A filter's state has to be readable at a glance. "On" is filled and
+   coloured in its own category colour; "off" is hollow, dashed and grey.
+   Opacity alone left both states looking like an ordinary button. */
+.legend button[aria-pressed="true"] {
+  background: color-mix(in srgb, var(--tint, var(--accent)) 15%, transparent);
+  border-color: var(--tint, var(--accent));
+  color: var(--tint, var(--accent));
+  font-weight: 600;
+}
+.legend button[aria-pressed="true"] .swatch {
+  background: var(--tint, var(--accent));
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .55);
+}
+.legend button[aria-pressed="false"] {
+  background: transparent;
+  border-style: dashed;
+  border-color: var(--border-strong);
+  color: var(--text-faint);
+  font-weight: 400;
+}
+.legend button[aria-pressed="false"] .swatch { background: transparent; opacity: .5; }
+.legend button.legend-reset { border-style: solid; color: var(--text-dim); }
 
 .findings { max-height: 74vh; overflow-y: auto; }
 .finding {
@@ -345,6 +378,7 @@ tfoot td { background: var(--surface-2); font-weight: 600; }
 .finding.cat-structure { border-left-color: var(--cat-structure); }
 .finding.cat-ai { border-left-color: var(--cat-ai); }
 .finding.cat-citation { border-left-color: var(--cat-citation); }
+.finding.cat-style { border-left-color: var(--cat-style); }
 .finding.active { background: var(--accent-soft); border-color: var(--accent); }
 .finding .top { display: flex; gap: 6px; align-items: center; margin-bottom: 5px; flex-wrap: wrap; }
 .finding .rule { font-size: 11px; font-family: var(--mono); color: var(--text-faint); }

@@ -40,9 +40,15 @@ not an error.
 | 15 | `A unexpected` | `article-a-an` |
 | 16 | `scholarship … were`, `a lot of` | `subject-verb-agreement`, `alot` |
 
-Totals: **33 findings — 16 high, 5 medium, 12 low.** In the legend that reads
-as Grammar & style 23, Spelling & mechanics 8, Structure 1, Argument 1. The low
-ones are passive voice and wordiness spread across the file, which is expected
-and is why the legend lets you switch a category off.
+Totals: **33 findings — 16 errors, 5 warnings, 12 suggestions.** By type:
+Grammar errors 11, Spelling & punctuation 8, Style suggestions 13, Argument 1.
+
+The view opens on errors and warnings only — **21 of the 33** — because style
+suggestions are not mistakes and burying eleven real agreement errors under
+thirteen notes about passive voice is how a tool stops being read. Turn
+**Suggestions** on, or press **Show everything**, to see the rest.
+
+To see only what a grammar checker should show, switch off Spelling,
+Argument and Style: you get the 11 grammar findings and nothing else.
 
 If you get roughly these numbers, the analysis engine is installed correctly.

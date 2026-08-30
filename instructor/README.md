@@ -27,7 +27,7 @@ feature. Five minutes, in this order:
 
 | Do this | You should see |
 |---|---|
-| Thesis review → paste `samples/grammar-test.txt` → Analyse | **33 findings** — 16 high, 5 medium. `samples/README.md` lists the expected finding for each of its 16 numbered sentences, so you can check the engine against a known answer. |
+| Thesis review → paste `samples/grammar-test.txt` → Analyse | **21 of 33 findings** shown by default — 16 errors and 5 warnings, with style suggestions filtered out. `samples/README.md` lists the expected finding for each of its 16 numbered sentences, so you can check the engine against a known answer. |
 | Thesis review → paste `samples/thesis-v1.txt` → Analyse | Stress **68, Overloaded**. 36 findings highlighted in the text. |
 | Argument stress tab | Six over-stressed claims; 6 of 14 claims backed. |
 | Citations tab, toggle **APA 7 → MLA 9** | Findings change as the style changes. |

@@ -20,6 +20,7 @@ const S = {
   extras: {},          // aiReview, verification, priorWork, originality
   panel: 'findings',
   filters: null,
+  severities: null,
   busy: null,
   savedId: null
 };
@@ -40,7 +41,7 @@ export default function renderThesis(root, ctx) {
 }
 
 function reset() {
-  Object.assign(S, { text: '', filename: '', title: '', report: null, extras: {}, panel: 'findings', filters: null, savedId: null });
+  Object.assign(S, { text: '', filename: '', title: '', report: null, extras: {}, panel: 'findings', filters: null, severities: null, savedId: null });
 }
 
 /* ------------------------------------------------------------- intake */
@@ -133,6 +134,7 @@ function run(root, ctx, { keepExtras = false } = {}) {
       S.report = analyseThesis(S.text, { citationStyle: S.style });
       if (!keepExtras) S.extras = {};
       S.filters = null;
+      S.severities = null;
       S.busy = null;
       renderThesis(root, ctx);
     } catch (err) {
@@ -200,28 +202,56 @@ function analysed(root, ctx) {
 
 function findingsPanel(root, ctx) {
   const r = S.report;
-  const cats = [...new Set(r.issues.map((i) => i.category))];
-  if (!S.filters) S.filters = new Set(cats);
+  const cats = [...new Set(r.issues.map((i) => i.category))]
+    .sort((a, b) => (CATEGORY_ORDER.indexOf(a) + 99) - (CATEGORY_ORDER.indexOf(b) + 99));
 
-  const legend = el('div', { class: 'legend' },
-    cats.map((c) => {
-      const meta = CATEGORY_META[c] || { label: c, colour: '#888' };
-      const n = r.issues.filter((i) => i.category === c).length;
-      return el('button', {
-        'aria-pressed': String(S.filters.has(c)),
-        onClick: () => {
-          if (S.filters.has(c)) S.filters.delete(c); else S.filters.add(c);
-          renderThesis(root, ctx);
-        }
-      },
-        el('span', { class: 'swatch', style: `background:${meta.colour}` }),
-        `${meta.label} (${n})`
-      );
-    }),
-    el('button', { onClick: () => { S.filters = new Set(cats); renderThesis(root, ctx); } }, 'Show all')
+  if (!S.filters) S.filters = new Set(cats);
+  /* Open on actual problems. Style notes are useful, but forty of them on top
+     of six real errors is what makes the list look like noise. */
+  if (!S.severities) S.severities = new Set(['high', 'medium']);
+
+  const countBy = (fn) => r.issues.filter(fn).length;
+
+  const toggle = (set, key, label, count, tint) =>
+    el('button', {
+      'aria-pressed': String(set.has(key)),
+      style: tint ? `--tint:${tint}` : '',
+      title: set.has(key) ? `Showing ${label}. Click to hide.` : `Hidden. Click to show ${label}.`,
+      onClick: () => {
+        if (set.has(key)) set.delete(key); else set.add(key);
+        renderThesis(root, ctx);
+      }
+    },
+      el('span', { class: 'swatch', style: tint ? `background:${tint}` : '' }),
+      `${label} (${count})`
+    );
+
+  const severityRow = el('div', { class: 'legend' },
+    el('span', { class: 'legend-label', text: 'Severity' }),
+    toggle(S.severities, 'high', 'Errors', countBy((i) => i.severity === 'high'), 'var(--high)'),
+    toggle(S.severities, 'medium', 'Warnings', countBy((i) => i.severity === 'medium'), 'var(--medium)'),
+    toggle(S.severities, 'low', 'Suggestions', countBy((i) => i.severity === 'low'), 'var(--low)')
   );
 
-  const visible = r.issues.filter((i) => S.filters.has(i.category));
+  const categoryRow = el('div', { class: 'legend' },
+    el('span', { class: 'legend-label', text: 'Type' }),
+    cats.map((c) => {
+      const meta = CATEGORY_META[c] || { label: c, colour: '#888' };
+      return toggle(S.filters, c, meta.label, countBy((i) => i.category === c), meta.colour);
+    }),
+    el('button', {
+      class: 'legend-reset',
+      title: 'Show every finding, including style suggestions',
+      onClick: () => {
+        S.filters = new Set(cats);
+        S.severities = new Set(['high', 'medium', 'low']);
+        renderThesis(root, ctx);
+      }
+    }, 'Show everything')
+  );
+
+  const visible = r.issues.filter((i) => S.filters.has(i.category) && S.severities.has(i.severity));
+
   const reader = el('div', { class: 'reader', id: 'reader' });
   reader.innerHTML = renderHighlighted(r.text, visible);
 
@@ -233,24 +263,34 @@ function findingsPanel(root, ctx) {
           onClick: () => focusIssue(i, idx)
         },
           el('div', { class: 'top' },
-            chip(i.severity, i.severity),
+            chip(i.severity === 'high' ? 'error' : i.severity === 'medium' ? 'warning' : 'suggestion', i.severity),
+            chip((CATEGORY_META[i.category] || {}).label || i.category),
             el('span', { class: 'rule', text: i.rule })
           ),
           i.excerpt ? el('div', { class: 'quote', text: clip(i.excerpt, 180) }) : null,
           el('div', { class: 'msg', text: i.message }),
           i.suggestion ? el('div', { class: 'fix', text: `→ ${i.suggestion}` }) : null
         ))
-      : el('p', { class: 'hint', text: 'No findings in the selected categories.' })
+      : el('div', { class: 'empty' },
+          el('strong', { text: 'Nothing matches these filters' }),
+          el('div', { text: 'Every category or severity above is switched off. Use “Show everything” to bring them back.' })
+        )
   );
 
   return el('div', {},
-    legend,
+    severityRow,
+    categoryRow,
+    el('p', { class: 'hint', style: 'margin:0 0 10px', text:
+      `Showing ${visible.length} of ${r.issues.length}. Errors are near-certain faults; warnings are likely ones; suggestions are matters of style, not mistakes.` }),
     r.truncated && Object.keys(r.truncated).length
       ? banner('info', `Some rules matched very often and were capped in the list: ${Object.entries(r.truncated).map(([k, v]) => `${k} (${v})`).join(', ')}. The counts above are complete.`)
       : null,
     el('div', { class: 'thesis-layout' }, reader, findings)
   );
 }
+
+/* Most useful first: real faults, then sources, then matters of taste. */
+const CATEGORY_ORDER = ['grammar', 'typo', 'citation', 'argument', 'structure', 'ai', 'style'];
 
 /*
  * Build the highlighted document. Segments are non-overlapping by

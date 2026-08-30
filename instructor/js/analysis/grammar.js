@@ -9,6 +9,19 @@ import { CONJUNCTIVE_ADVERBS, WORDY_PHRASES, INFORMAL } from './lexicons.js';
 
 export const CATEGORY = 'grammar';
 
+/*
+ * Rules that report a suggestion rather than a fault.
+ *
+ * Passive voice and wordiness are not errors — an instructor asking to see
+ * "the grammar mistakes" does not mean them, and burying six real agreement
+ * errors under forty style notes is how a tool stops being read. They keep
+ * their own category so the two can be looked at separately.
+ */
+const STYLE_RULES = new Set([
+  'passive-voice', 'wordiness', 'register', 'vague-referent',
+  'overlong-sentence', 'sentence-initial-numeral'
+]);
+
 const BE = new Set(['is', 'are', 'was', 'were', 'be', 'been', 'being', 'am']);
 const MODALS = new Set(['can', 'could', 'may', 'might', 'must', 'shall', 'should', 'will', 'would', 'ought']);
 const HAVE = new Set(['have', 'has', 'had', 'having']);
@@ -31,7 +44,11 @@ const NOT_PARTICIPLE = new Set(['need', 'indeed', 'exceed', 'proceed', 'succeed'
 export function analyseGrammar(doc) {
   const issues = [];
   const { text } = doc;
-  const add = (o) => issues.push({ category: CATEGORY, ...o, excerpt: text.slice(o.start, o.end) });
+  const add = (o) => issues.push({
+    category: STYLE_RULES.has(o.rule) ? 'style' : CATEGORY,
+    ...o,
+    excerpt: text.slice(o.start, o.end)
+  });
 
   let passiveCount = 0;
   let finiteVerbTotal = 0;

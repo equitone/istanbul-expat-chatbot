@@ -15,13 +15,16 @@ const PER_RULE_CAP = 150;
 
 export const SEVERITY_ORDER = { high: 0, medium: 1, low: 2 };
 
+/* Colours are CSS variables rather than literals so the legend tints follow
+   the light/dark palette instead of staying fixed to one theme. */
 export const CATEGORY_META = {
-  typo: { label: 'Spelling & mechanics', colour: '#d1495b' },
-  grammar: { label: 'Grammar & style', colour: '#e08a1e' },
-  argument: { label: 'Argument stress', colour: '#7b4bc4' },
-  structure: { label: 'Structure & sources', colour: '#0d8a72' },
-  citation: { label: 'Citation style', colour: '#9a5b13' },
-  ai: { label: 'AI review', colour: '#2b6cb0' }
+  grammar: { label: 'Grammar errors', colour: 'var(--cat-grammar)' },
+  typo: { label: 'Spelling & punctuation', colour: 'var(--cat-typo)' },
+  citation: { label: 'Citation style', colour: 'var(--cat-citation)' },
+  argument: { label: 'Argument stress', colour: 'var(--cat-argument)' },
+  structure: { label: 'Structure & sources', colour: 'var(--cat-structure)' },
+  ai: { label: 'AI review', colour: 'var(--cat-ai)' },
+  style: { label: 'Style suggestions', colour: 'var(--cat-style)' }
 };
 
 export function analyseThesis(rawText, { citationStyle = 'apa7' } = {}) {
@@ -49,7 +52,7 @@ export function analyseThesis(rawText, { citationStyle = 'apa7' } = {}) {
 
   const scorecard = {
     mechanicsPer1000: per1000(merged.filter((i) => i.category === 'typo').length),
-    grammarPer1000: per1000(merged.filter((i) => i.category === 'grammar' && i.severity !== 'low').length),
+    grammarPer1000: per1000(merged.filter((i) => i.category === 'grammar').length),
     stressIndex: argument.metrics.stressIndex,
     stressBand: argument.metrics.stressBand,
     readingEase: overview.readability.fleschReadingEase,
@@ -68,6 +71,7 @@ export function analyseThesis(rawText, { citationStyle = 'apa7' } = {}) {
       low: issues.filter((i) => i.severity === 'low').length,
       typo: count('typo'),
       grammar: count('grammar'),
+      style: count('style'),
       argument: count('argument'),
       structure: count('structure'),
       citation: count('citation')
@@ -157,7 +161,7 @@ export function buildSegments(text, issues, { categories, severities } = {}) {
 
 /* The category a segment is painted with when several findings overlap:
    the most severe wins, ties broken by category weight. */
-const CATEGORY_WEIGHT = { argument: 0, citation: 1, typo: 2, grammar: 3, structure: 4, ai: 5 };
+const CATEGORY_WEIGHT = { argument: 0, grammar: 1, citation: 2, typo: 3, structure: 4, ai: 5, style: 6 };
 
 export function dominantIssue(segmentIssues) {
   if (!segmentIssues.length) return null;

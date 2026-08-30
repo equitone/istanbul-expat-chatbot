@@ -13,7 +13,12 @@ export function analyseOverview(doc, argumentResult) {
   const paragraphs = doc.bodyParagraphs;
   const words = doc.bodyWords;
   const issues = [];
-  const add = (o) => issues.push({ category: CATEGORY, ...o, excerpt: text.slice(o.start, o.end) });
+  const STYLE_RULES = new Set(['monotone-rhythm', 'nominalisation', 'overused-term']);
+  const add = (o) => issues.push({
+    category: STYLE_RULES.has(o.rule) ? 'style' : CATEGORY,
+    ...o,
+    excerpt: text.slice(o.start, o.end)
+  });
 
   const alphaWords = words.filter((w) => !w.isNumber);
   const wordCount = alphaWords.length;
