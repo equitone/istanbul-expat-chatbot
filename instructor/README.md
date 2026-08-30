@@ -10,8 +10,10 @@ There is no server, no account, and no build step.
 
 ```bash
 cd instructor
-./start.sh            # macOS / Linux   (or: .\start.ps1 on Windows)
+./start.sh                 # macOS / Linux
 ```
+
+On **Windows**, double-click **`start.bat`**. It needs nothing installed.
 
 Then open <http://localhost:8099>. That is the whole install — everything
 except AI review works now, with no network and no model.
@@ -184,6 +186,8 @@ rendered without it.
 
 ## Privacy
 
+**For a non-technical user, hand them `GUIDE.md` instead of this file.**
+
 Grades live in this browser's `localStorage`. Thesis documents live in its
 `IndexedDB`. Parsing, analysis, highlighting and Excel generation all happen
 locally — the parsing libraries are vendored in `vendor/`, so the app works
@@ -244,9 +248,33 @@ An API key entered for the Claude option is stored in local storage in plain
 text and is readable by anyone with access to the computer. Use a key you can
 revoke.
 
-Take backups. Browser storage is durable but not guaranteed — the browser can
-clear it. Settings → Download backup produces one JSON file containing
-everything, including full thesis texts.
+### Private is not the same as permanent
+
+Local-only storage is private by construction, and undurable for the same
+reason. There is no server holding a copy. It goes away — silently, with no
+recovery — when browsing data is cleared, when a cleanup utility runs, when
+the browser is reset, when the user switches browser or Windows account, or
+when the browser evicts storage under disk pressure. It is also per-origin, so
+serving on a different port presents as an empty install.
+
+So the honest answer to "does it stay on my machine forever" is: it stays on
+your machine, and it stays only as long as that browser profile does.
+
+The app therefore shows a standing warning on the Overview tab once a backup
+is more than fourteen days old, or has never been taken. Settings → Download
+backup writes one JSON file containing everything, including full thesis
+texts; Restore reads it back.
+
+Two further limits worth stating plainly: the data is **not encrypted**, so
+anyone who can log into that Windows account can read it, and the backup file
+is an ordinary file with the same property.
+
+### Windows
+
+`start.bat` runs a server written in PowerShell against .NET's `HttpListener`,
+which ships with Windows. Nothing has to be installed — no Python, no Node —
+and it binds to `localhost` specifically so it needs no administrator rights.
+`start.sh` on macOS and Linux uses Python's server instead.
 
 ---
 

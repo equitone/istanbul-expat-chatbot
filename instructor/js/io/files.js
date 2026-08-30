@@ -183,5 +183,13 @@ export function downloadBlob(blob, filename) {
   setTimeout(() => URL.revokeObjectURL(url), 2000);
 }
 
-export const downloadText = (text, filename, type = 'text/plain;charset=utf-8') =>
-  downloadBlob(new Blob(['﻿' + text], { type }), filename);
+/*
+ * A UTF-8 BOM is what makes Excel open a CSV with Turkish characters intact,
+ * so CSV keeps it. Everything else must not have one: a BOM makes a .json
+ * file fail JSON.parse in every strict parser, and a backup that only some
+ * tools can read is not a backup.
+ */
+export const downloadText = (text, filename, type = 'text/plain;charset=utf-8') => {
+  const wantsBom = /csv/i.test(type) || /\.csv$/i.test(filename);
+  downloadBlob(new Blob([wantsBom ? '\ufeff' + text : text], { type }), filename);
+};

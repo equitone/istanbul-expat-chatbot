@@ -27,6 +27,8 @@ export default function renderDashboard(root, { go }) {
       'Grades live in this browser’s local storage; thesis documents live in its IndexedDB. Nothing leaves the machine unless you turn on AI review or press a Verify button in Thesis review.'
     ),
 
+    backupReminder(s, go),
+
     empty
       ? emptyState('Nothing set up yet',
           'Add your students, then create a course and give it assessment components. The gradebook and statistics build themselves from there.',
@@ -96,6 +98,36 @@ export default function renderDashboard(root, { go }) {
               )
             : null
         )
+  );
+}
+
+/*
+ * Local-only storage is private, but it is not durable: clearing browsing
+ * data, a browser storage eviction, or a Windows cleanup tool will take it
+ * without warning. The privacy of this app is worth nothing if a term's
+ * grades disappear, so the reminder is deliberately hard to ignore once it
+ * has been a while.
+ */
+function backupReminder(s, go) {
+  const hasData = s.students.length || s.courses.length || s.theses.length;
+  if (!hasData) return null;
+
+  const last = s.settings.lastBackupAt ? new Date(s.settings.lastBackupAt) : null;
+  const days = last ? Math.floor((Date.now() - last.getTime()) / 86400000) : null;
+  if (days !== null && days < 14) return null;
+
+  const button = el('button', {
+    class: 'sm',
+    style: 'margin-left:10px',
+    text: 'Back up now',
+    onClick: () => go('settings')
+  });
+
+  return el('div', { class: 'banner warn' },
+    last
+      ? `Last backup was ${days} days ago. Everything here lives in this browser only — clearing browsing data would erase it. `
+      : 'No backup has been taken yet. Everything here lives in this browser only, and clearing browsing data would erase it with no warning. ',
+    button
   );
 }
 

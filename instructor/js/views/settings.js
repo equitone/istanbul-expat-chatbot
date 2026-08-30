@@ -106,7 +106,8 @@ export default function renderSettings(root, ctx) {
         el('button', { class: 'primary', text: 'Download backup', onClick: async () => {
           const payload = await exportBackup({ includeDocuments: true });
           downloadText(JSON.stringify(payload, null, 2), `workbench-backup-${new Date().toISOString().slice(0, 10)}.json`, 'application/json');
-          toast('Backup downloaded.', 'good');
+          updateSettings({ lastBackupAt: new Date().toISOString() });
+          toast('Backup downloaded. Keep it somewhere other than this computer.', 'good');
         } }),
         el('button', { text: 'Restore from backup', onClick: () => document.getElementById('restore-file').click() }),
         el('input', { type: 'file', id: 'restore-file', accept: '.json', style: 'display:none', onChange: async (e) => {
