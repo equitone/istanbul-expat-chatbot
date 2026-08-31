@@ -9,7 +9,9 @@ import renderCourses from './views/courses.js';
 import renderGradebook from './views/gradebook.js';
 import renderAnalytics from './views/analytics.js';
 import renderThesis from './views/thesis.js';
+import renderCitations from './views/citations.js';
 import renderCompare from './views/compare.js';
+import renderResearch from './views/research.js';
 import renderSettings from './views/settings.js';
 
 const VIEWS = [
@@ -19,7 +21,9 @@ const VIEWS = [
   { id: 'gradebook', label: 'Gradebook',  render: renderGradebook },
   { id: 'analytics', label: 'Analytics',  render: renderAnalytics },
   { id: 'thesis',    label: 'Thesis review', render: renderThesis },
+  { id: 'citations', label: 'Citations',   render: renderCitations },
   { id: 'compare',   label: 'Compare drafts', render: renderCompare },
+  { id: 'research',  label: 'Research',    render: renderResearch },
   { id: 'settings',  label: 'Settings',   render: renderSettings }
 ];
 
@@ -28,7 +32,7 @@ if (!VIEWS.some((v) => v.id === current)) current = 'dashboard';
 
 /* Views that own transient state (an analysed thesis, an in-progress diff)
    must not be blown away by an unrelated store update. */
-const STICKY = new Set(['thesis', 'compare']);
+const STICKY = new Set(['thesis', 'compare', 'citations', 'research']);
 const rendered = new Set();
 
 function buildTabs() {

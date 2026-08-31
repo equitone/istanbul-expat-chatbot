@@ -144,12 +144,45 @@ export function buildPlan(layout, mapping, meta, existingStudents) {
       ? normaliseLevel(String(row[levelCol] ?? ''))
       : meta.level;
 
-    /* Match an existing student on number first, then on name, so re-importing
-       a second sheet for the same cohort does not duplicate the roster. */
-    const existing = existingStudents.find((s) =>
-      (studentNo && s.studentNo && s.studentNo === studentNo) ||
-      (!studentNo && s.name.toLowerCase() === rawName.toLowerCase())
+    /*
+     * Matching an incoming row to an existing student.
+     *
+     * A student number is an identifier and matching on it is safe. A NAME IS
+     * NOT: two people in a department share a name often enough that merging
+     * on it silently would eventually put one student's marks on another's
+     * record, and nobody would notice until a transcript was wrong.
+     *
+     * So a name match is never applied automatically. It is returned as a
+     * conflict for the instructor to resolve one by one.
+     */
+    const byNumber = studentNo
+      ? existingStudents.find((s) => s.studentNo && s.studentNo === studentNo)
+      : null;
+
+    const nameMatches = existingStudents.filter(
+      (s) => s.name.trim().toLowerCase() === rawName.toLowerCase() && (!byNumber || s.id !== byNumber.id)
     );
+
+    let conflict = null;
+    if (!byNumber && nameMatches.length) {
+      conflict = {
+        reason: nameMatches.length > 1 ? 'several-same-name' : 'same-name',
+        candidates: nameMatches.map((s) => ({
+          id: s.id,
+          name: s.name,
+          studentNo: s.studentNo,
+          level: s.level,
+          programme: s.programme,
+          year: s.year
+        }))
+      };
+    } else if (byNumber && byNumber.name.trim().toLowerCase() !== rawName.toLowerCase()) {
+      /* Same number, different name — a typo, or the number was reused. */
+      conflict = {
+        reason: 'number-name-mismatch',
+        candidates: [{ id: byNumber.id, name: byNumber.name, studentNo: byNumber.studentNo, level: byNumber.level }]
+      };
+    }
 
     const scores = {};
     componentDefs.forEach((c) => {
@@ -165,12 +198,22 @@ export function buildPlan(layout, mapping, meta, existingStudents) {
       level: level || meta.level,
       email: emailCol !== null && emailCol !== undefined ? String(row[emailCol] ?? '').trim() : '',
       year: meta.year || '',
-      existingId: existing ? existing.id : null,
+      /* Only a student-number match links automatically. */
+      existingId: byNumber ? byNumber.id : null,
+      conflict,
+      /* What the instructor chose: 'new' or an existing student id.
+         Left null until they decide, and nothing is written before then. */
+      resolution: conflict ? null : (byNumber ? byNumber.id : 'new'),
       scores
     });
   });
 
+  const conflicts = students.filter((s) => s.conflict);
+
   return {
+    conflicts,
+    /* The view refuses to import while this is true. */
+    needsDecision: conflicts.some((s) => !s.resolution),
     course: {
       title: meta.title,
       code: meta.code,
@@ -182,8 +225,9 @@ export function buildPlan(layout, mapping, meta, existingStudents) {
     students,
     skipped,
     summary: {
-      newStudents: students.filter((s) => !s.existingId).length,
-      matchedStudents: students.filter((s) => s.existingId).length,
+      newStudents: students.filter((s) => s.resolution === 'new').length,
+      matchedStudents: students.filter((s) => s.resolution && s.resolution !== 'new').length,
+      undecided: conflicts.filter((s) => !s.resolution).length,
       components: componentDefs.length,
       marks: students.reduce((n, s) => n + Object.keys(s.scores).length, 0)
     }

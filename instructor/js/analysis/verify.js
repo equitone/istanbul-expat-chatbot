@@ -266,3 +266,116 @@ function rebuildAbstract(inverted) {
   Object.entries(inverted).forEach(([word, positions]) => positions.forEach((p) => { slots[p] = word; }));
   return slots.join(' ').replace(/\s+/g, ' ').trim().slice(0, 600) || null;
 }
+
+
+/* ------------------------------------------------------ literature search */
+
+/*
+ * Free-text search over the scholarly record, for the Research tab.
+ *
+ * Two catalogues, because they cover different things: OpenAlex indexes works
+ * of all kinds including books and chapters, Crossref indexes what publishers
+ * have deposited with a DOI. A humanities monograph is often in one and not
+ * the other.
+ */
+export async function searchOpenAlex(query, { signal, perPage = 20, fromYear = null, openAccessOnly = false } = {}) {
+  const params = new URLSearchParams({ search: query, per_page: String(perPage) });
+  const filters = [];
+  if (fromYear) filters.push(`from_publication_date:${fromYear}-01-01`);
+  if (openAccessOnly) filters.push('is_oa:true');
+  if (filters.length) params.set('filter', filters.join(','));
+  if (contact) params.set('mailto', contact);
+
+  const res = await fetch(`${OPENALEX}?${params}`, { signal });
+  if (!res.ok) throw new Error(`OpenAlex returned ${res.status}.`);
+  const data = await res.json();
+  return {
+    total: data.meta ? data.meta.count : 0,
+    source: 'OpenAlex',
+    works: (data.results || []).map((w) => ({
+      ...normaliseOpenAlex(w),
+      citedBy: w.cited_by_count || 0,
+      openAccess: Boolean((w.open_access || {}).is_oa),
+      pdfUrl: (w.best_oa_location || {}).pdf_url || null,
+      abstract: rebuildAbstract(w.abstract_inverted_index),
+      concepts: (w.concepts || []).slice(0, 4).map((c) => c.display_name)
+    }))
+  };
+}
+
+export async function searchCrossref(query, { signal, rows = 20, fromYear = null } = {}) {
+  const params = new URLSearchParams({
+    query,
+    rows: String(rows),
+    select: 'DOI,title,author,issued,container-title,type,URL,abstract,is-referenced-by-count'
+  });
+  if (fromYear) params.set('filter', `from-pub-date:${fromYear}-01-01`);
+  if (contact) params.set('mailto', contact);
+
+  const res = await fetch(`${CROSSREF}?${params}`, { signal });
+  if (!res.ok) throw new Error(`Crossref returned ${res.status}.`);
+  const data = await res.json();
+  return {
+    total: data.message['total-results'] || 0,
+    source: 'Crossref',
+    works: (data.message.items || []).map((w) => ({
+      ...normaliseCrossref(w),
+      citedBy: w['is-referenced-by-count'] || 0,
+      openAccess: false,
+      abstract: w.abstract ? String(w.abstract).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 600) : null,
+      concepts: []
+    }))
+  };
+}
+
+/*
+ * Format a search result as a reference entry, so a source found here can be
+ * pasted straight into the reading list the instructor sends a student.
+ */
+export function formatReference(work, style = 'apa7') {
+  const names = (work.authors || []).map(parseName).filter((n) => n.surname);
+  const year = work.year || 'n.d.';
+  const title = (work.title || '').replace(/\s+/g, ' ').trim();
+  const where = (work.container || '').trim();
+  const doi = work.doi ? ` https://doi.org/${work.doi}` : '';
+
+  if (style === 'mla9') {
+    /* MLA inverts only the first name, spells given names out, and uses
+       "et al." from three authors. */
+    const list = !names.length ? ''
+      : names.length === 1 ? inverted(names[0])
+      : names.length === 2 ? `${inverted(names[0])}, and ${natural(names[1])}`
+      : `${inverted(names[0])}, et al`;
+    return `${list}${list ? '. ' : ''}"${title}." ${where ? `${where}, ` : ''}${year}${doi ? `,${doi}` : ''}.`;
+  }
+
+  /* APA 7: surname and initials, comma-separated, ampersand before the last.
+     Twenty-one or more authors elide the middle. */
+  const apa = names.map(initialled);
+  let list;
+  if (!apa.length) list = '';
+  else if (apa.length === 1) list = apa[0];
+  else if (apa.length === 2) list = `${apa[0]}, & ${apa[1]}`;
+  else if (apa.length <= 20) list = `${apa.slice(0, -1).join(', ')}, & ${apa[apa.length - 1]}`;
+  else list = `${apa.slice(0, 19).join(', ')}, … ${apa[apa.length - 1]}`;
+
+  return `${list}${list ? ' ' : ''}(${year}). ${title}.${where ? ` ${where}.` : ''}${doi}`;
+}
+
+/* Catalogues give either "Sontag, Susan" or "Susan Sontag"; normalise both. */
+function parseName(raw) {
+  const s = String(raw).replace(/\s+/g, ' ').trim();
+  if (!s) return { surname: '', given: '' };
+  if (s.includes(',')) {
+    const [surname, ...rest] = s.split(',');
+    return { surname: surname.trim(), given: rest.join(',').trim() };
+  }
+  const parts = s.split(' ');
+  if (parts.length === 1) return { surname: parts[0], given: '' };
+  return { surname: parts[parts.length - 1], given: parts.slice(0, -1).join(' ') };
+}
+
+const initials = (given) => given.split(/[\s.]+/).filter(Boolean).map((p) => `${p[0].toUpperCase()}.`).join(' ');
+const initialled = (n) => (n.given ? `${n.surname}, ${initials(n.given)}` : n.surname);
+const inverted = (n) => (n.given ? `${n.surname}, ${n.given}` : n.surname);
+const natural = (n) => (n.given ? `${n.given} ${n.surname}` : n.surname);

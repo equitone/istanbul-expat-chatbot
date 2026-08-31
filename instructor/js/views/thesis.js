@@ -9,6 +9,7 @@ import { verifyReference, findPriorWork, setContactEmail } from '../analysis/ver
 import { reviewThesis, toIssues, isConfigured, planReview } from '../analysis/ai.js';
 import { checkText as ltCheck, isConfigured as ltReady, merge as ltMerge } from '../analysis/languagetool.js';
 import { extractText, SUPPORTED, downloadText } from '../io/files.js';
+import { openReportDialog } from './report-dialog.js';
 
 /* View-local state: an analysed thesis survives store updates. */
 const S = {
@@ -233,7 +234,8 @@ function analysed(root, ctx) {
       })),
       el('div', { class: 'spacer' }),
       styleToggle(root, ctx),
-      el('button', { class: 'sm', text: 'Export report', onClick: () => exportReport() })
+      el('button', { class: 'sm', text: 'Report for student', title: 'Build a colour-marked PDF or HTML report to send back', onClick: () => openReportDialog(S.report, { title: S.title || S.filename, studentId: S.studentId }) }),
+      el('button', { class: 'sm', text: 'Plain text', title: 'The findings as a text file, for your own notes', onClick: () => exportReport() })
     ),
 
     S.panel === 'findings' ? findingsPanel(root, ctx)
