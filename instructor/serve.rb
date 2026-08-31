@@ -55,7 +55,9 @@ loop do
     full = File.expand_path(File.join(ROOT, path.sub(%r{\A/}, '')))
     full = File.join(full, 'index.html') if File.directory?(full)
 
-    if !full.start_with?(ROOT)
+    # Trailing separator: a sibling folder starting with the same characters
+    # would otherwise satisfy the prefix test.
+    if full != ROOT && !full.start_with?(ROOT + File::SEPARATOR)
       respond(client, '403 Forbidden', 'text/plain', 'Forbidden')
     elsif File.file?(full)
       body = File.binread(full)

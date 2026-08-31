@@ -88,9 +88,13 @@ try {
 
       $full = Join-Path $Root $rel
       # Refuse anything that resolves outside the served folder.
+      #
+      # The trailing separator matters: without it a sibling folder whose name
+      # merely starts with the same characters — C:\Work next to C:\Workbench —
+      # would satisfy the prefix test and be served.
       $resolved = [System.IO.Path]::GetFullPath($full)
-      $rootFull = [System.IO.Path]::GetFullPath($Root)
-      if (-not $resolved.StartsWith($rootFull, [System.StringComparison]::OrdinalIgnoreCase)) {
+      $rootFull = [System.IO.Path]::GetFullPath($Root).TrimEnd([System.IO.Path]::DirectorySeparatorChar) + [System.IO.Path]::DirectorySeparatorChar
+      if (-not ($resolved + [System.IO.Path]::DirectorySeparatorChar).StartsWith($rootFull, [System.StringComparison]::OrdinalIgnoreCase)) {
         $response.StatusCode = 403
         $response.Close()
         continue

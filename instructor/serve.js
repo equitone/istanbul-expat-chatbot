@@ -32,8 +32,10 @@ http.createServer((req, res) => {
   let rel = decodeURIComponent(req.url.split('?')[0]).replace(/^\/+/, '') || 'index.html';
   const full = path.resolve(root, rel);
 
-  /* Never serve anything outside the folder. */
-  if (!full.startsWith(root)) { res.writeHead(403).end('Forbidden'); return; }
+  /* Never serve anything outside the folder. The separator matters: without
+     it a sibling directory whose name starts with the same characters would
+     pass the prefix test. */
+  if (full !== root && !full.startsWith(root + path.sep)) { res.writeHead(403).end('Forbidden'); return; }
 
   fs.stat(full, (err, stat) => {
     const target = !err && stat.isDirectory() ? path.join(full, 'index.html') : full;
