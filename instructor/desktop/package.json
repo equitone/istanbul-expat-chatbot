@@ -1,0 +1,44 @@
+{
+  "name": "instructor-workbench",
+  "version": "1.0.0",
+  "private": true,
+  "devDependencies": {
+    "electron": "^33.0.0",
+    "electron-builder": "^25.0.0"
+  },
+  "main": "main.js",
+  "description": "Grading and thesis review, entirely on your own computer",
+  "author": "Instructor Workbench",
+  "scripts": {
+    "prepare-app": "node prepare.js",
+    "start": "npm run prepare-app && electron .",
+    "dist:win": "npm run prepare-app && electron-builder --win --x64",
+    "dist:mac": "npm run prepare-app && electron-builder --mac",
+    "dist:linux": "npm run prepare-app && electron-builder --linux"
+  },
+  "build": {
+    "appId": "org.instructor.workbench",
+    "productName": "Instructor Workbench",
+    "files": [
+      "main.js",
+      "app/**/*"
+    ],
+    "directories": {
+      "output": "dist"
+    },
+    "win": {
+      "target": [
+        "zip"
+      ],
+      "artifactName": "InstructorWorkbench-windows-${arch}.${ext}",
+      "signAndEditExecutable": false
+    },
+    "mac": {
+      "target": [
+        "zip"
+      ],
+      "artifactName": "InstructorWorkbench-mac-${arch}.${ext}"
+    },
+    "compression": "maximum"
+  }
+}

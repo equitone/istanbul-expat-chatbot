@@ -33,6 +33,17 @@ A plain `file://` open will *not* work: the app is written as ES modules, which
 browsers refuse to load from the filesystem. Any static server will do;
 `start.sh` just runs Python's.
 
+### Or install it as a real application
+
+`desktop/` wraps the same files as a double-clickable app — its own window and
+taskbar entry, no terminal left open, no port, and no browser tab to lose.
+`npm run dist:win` in that folder produces a Windows package; unzip it anywhere
+and run `Instructor Workbench.exe`. See `desktop/README.md`.
+
+The desktop build is the *same* app: `prepare.js` copies these files in before
+every build, so the two versions cannot drift apart. Data still never leaves
+the machine.
+
 **2. Try it on the fixtures** in `samples/`, which are built to exercise each
 feature. Five minutes, in this order:
 
