@@ -83,8 +83,19 @@ export function analyseGrammar(doc) {
     }
 
     /* Latin plurals mishandled — extremely common in theses. */
-    scanIn(s, /\b(criteria|phenomena|media|strata|bacteria)\s+(is|was|has)\b/gi, (m, off) =>
-      add({ rule: 'latin-plural', severity: 'high', start: off, end: off + m[0].length, message: `“${m[1]}” is plural (singular: ${LATIN_SINGULAR[m[1].toLowerCase()]}).`, suggestion: m[0].replace(/is$/i, 'are').replace(/was$/i, 'were').replace(/has$/i, 'have') })
+    scanIn(s, /\b(criteria|phenomena|media|strata|bacteria|data)\s+(is|was|has)\b/gi, (m, off) =>
+      add({
+        rule: 'latin-plural',
+        /* "the data is" is accepted in much modern usage; flag it, but as a
+           point to consider rather than a certain error. */
+        severity: m[1].toLowerCase() === 'data' ? 'medium' : 'high',
+        start: off,
+        end: off + m[0].length,
+        message: m[1].toLowerCase() === 'data'
+          ? '“data” is plural in strict academic usage (singular: datum). Many style guides now accept the singular — check the one your department follows.'
+          : `“${m[1]}” is plural (singular: ${LATIN_SINGULAR[m[1].toLowerCase()]}).`,
+        suggestion: m[0].replace(/is$/i, 'are').replace(/was$/i, 'were').replace(/has$/i, 'have')
+      })
     );
     scanIn(s, /\b(criterion|phenomenon|medium|stratum|bacterium)\s+(are|were|have)\b/gi, (m, off) =>
       add({ rule: 'latin-plural', severity: 'high', start: off, end: off + m[0].length, message: `“${m[1]}” is singular.`, suggestion: '' })
@@ -139,7 +150,7 @@ export function analyseGrammar(doc) {
         add({ rule: 'comma-splice', severity: 'high', start: off, end: off + m[0].length, message: `Comma splice: “${m[1]}” cannot join two independent clauses with only a comma. Use a semicolon or full stop.`, suggestion: `; ${m[1]}, ` });
       });
     });
-    scanIn(s, /,\s+(it|this|these|those|they|he|she|we|there)\s+(is|are|was|were|has|have|had|will|would|can|could|may|might|shows?|demonstrates?|suggests?|indicates?|means?)\b/gi, (m, off) => {
+    scanIn(s, /,\s+(it|this|these|those|they|he|she|we|there)\s+(is|are|was|were|has|have|had|do|does|did|will|would|can|could|may|might|must|should|shows?|demonstrates?|suggests?|indicates?|means?)\b/gi, (m, off) => {
       const before = s.text.slice(0, off - s.start);
       if (!hasFiniteVerb(before)) return;
       if (/\b(and|but|or|so|yet|which|who|that|because|although|while|since|if|when|whereas|though)\b[^,]*$/i.test(before)) return;
@@ -227,7 +238,7 @@ const PLURAL_VERB = new Set(['are', 'were', 'have', 'do']);
 const SINGULAR_VERB = new Set(['is', 'was', 'has', 'does']);
 const SINGULARISE = { are: 'is', were: 'was', have: 'has', do: 'does' };
 const PLURALISE = { is: 'are', was: 'were', has: 'have', does: 'do' };
-const LATIN_SINGULAR = { criteria: 'criterion', phenomena: 'phenomenon', media: 'medium', strata: 'stratum', bacteria: 'bacterium' };
+const LATIN_SINGULAR = { data: 'datum', criteria: 'criterion', phenomena: 'phenomenon', media: 'medium', strata: 'stratum', bacteria: 'bacterium' };
 
 /* Nouns that end in -s but are singular, so they never signal an agreement error. */
 const S_SINGULAR = new Set(['series', 'species', 'means', 'news', 'physics', 'politics', 'economics',
@@ -271,7 +282,9 @@ const FINITE = /\b(is|are|was|were|am|be(?:en|ing)?|has|have|had|do|does|did|can
 function hasFiniteVerb(fragment) {
   FINITE.lastIndex = 0;
   if (FINITE.test(fragment)) return true;
-  return /\b[a-z]{3,}(?:ed|es)\b/i.test(fragment) || /\b[a-z]{4,}s\b/i.test(fragment);
+  /* {3,} so short verbs like "lies" and "sets" count; requiring four
+     characters before the -s called a correct sentence a fragment. */
+  return /\b[a-z]{3,}(?:ed|es)\b/i.test(fragment) || /\b[a-z]{3,}s\b/i.test(fragment);
 }
 
 function countFiniteVerbs(fragment) {

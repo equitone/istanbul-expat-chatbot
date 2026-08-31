@@ -121,6 +121,32 @@ revision and says they have addressed your comments.
 
 ---
 
+## Part 3b — Better grammar checking (optional)
+
+Out of the box, grammar checking uses about forty built-in rules. They are
+good at the mistakes that matter in academic writing — subject and verb
+disagreement, comma splices, "the criteria is" — and thin on everything else.
+
+**LanguageTool** is a free, open-source grammar checker with thousands of
+rules. It runs as a program on your own computer, so the text still goes
+nowhere. On a set of test sentences it caught 11 of 15 faults where the
+built-in rules caught 4.
+
+They cover different things, so the app uses both when it can.
+
+To add it: install Java (java.com), download LanguageTool from
+languagetool.org/download, unzip it, and from that folder run
+
+```
+java -cp "languagetool-server.jar" org.languagetool.server.HTTPServer --port 8081 --allow-origin "*"
+```
+
+Leave that window open, like the app's own. Then in the app:
+**Settings → Grammar engine → Also use LanguageTool → Test LanguageTool.**
+
+Set the variety of English to match how your students write. Under American
+English, "summarised" and "analyse" are reported as misspellings.
+
 ## Part 4 — The one rule that matters
 
 **Export a backup at the end of every week you enter marks.**

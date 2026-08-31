@@ -131,6 +131,59 @@ the work of supporting it.
 
 ---
 
+## How good is the grammar checking?
+
+Measured, not asserted. `tests/cases.js` is a labelled corpus — 58 sentences
+with one planted fault each, and 45 sentences of correct academic prose that
+must not be flagged. Run it:
+
+```bash
+node tests/run.mjs        # add -v to list every failure
+```
+
+The built-in engine scores 100% on both halves of that corpus. **That number
+is not evidence of quality**: the corpus was written by the same person as the
+rules, so it measures self-consistency, not competence.
+
+The useful comparison is against a real checker, on faults written for
+neither engine:
+
+| | built-in rules | LanguageTool 6.8 |
+|---|---|---|
+| Unseen faults caught | 4 / 15 | **11 / 15** |
+| Tense, prepositions, articles, word order | mostly missed | mostly caught |
+| Comma splices | caught | **not caught** |
+| "these result", "the criteria is", sentence fragments | caught | **not caught** |
+
+So: **LanguageTool is much stronger at general grammar, and the built-in rules
+cover academic patterns it has no rule for.** They are complementary, and when
+both are switched on the app runs both and merges them, dropping the built-in
+finding wherever LanguageTool reports the same span.
+
+Without LanguageTool the checker is roughly forty hand-written patterns with
+no parser behind them. It is deliberately tuned for precision — it would
+rather miss a fault than flag a correct sentence — so treat a clean result as
+"nothing obvious", never as "no mistakes".
+
+### Adding LanguageTool
+
+Needs Java 17+. Download the standalone zip from languagetool.org/download,
+unzip, and run:
+
+```bash
+java -cp "languagetool-server.jar" org.languagetool.server.HTTPServer \
+  --port 8081 --allow-origin "*"
+```
+
+Then Settings → Grammar engine → Also use LanguageTool → Test.
+
+`--allow-origin` is required or the browser blocks the request. It listens on
+localhost, so the text goes to the instructor's own process and no further:
+the offline guarantee is unchanged.
+
+Set the variety of English to match the thesis. Under the American dictionary,
+"summarised" is reported as a misspelling.
+
 ## Honest limits
 
 This matters more than the feature list. Every check states what it can and

@@ -7,6 +7,7 @@ import { analyseThesis, buildSegments, dominantIssue, CATEGORY_META } from '../a
 import { compareAgainstCorpus, voiceConsistency, aiIndicators } from '../analysis/similarity.js';
 import { verifyReference, findPriorWork, setContactEmail } from '../analysis/verify.js';
 import { reviewThesis, toIssues, isConfigured, planReview } from '../analysis/ai.js';
+import { checkText as ltCheck, isConfigured as ltReady, merge as ltMerge } from '../analysis/languagetool.js';
 import { extractText, SUPPORTED, downloadText } from '../io/files.js';
 
 /* View-local state: an analysed thesis survives store updates. */
@@ -129,12 +130,40 @@ function run(root, ctx, { keepExtras = false } = {}) {
   S.busy = 'Analysing…';
   renderThesis(root, ctx);
   /* Let the browser paint the spinner before the synchronous analysis. */
-  setTimeout(() => {
+  setTimeout(async () => {
     try {
       S.report = analyseThesis(S.text, { citationStyle: S.style });
       if (!keepExtras) S.extras = {};
       S.filters = null;
       S.severities = null;
+
+      /* LanguageTool is a network round-trip to localhost, so it runs after
+         the local pass rather than blocking it. A failure here must not lose
+         the analysis that already succeeded. */
+      const settings = getState().settings;
+      if (ltReady(settings)) {
+        S.busy = 'Checking grammar with LanguageTool…';
+        renderThesis(root, ctx);
+        try {
+          const res = await ltCheck(S.text, settings, {
+            onProgress: (i, n) => {
+              if (n > 1) { S.busy = `LanguageTool: part ${i} of ${n}…`; renderThesis(root, ctx); }
+            }
+          });
+          const before = S.report.issues.length;
+          S.report.issues = ltMerge(S.report.issues, res.issues);
+          S.report.languageTool = {
+            findings: res.issues.length,
+            language: res.language,
+            replacedBuiltIn: before + res.issues.length - S.report.issues.length
+          };
+          recount(S.report);
+        } catch (err) {
+          S.extras.ltError = err.message;
+          toast(err.message, 'error');
+        }
+      }
+
       S.busy = null;
       renderThesis(root, ctx);
     } catch (err) {
@@ -144,6 +173,24 @@ function run(root, ctx, { keepExtras = false } = {}) {
       renderThesis(root, ctx);
     }
   }, 20);
+}
+
+/* Counts drive the stat tiles and the filter labels, so they have to be
+   recomputed after anything is merged into the issue list. */
+function recount(report) {
+  const by = (fn) => report.issues.filter(fn).length;
+  report.counts = {
+    total: report.issues.length,
+    high: by((i) => i.severity === 'high'),
+    medium: by((i) => i.severity === 'medium'),
+    low: by((i) => i.severity === 'low'),
+    typo: by((i) => i.category === 'typo'),
+    grammar: by((i) => i.category === 'grammar'),
+    style: by((i) => i.category === 'style'),
+    argument: by((i) => i.category === 'argument'),
+    structure: by((i) => i.category === 'structure'),
+    citation: by((i) => i.category === 'citation')
+  };
 }
 
 /* ------------------------------------------------------------ analysed */
@@ -265,6 +312,7 @@ function findingsPanel(root, ctx) {
           el('div', { class: 'top' },
             chip(i.severity === 'high' ? 'error' : i.severity === 'medium' ? 'warning' : 'suggestion', i.severity),
             chip((CATEGORY_META[i.category] || {}).label || i.category),
+            i.source === 'languagetool' ? chip('LanguageTool', 'accent') : null,
             el('span', { class: 'rule', text: i.rule })
           ),
           i.excerpt ? el('div', { class: 'quote', text: clip(i.excerpt, 180) }) : null,
@@ -282,6 +330,11 @@ function findingsPanel(root, ctx) {
     categoryRow,
     el('p', { class: 'hint', style: 'margin:0 0 10px', text:
       `Showing ${visible.length} of ${r.issues.length}. Errors are near-certain faults; warnings are likely ones; suggestions are matters of style, not mistakes.` }),
+    r.languageTool
+      ? el('p', { class: 'hint', style: 'margin:-4px 0 10px', text:
+          `LanguageTool contributed ${r.languageTool.findings} finding(s) in ${r.languageTool.language}, replacing ${r.languageTool.replacedBuiltIn} built-in duplicate(s).` })
+      : null,
+    S.extras.ltError ? banner('warn', `LanguageTool did not run: ${S.extras.ltError}`) : null,
     r.truncated && Object.keys(r.truncated).length
       ? banner('info', `Some rules matched very often and were capped in the list: ${Object.entries(r.truncated).map(([k, v]) => `${k} (${v})`).join(', ')}. The counts above are complete.`)
       : null,

@@ -31,7 +31,9 @@ function blankState() {
       scaleMax: 100,
       passMark: 50,
       letterScheme: DEFAULT_LETTER_SCHEME.map((s) => ({ ...s })),
-      ai: { enabled: false, provider: 'anthropic', model: 'claude-sonnet-5', apiKey: '', endpoint: '' }
+      ai: { enabled: false, provider: 'anthropic', model: 'claude-opus-5', apiKey: '', endpoint: '' },
+      /* Optional local grammar engine. Off until the instructor installs it. */
+      languageTool: { enabled: false, endpoint: 'http://localhost:8081', language: 'en-GB', picky: false }
     },
     students: [],
     courses: [],
@@ -64,6 +66,7 @@ function migrate(s) {
   s.scores ||= {};
   s.theses ||= [];
   s.settings.ai ||= blankState().settings.ai;
+  s.settings.languageTool ||= blankState().settings.languageTool;
   s.settings.letterScheme ||= DEFAULT_LETTER_SCHEME.map((x) => ({ ...x }));
   s.courses.forEach((c) => {
     c.components ||= [];

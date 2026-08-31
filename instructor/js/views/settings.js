@@ -5,6 +5,7 @@ import {
 import { DEFAULT_LETTER_SCHEME } from '../stats.js';
 import { downloadText } from '../io/files.js';
 import { DEFAULT_MODEL, testConnection } from '../analysis/ai.js';
+import { LANGUAGES, testConnection as testLanguageTool } from '../analysis/languagetool.js';
 
 export default function renderSettings(root, ctx) {
   const s = getState();
@@ -42,6 +43,42 @@ export default function renderSettings(root, ctx) {
           ])),
         el('button', { class: 'sm', style: 'margin-top:10px', text: 'Reset to default', onClick: () => updateSettings({ letterScheme: DEFAULT_LETTER_SCHEME.map((x) => ({ ...x })) }) })
       )
+    ),
+
+    el('div', { class: 'card' },
+      el('h2', { text: 'Grammar engine' }),
+      el('p', { text: 'The built-in rules always run and need nothing installed. LanguageTool is an optional second engine that runs on this computer — thousands of rules against the built-in forty, and far better on ordinary grammar. On a set of faults written for neither engine, the built-in rules caught 4 of 15 and LanguageTool caught 11.' }),
+      el('p', { class: 'hint', text: 'They are complementary, so both run when it is switched on. LanguageTool has no rule for a comma splice, for “these result”, or for “the criteria is” — the academic patterns the built-in rules exist for.' }),
+      el('label', { class: 'inline' },
+        el('input', { type: 'checkbox', checked: (s.settings.languageTool || {}).enabled, onChange: (e) => setLt({ enabled: e.target.checked }) }),
+        el('span', { text: 'Also use LanguageTool' })
+      ),
+      (s.settings.languageTool || {}).enabled
+        ? el('div', {},
+            banner('privacy', 'LanguageTool runs as a program on this computer and listens on localhost. The thesis text goes to your own process and no further — the offline guarantee is unchanged.'),
+            el('div', { class: 'grid cols-2' },
+              field('Address', el('input', { value: s.settings.languageTool.endpoint || '', placeholder: 'http://localhost:8081', onChange: (e) => setLt({ endpoint: e.target.value }) })),
+              field('Variety of English', el('select', { onChange: (e) => setLt({ language: e.target.value }) },
+                LANGUAGES.map((l) => el('option', { value: l.id, selected: l.id === s.settings.languageTool.language, text: l.label }))),
+                'British and American spelling are checked against different dictionaries — the wrong one reports “summarised” as a misspelling.')
+            ),
+            el('label', { class: 'inline' },
+              el('input', { type: 'checkbox', checked: s.settings.languageTool.picky, onChange: (e) => setLt({ picky: e.target.checked }) }),
+              el('span', { text: 'Picky mode — more suggestions, more noise' })
+            ),
+            el('div', { class: 'row' },
+              el('button', { id: 'lt-test', text: 'Test LanguageTool', onClick: runLtTest }),
+              el('span', { id: 'lt-test-result', class: 'hint' })
+            ),
+            el('details', { style: 'margin-top:12px' },
+              el('summary', { style: 'cursor:pointer;font-size:13px', text: 'How to install it' }),
+              el('p', { class: 'hint', text: 'Needs Java 17 or newer. Download LanguageTool from languagetool.org/download (the desktop/standalone zip), unzip it, then from that folder run:' }),
+              el('pre', { style: 'background:var(--surface-2);padding:10px;border-radius:6px;overflow-x:auto;font-size:12px' },
+                'java -cp "languagetool-server.jar" org.languagetool.server.HTTPServer \\\n  --port 8081 --allow-origin "*"'),
+              el('p', { class: 'hint', text: '--allow-origin is required, or the browser blocks this page from reaching it. Leave that window open while you work, exactly like the app\u2019s own.' })
+            )
+          )
+        : el('p', { class: 'hint', text: 'Without it, grammar checking is the built-in rules only: strong on academic patterns, thin on general grammar.' })
     ),
 
     el('div', { class: 'card' },
@@ -160,6 +197,28 @@ export default function renderSettings(root, ctx) {
       ? `${counts} — using ${(est.usage / 1048576).toFixed(1)} MB of roughly ${(est.quota / 1048576).toFixed(0)} MB available to this site.`
       : counts;
   });
+}
+
+function setLt(patch) {
+  updateSettings({ languageTool: { ...getState().settings.languageTool, ...patch } });
+}
+
+async function runLtTest(e) {
+  const btn = e.currentTarget;
+  const out = document.getElementById('lt-test-result');
+  btn.disabled = true;
+  out.textContent = 'Testing…';
+  out.style.color = '';
+  try {
+    const r = await testLanguageTool(getState().settings);
+    out.textContent = r.detail;
+    out.style.color = 'var(--good)';
+  } catch (err) {
+    out.textContent = err.message;
+    out.style.color = 'var(--high)';
+  } finally {
+    btn.disabled = false;
+  }
 }
 
 function setAi(patch) {
