@@ -15,21 +15,38 @@ mkdir -p "$STAGE/InstructorWorkbench"
 cp -r "$DIR"/index.html "$DIR"/styles.css "$DIR"/js "$DIR"/vendor \
       "$DIR"/samples "$DIR"/GUIDE.md \
       "$DIR"/start.bat "$DIR"/start.ps1 "$DIR"/start.sh \
+      "$DIR"/serve.js "$DIR"/serve.rb "$DIR/Start Workbench.command" \
       "$STAGE/InstructorWorkbench/"
+
+# Zip preserves the executable bit; Finder will not run a .command without it.
+chmod +x "$STAGE/InstructorWorkbench/start.sh" "$STAGE/InstructorWorkbench/Start Workbench.command"
 
 cat > "$STAGE/InstructorWorkbench/START-HERE.txt" <<'TXT'
 INSTRUCTOR WORKBENCH
 ====================
 
-TO START:  double-click  start.bat
+TO START
+--------
+  Windows :  double-click  start.bat
+  macOS   :  double-click  Start Workbench.command
+  Linux   :  ./start.sh
 
 A black window will open, and your browser will open the app.
 Leave the black window open while you work. Closing it stops the app.
 
-If Windows says "Windows protected your PC":
-    click  More info  ->  Run anyway
-If Windows Firewall asks for permission:
-    click  Cancel   (the app does not need network access)
+WINDOWS
+  If it says "Windows protected your PC":  More info -> Run anyway
+  If the Firewall asks for permission:     Cancel (no network needed)
+
+macOS
+  If it says the file "cannot be opened because it is from an
+  unidentified developer":
+      right-click "Start Workbench.command" -> Open -> Open
+  That is needed once only.
+
+  If double-clicking does nothing, open Terminal in this folder and run:
+      chmod +x "Start Workbench.command" start.sh
+      ./start.sh
 
 Do NOT double-click index.html. It will not work.
 

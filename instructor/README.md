@@ -8,12 +8,23 @@ There is no server, no account, and no build step.
 
 **1. Start the app.**
 
-```bash
-cd instructor
-./start.sh                 # macOS / Linux
-```
+| Platform | How |
+|---|---|
+| macOS | double-click **`Start Workbench.command`** |
+| Windows | double-click **`start.bat`** |
+| Linux | `./start.sh` |
 
-On **Windows**, double-click **`start.bat`**. It needs nothing installed.
+Nothing has to be installed on Windows: the server is PowerShell against .NET's
+`HttpListener`, which ships with the OS.
+
+On macOS and Linux `start.sh` tries python3, then python, then Node, then Ruby,
+then PHP, and each candidate is made to execute something trivial before it is
+trusted. That last part matters: **macOS has shipped without Python since
+12.3**, and its `python3` is a stub that opens the Xcode Command Line Tools
+installer rather than running anything. Checking only for presence on PATH
+would announce a server and then die. macOS does still ship Ruby, and
+`serve.rb` uses only `socket` — not WEBrick, which stopped being a default gem
+in Ruby 3.0.
 
 Then open <http://localhost:8099>. That is the whole install — everything
 except AI review works now, with no network and no model.

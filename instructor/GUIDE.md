@@ -17,7 +17,9 @@ You want the folder that contains `start.bat`, `index.html` and a `js` folder.
 
 ### Step 2. Start it
 
-Double-click **`start.bat`**.
+**Windows:** double-click **`start.bat`**.
+**macOS:** double-click **`Start Workbench.command`**.
+**Linux:** run `./start.sh`.
 
 A black window opens and your browser opens the app. That black window is the
 program — **leave it open while you work.** Closing it stops the app.
@@ -28,6 +30,15 @@ app store; the file is a plain text file you can open in Notepad and read.
 
 If Windows Firewall asks for permission, **Cancel** is the correct answer. The
 app does not need to accept connections from other computers.
+
+**On a Mac**, the first launch may say the file is "from an unidentified
+developer". Right-click **Start Workbench.command → Open → Open**. That is
+needed once only. If double-clicking does nothing at all, open Terminal in the
+folder and run `chmod +x "Start Workbench.command" start.sh`, then try again.
+
+The Mac version does not need anything installed in the usual case: it uses
+Python if present, then Node, then Ruby, then PHP — and macOS ships Ruby. If
+it cannot find any of them it says so and points at the Node installer.
 
 ### Step 3. Check it works
 
