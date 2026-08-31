@@ -122,6 +122,31 @@ The tabs across the top of the results:
 **Save review** stores it so you can reopen it later and so the next thesis can
 be compared against it.
 
+### Checking whether the work is the student's own
+
+The **Integrity** tab runs six checks and ranks what it finds. Upload the
+original `.docx` rather than pasting text — a Word file carries its own
+editing history, and pasted text carries none.
+
+Three of the checks are things a plagiarism service cannot do:
+
+- **Fabricated sources.** A made-up reference looks perfect and matches
+  nothing, so similarity checking passes it. Each reference is looked up in
+  two academic catalogues instead. This is the most common integrity problem
+  now, because it is what AI tools produce.
+- **Author fingerprint.** Compares the writing against that student's own
+  earlier submissions saved here. A plagiarism service cannot ask this — their
+  own past essay is not plagiarism of anything.
+- **File properties.** Word records how long the document was edited, how many
+  times it was saved, and who wrote it. A long thesis with three minutes of
+  editing across one save is worth asking about.
+
+**Every finding comes with its innocent explanation, and you should read it.**
+A student who drafts in Google Docs and pastes the result in will trip the
+editing-time check while having done nothing wrong. None of this is proof.
+The right next step is to ask the student about how they worked and to look at
+their drafts.
+
 ### Comparing two drafts
 
 **Compare drafts** tab → the old version and the new one → **Compare**.

@@ -229,6 +229,31 @@ cannot see, and the same table is built into the Settings tab.
 | Prior published work | OpenAlex, online | Titles and abstracts only, not full text. Absence is weak evidence of novelty. |
 | Draft comparison | Exact diff, offline | Exact and repeatable. No caveats. |
 
+## The Integrity tab
+
+Six checks on whether the work is the student's own, each stating its own
+limits, gathered into one place with a summary that ranks them.
+
+**Three of them are things similarity matching cannot do at all:**
+
+| Check | Why matching cannot do it |
+|---|---|
+| **Fabricated sources** | A hallucinated reference is perfectly formatted and describes a work nobody wrote. It matches no corpus, so a similarity checker passes it clean. Only a lookup against Crossref and OpenAlex finds it — and this is now the most common integrity failure, because it is what language models produce. |
+| **Author fingerprint** | "Is this the same hand as their last essay?" has nothing to match against: a student's own earlier work is not plagiarism of anything. Answerable only against the instructor's own archive, which this workbench accumulates. Burrows's Delta over function-word frequencies, calibrated against other students' work so the distance means something. |
+| **File properties** | A `.docx` records who created it, who last saved it, how many times it was revised and how many minutes it was open for editing. Nobody reads the container; they compare the text. A 12,000-word thesis with three minutes of recorded editing across one save is a question no amount of text matching will raise. |
+
+The other three — reuse against your own archive, voice consistency within the
+document, and AI indicators — are covered elsewhere in this file.
+
+Every observation is paired with its innocent explanation, because every one
+of them has one. Metadata is trivially edited and destroyed by Google Docs
+export; Delta shifts with genre and with a year of improvement; a low reuse
+score only means nothing was reused *from documents saved here*. The tab
+reports these as reasons to ask about a student's process, and says so.
+
+A check that could not run is shown as **not run**, never omitted: a silently
+absent check reads as a passed one.
+
 ### Is this stronger than Turnitin?
 
 No — not at the thing Turnitin is actually good at. Turnitin's advantage is not
@@ -237,7 +262,7 @@ plus licensed publisher content. That cannot be replicated here, and any tool
 claiming web-scale plagiarism detection without a licensed index is misleading
 you.
 
-What this does that Turnitin does not:
+What this does that Turnitin does not — see the Integrity tab above:
 
 - **Verifies that cited sources exist.** A fabricated reference is perfectly
   formatted and simply is not real. Similarity detection passes it, because
