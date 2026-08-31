@@ -191,7 +191,13 @@ textarea { min-height: 90px; resize: vertical; font-family: var(--sans); }
 label.field { display: block; margin-bottom: 10px; }
 label.field > span { display: block; font-size: 12px; color: var(--text-dim); margin-bottom: 3px; }
 label.inline { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; font-size: 13px; }
-label.inline input[type="checkbox"] { width: auto; }
+/* The generic input rule sets width:100%, which stretches a radio or
+   checkbox across the row and strands its label at the far right. */
+label.inline input[type="checkbox"],
+label.inline input[type="radio"],
+input[type="checkbox"],
+input[type="radio"] { width: auto; flex: none; margin: 0; }
+label.inline > span { flex: 1; }
 
 .hint { font-size: 12px; color: var(--text-faint); margin: 4px 0 0; }
 .empty { padding: 34px 20px; text-align: center; color: var(--text-faint); }

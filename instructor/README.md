@@ -85,6 +85,12 @@ each assessment correlates with the final mark. Plus a comparison across the
 three levels, and a list of students below the pass mark or a standard
 deviation under the class mean.
 
+**Import.** Reads an existing gradebook spreadsheet and turns it into a course
+with its students and marks. It copes with a header part-way down the sheet,
+columns named in Turkish or English, and a totals row at the bottom — and it
+shows you what it guessed before writing anything. Name collisions are never
+resolved automatically; see below.
+
 **Excel.** One button exports everything to a single `.xlsx`: overview, roster,
 courses with their weightings, a gradebook sheet per course, class statistics,
 level comparison, component analysis, and every thesis finding.
@@ -99,6 +105,17 @@ what changed — edited paragraphs with a word-level diff, additions, deletions,
 and relocations.
 
 ---
+
+### Why importing asks about names
+
+An imported row is linked to an existing student on the **student number**
+only. A name is not an identifier: two people in a department share one often
+enough that merging on it would eventually put one student's marks on
+another's record, and nobody would notice until a transcript was wrong.
+
+So a name collision is reported, with the candidates and their details side by
+side, and the import is blocked until each is resolved. Where every row is the
+same situation there are batch buttons, but they are still a deliberate click.
 
 ## The Argument Stress Evaluator
 

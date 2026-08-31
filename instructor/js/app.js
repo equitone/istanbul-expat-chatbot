@@ -5,6 +5,7 @@ import { exportWorkbook, exportAllCsv } from './export/workbook.js';
 
 import renderDashboard from './views/dashboard.js';
 import renderStudents from './views/students.js';
+import renderImport from './views/import.js';
 import renderCourses from './views/courses.js';
 import renderGradebook from './views/gradebook.js';
 import renderAnalytics from './views/analytics.js';
@@ -18,6 +19,7 @@ const VIEWS = [
   { id: 'dashboard', label: 'Overview',   render: renderDashboard },
   { id: 'students',  label: 'Students',   render: renderStudents },
   { id: 'courses',   label: 'Courses',    render: renderCourses },
+  { id: 'import',    label: 'Import',     render: renderImport },
   { id: 'gradebook', label: 'Gradebook',  render: renderGradebook },
   { id: 'analytics', label: 'Analytics',  render: renderAnalytics },
   { id: 'thesis',    label: 'Thesis review', render: renderThesis },
@@ -32,7 +34,7 @@ if (!VIEWS.some((v) => v.id === current)) current = 'dashboard';
 
 /* Views that own transient state (an analysed thesis, an in-progress diff)
    must not be blown away by an unrelated store update. */
-const STICKY = new Set(['thesis', 'compare', 'citations', 'research']);
+const STICKY = new Set(['thesis', 'compare', 'citations', 'research', 'import']);
 const rendered = new Set();
 
 function buildTabs() {

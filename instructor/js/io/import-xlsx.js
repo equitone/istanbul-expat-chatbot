@@ -11,7 +11,7 @@
  * Nothing is committed to the store until applyPlan() is called.
  */
 import { loadScript } from './files.js';
-import { uid } from '../store.js';
+import { uid, getState, update } from '../store.js';
 
 /* Header words seen on real Turkish and English gradebooks. */
 const NAME_HINTS = /^(name|full ?name|student ?name|student|ad|adı|ad ?soyad|adsoyad|isim|öğrenci|ogrenci|öğrenci ?adı)$/i;
@@ -62,7 +62,18 @@ export function detectLayout(rows) {
   if (headerRow === -1) headerRow = 0;
 
   const headers = (rows[headerRow] || []).map((c) => String(c).trim());
-  const body = rows.slice(headerRow + 1).filter((r) => r.some((c) => String(c).trim() !== ''));
+  const allBody = rows.slice(headerRow + 1).filter((r) => r.some((c) => String(c).trim() !== ''));
+
+  /*
+   * Drop TOPLAM / ORTALAMA / TOTAL rows before measuring the columns.
+   *
+   * They are excluded from the student list later anyway, but if they are
+   * left in here they poison every statistic taken from the column: a column
+   * of marks out of 100 with a totals row of 513 gets read as being marked
+   * out of 520, and every imported mark is then scaled against the wrong
+   * maximum.
+   */
+  const body = allBody.filter((r) => !r.slice(0, 3).some((c) => SUMMARY_ROW.test(String(c).trim())));
 
   const columns = headers.map((h, idx) => {
     const values = body.map((r) => r[idx]).filter((v) => String(v).trim() !== '');
@@ -257,3 +268,84 @@ const letter = (i) => {
   do { s = String.fromCharCode(65 + (n % 26)) + s; n = Math.floor(n / 26) - 1; } while (n >= 0);
   return s;
 };
+
+
+/*
+ * Write a resolved plan into the store.
+ *
+ * One update() for the whole import rather than per row: a spreadsheet with
+ * two hundred students would otherwise trigger two hundred saves and
+ * re-renders, and a half-applied import is the one outcome worse than none.
+ *
+ * Refuses outright while any conflict is unresolved — the guard belongs here
+ * as well as in the view, because this is the function that actually writes.
+ */
+export function applyPlan(plan) {
+  const unresolved = plan.students.filter((s) => !s.resolution);
+  if (unresolved.length) {
+    throw new Error(`${unresolved.length} name conflict(s) still need a decision.`);
+  }
+
+  const courseId = uid('crs');
+  const created = { students: 0, linked: 0, marks: 0 };
+
+  update((state) => {
+    const idFor = new Map();
+
+    plan.students.forEach((row) => {
+      if (row.resolution === 'new') {
+        const student = {
+          id: uid('stu'),
+          name: row.name,
+          studentNo: row.studentNo,
+          level: row.level || plan.course.level,
+          email: row.email || '',
+          programme: '',
+          year: row.year || plan.course.year || '',
+          notes: '',
+          createdAt: new Date().toISOString()
+        };
+        state.students.push(student);
+        idFor.set(row, student.id);
+        created.students++;
+      } else {
+        idFor.set(row, row.resolution);
+        created.linked++;
+        /* Fill in a blank field on the existing record, but never overwrite
+           something the instructor already entered. */
+        const existing = state.students.find((s) => s.id === row.resolution);
+        if (existing) {
+          if (!existing.studentNo && row.studentNo) existing.studentNo = row.studentNo;
+          if (!existing.year && (row.year || plan.course.year)) existing.year = row.year || plan.course.year;
+          if (!existing.email && row.email) existing.email = row.email;
+        }
+      }
+    });
+
+    state.courses.push({
+      id: courseId,
+      title: plan.course.title,
+      code: plan.course.code,
+      level: plan.course.level,
+      term: plan.course.term,
+      year: plan.course.year || '',
+      credits: 0,
+      components: plan.components.map((c) => ({
+        id: c.id, name: c.name, weight: c.weight, maxScore: c.maxScore
+      })),
+      enrolled: plan.students.map((r) => idFor.get(r)).filter(Boolean),
+      importedFrom: plan.sourceName || '',
+      createdAt: new Date().toISOString()
+    });
+
+    state.scores[courseId] = {};
+    plan.students.forEach((row) => {
+      const sid = idFor.get(row);
+      if (!sid) return;
+      state.scores[courseId][sid] = { ...row.scores };
+      created.marks += Object.keys(row.scores).length;
+    });
+  }, { type: 'import' });
+
+  return { courseId, ...created };
+}

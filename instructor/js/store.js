@@ -125,6 +125,7 @@ export function addStudent(data) {
     level: data.level || 'undergraduate',
     email: (data.email || '').trim(),
     programme: (data.programme || '').trim(),
+    year: (data.year || '').trim(),
     notes: '',
     createdAt: new Date().toISOString()
   };
