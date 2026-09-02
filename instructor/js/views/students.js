@@ -8,7 +8,7 @@
 import { el, mount, table, chip, field, toast, confirmDialog, int, emptyState } from '../ui.js';
 import { getState, LEVELS, LEVEL_LABEL, addStudent, updateStudent, removeStudent } from '../store.js';
 
-const S = { level: 'all', year: 'all', search: '', grouped: true };
+const S = { level: 'all', year: 'all', course: 'all', search: '', grouped: true };
 
 export default function renderStudents(root, ctx) {
   const s = getState();
@@ -19,8 +19,19 @@ export default function renderStudents(root, ctx) {
   const years = [...new Set(all.map((x) => String(x.year || '').trim()).filter(Boolean))].sort().reverse();
   const anyUnset = all.some((x) => !String(x.year || '').trim());
 
+  /* Enrolment is held on the course, so the lookup is built once per render
+     rather than scanned per student per course. */
+  const courses = s.courses;
+  const enrolledIn = new Map(courses.map((c) => [c.id, new Set(c.enrolled || [])]));
+  const anyUnenrolled = all.some((st) => !courses.some((c) => enrolledIn.get(c.id).has(st.id)));
+
   const matches = (st) => {
     if (S.level !== 'all' && st.level !== S.level) return false;
+    if (S.course === 'none' && courses.some((c) => enrolledIn.get(c.id).has(st.id))) return false;
+    if (S.course !== 'all' && S.course !== 'none') {
+      const set = enrolledIn.get(S.course);
+      if (!set || !set.has(st.id)) return false;
+    }
     const y = String(st.year || '').trim();
     if (S.year === 'none' && y) return false;
     if (S.year !== 'all' && S.year !== 'none' && y !== S.year) return false;
@@ -43,7 +54,7 @@ export default function renderStudents(root, ctx) {
     el('div', { class: 'view-head' },
       el('div', {},
         el('h1', { text: 'Students' }),
-        el('p', { text: 'Everyone you teach, filtered by level and academic year rather than shown all at once.' })
+        el('p', { text: 'Everyone you teach, filtered by course, level and academic year rather than shown all at once.' })
       ),
       el('div', { class: 'spacer' }),
       el('input', {
@@ -67,6 +78,15 @@ export default function renderStudents(root, ctx) {
       filterBtn('level', 'all', 'All', all.length),
       LEVELS.map((l) => filterBtn('level', l.id, l.label, all.filter((x) => x.level === l.id).length))
     ),
+
+    courses.length
+      ? el('div', { class: 'legend' },
+          el('span', { class: 'legend-label', text: 'Course' }),
+          filterBtn('course', 'all', 'All courses'),
+          courses.map((c) => filterBtn('course', c.id, c.code ? `${c.code} — ${c.title}` : c.title, (c.enrolled || []).length)),
+          anyUnenrolled ? filterBtn('course', 'none', 'Not on any course', all.filter((st) => !courses.some((c) => enrolledIn.get(c.id).has(st.id))).length) : null
+        )
+      : null,
 
     years.length || anyUnset
       ? el('div', { class: 'legend' },
@@ -126,7 +146,13 @@ function groupedView(shown, s, root, ctx) {
 }
 
 function rosterTable(list, s, root, ctx, { compact = false } = {}) {
-  const headers = ['Name', 'No.', ...(compact ? [] : ['Level']), 'Year', 'Programme', { label: 'Courses', num: true }, { label: 'Theses', num: true }, ''];
+  /* Year of study comes in from university exports ("Snf": 2, 3, 4) and is
+     only worth a column where some record actually carries one — otherwise it
+     is an empty column on every roster that was typed in by hand. */
+  const anyClassYear = s.students.some((st) => String(st.classYear || '').trim());
+  const headers = ['Name', 'No.', ...(compact ? [] : ['Level']),
+    ...(anyClassYear ? [{ label: 'Class', num: true }] : []),
+    'Year', 'Programme', { label: 'Courses', num: true }, { label: 'Theses', num: true }, ''];
   return table(headers, [...list].sort((a, b) => a.name.localeCompare(b.name)).map((st) => [
     el('td', {}, el('input', {
       value: st.name, style: 'border:0;background:none;padding:2px 0;font-weight:600',
@@ -137,6 +163,10 @@ function rosterTable(list, s, root, ctx, { compact = false } = {}) {
       onChange: (e) => updateStudent(st.id, { studentNo: e.target.value.trim() })
     })),
     ...(compact ? [] : [el('td', {}, chip(LEVEL_LABEL[st.level], st.level === 'undergraduate' ? 'ug' : st.level === 'masters' ? 'ma' : 'phd'))]),
+    ...(anyClassYear ? [el('td', { class: 'num' }, el('input', {
+      value: st.classYear || '', placeholder: '—', style: 'border:0;background:none;padding:2px 0;width:44px;text-align:right',
+      onChange: (e) => updateStudent(st.id, { classYear: e.target.value.trim() })
+    }))] : []),
     el('td', {}, el('input', {
       value: st.year || '', placeholder: '—', style: 'border:0;background:none;padding:2px 0;width:64px',
       onChange: (e) => updateStudent(st.id, { year: e.target.value.trim() })

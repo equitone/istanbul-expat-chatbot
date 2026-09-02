@@ -97,6 +97,21 @@ a sheet per course, statistics, and every thesis finding.
 
 ---
 
+## The week at a glance
+
+**Courses** tab → open a course → **When it meets** → click the days it meets,
+put in the time and room, and set the date the first week begins.
+
+That is all the **Overview** tab needs to lay out your week. Each class shows
+the course, the level, and which meeting of the course it is — *Session 9*,
+counted from the first week, so a course meeting twice a week counts twice.
+
+Under each class is a to-do list for that specific meeting. Type and press
+Enter. It belongs to that date, so next week's class starts empty. Use **›**
+to look ahead and add things to a class weeks away.
+
+---
+
 ## Part 3 — Reviewing a thesis
 
 **Thesis review** tab → drop in a Word file, a PDF, or paste the text →

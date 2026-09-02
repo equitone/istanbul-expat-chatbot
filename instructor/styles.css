@@ -477,3 +477,70 @@ dialog .dlg-foot { padding: 12px 18px; border-top: 1px solid var(--border); disp
   .app-header, .legend, button, .findings { display: none !important; }
   .reader { max-height: none; overflow: visible; border: 0; }
 }
+
+/* ---------------------------------------------------------------- planner */
+
+/*
+ * One column per teaching day, not per weekday: a Tuesday with no class is
+ * an empty column that pushes the real ones off the screen, so days without
+ * a class are simply absent.
+ */
+.planner {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 10px;
+  margin-top: 12px;
+  /* Columns size to their own classes; stretching leaves a tall empty block
+     under a day with one class next to a day with three. */
+  align-items: start;
+}
+.planner-day {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 8px;
+  background: var(--surface-2);
+  min-width: 0;
+}
+.planner-day.today { border-color: var(--accent); background: var(--accent-soft); }
+.planner-head {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin-bottom: 7px;
+  font-size: 12px;
+  color: var(--text-dim);
+}
+.planner-head strong { font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: var(--text); }
+
+.planner-class {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 8px;
+  margin-bottom: 8px;
+}
+.planner-class:last-child { margin-bottom: 0; }
+
+.planner-tasks { list-style: none; margin: 0 0 6px; padding: 0; }
+.planner-tasks li {
+  display: flex;
+  align-items: flex-start;
+  gap: 4px;
+  font-size: 12px;
+  line-height: 1.35;
+  padding: 1px 0;
+}
+.planner-tasks li label { display: flex; align-items: flex-start; gap: 5px; flex: 1; cursor: pointer; margin: 0; }
+.planner-tasks li input { margin-top: 2px; }
+.planner-tasks li.done span { text-decoration: line-through; color: var(--text-faint); }
+.planner-tasks li button { padding: 0 4px; line-height: 1; opacity: .5; }
+.planner-tasks li button:hover { opacity: 1; }
+
+.planner-add {
+  width: 100%;
+  font-size: 12px;
+  padding: 4px 6px;
+  background: transparent;
+  border: 1px dashed var(--border);
+}
+.planner-add:focus { border-style: solid; background: var(--surface); }

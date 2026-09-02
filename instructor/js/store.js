@@ -40,6 +40,7 @@ function blankState() {
     scores: {},
     theses: [],
     comments: [],
+    tasks: [],
     updatedAt: null
   };
 }
@@ -67,12 +68,20 @@ function migrate(s) {
   s.scores ||= {};
   s.theses ||= [];
   s.comments ||= [];
+  s.tasks ||= [];
   s.settings.ai ||= blankState().settings.ai;
   s.settings.languageTool ||= blankState().settings.languageTool;
   s.settings.letterScheme ||= DEFAULT_LETTER_SCHEME.map((x) => ({ ...x }));
   s.courses.forEach((c) => {
     c.components ||= [];
     c.enrolled ||= [];
+    /* When and where it meets. Absent on every course created before the
+       planner existed, which is why it defaults to empty rather than to a
+       guess — an invented Monday 09:00 would put a class on the timetable
+       that does not happen. */
+    c.schedule ||= [];
+    c.startDate ||= '';
+    c.weeks ||= 14;
   });
   return s;
 }
@@ -164,6 +173,9 @@ export function addCourse(data) {
     term: (data.term || state.settings.defaultTerm || '').trim(),
     credits: Number(data.credits) || 0,
     components: (data.components || defaultComponents()).map((c) => ({ id: uid('cmp'), ...c })),
+    schedule: data.schedule || [],
+    startDate: data.startDate || '',
+    weeks: Number(data.weeks) || 14,
     enrolled: [],
     createdAt: new Date().toISOString()
   };
@@ -191,6 +203,9 @@ export function removeCourse(id) {
   update((s) => {
     s.courses = s.courses.filter((c) => c.id !== id);
     delete s.scores[id];
+    /* Its to-dos go with it; orphaned tasks would sit on the planner
+       attached to a course that no longer exists. */
+    s.tasks = s.tasks.filter((t) => t.courseId !== id);
   }, { type: 'courses' });
 }
 
@@ -306,6 +321,49 @@ export function removeComment(id) {
 
 export const commentsByUse = () =>
   [...state.comments].sort((a, b) => (b.uses || 0) - (a.uses || 0) || a.text.localeCompare(b.text));
+
+/* --------------------------------------------------------- class to-dos */
+
+/*
+ * What has to be done before a particular class meets.
+ *
+ * A task is pinned to a course and to a date — the date of the session it
+ * belongs to — rather than to a session number, because a class can be moved
+ * and the work moves with the date rather than with the count. A task with no
+ * date is course admin that is not tied to a meeting.
+ */
+export function addTask({ courseId, date = '', text }) {
+  const body = String(text || '').trim();
+  if (!body) throw new Error('A task needs some text.');
+  const id = uid('tsk');
+  update((s) => s.tasks.push({
+    id, courseId: courseId || null, date: date || '', text: body,
+    done: false, createdAt: new Date().toISOString()
+  }), { silent: true });
+  return id;
+}
+
+export function toggleTask(id) {
+  /* Silent: ticking a box must not rebuild the panel the pointer is in. */
+  update((s) => {
+    const t = s.tasks.find((x) => x.id === id);
+    if (t) { t.done = !t.done; t.doneAt = t.done ? new Date().toISOString() : null; }
+  }, { silent: true });
+}
+
+export function updateTask(id, patch) {
+  update((s) => {
+    const t = s.tasks.find((x) => x.id === id);
+    if (t) Object.assign(t, patch);
+  }, { silent: true });
+}
+
+export function removeTask(id) {
+  update((s) => { s.tasks = s.tasks.filter((t) => t.id !== id); }, { silent: true });
+}
+
+export const tasksFor = (courseId, date) =>
+  state.tasks.filter((t) => t.courseId === courseId && t.date === date);
 
 export function updateSettings(patch) {
   update((s) => Object.assign(s.settings, patch), { type: 'settings' });

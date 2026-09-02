@@ -127,6 +127,13 @@ reason and a suggested fix.
 what changed — edited paragraphs with a word-level diff, additions, deletions,
 and relocations.
 
+**Weekly planner.** Give a course its days, time, room and start date and the
+Overview tab lays out the week: what is taught when, which meeting of the
+course it is, and a to-do list attached to that specific session. Session
+numbers count meetings rather than weeks, and the arithmetic is done on local
+calendar days so a daylight-saving change cannot shift a class onto the wrong
+day.
+
 **Comment bank.** Feedback an instructor writes once and then writes forty
 more times. Saved from the report dialog, inserted back into it, with `{name}`
 and `{title}` resolved on insert so the sentence in the box is the sentence the

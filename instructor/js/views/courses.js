@@ -1,4 +1,5 @@
 import { el, mount, table, chip, field, toast, confirmDialog, int, num, emptyState } from '../ui.js';
+import { DAYS, nextMeeting, describeMeeting, toIso } from '../schedule.js';
 import {
   getState, LEVELS, LEVEL_LABEL, addCourse, updateCourse, removeCourse,
   addComponent, removeComponent, setEnrolment
@@ -62,6 +63,8 @@ function courseDetail(course, s, root, ctx) {
         }
       } })
     ),
+
+    scheduleCard(course, rerender),
 
     el('div', { class: 'card' },
       el('h2', { text: 'Assessment components' }),
@@ -155,4 +158,79 @@ function newCourseDialog(root, ctx) {
       } })
     ]);
   });
+}
+
+/*
+ * When the course meets. Filling this in is what puts the course on the
+ * weekly planner; a course with no schedule simply does not appear there,
+ * which is better than appearing at a time it does not meet.
+ */
+function scheduleCard(course, rerender) {
+  const slots = course.schedule || [];
+
+  const patchSlot = (i, patch) => {
+    const next = slots.map((sl, k) => (k === i ? { ...sl, ...patch } : sl));
+    updateCourse(course.id, { schedule: next });
+  };
+  const toggleDay = (day) => {
+    const on = slots.some((sl) => Number(sl.day) === day);
+    const next = on
+      ? slots.filter((sl) => Number(sl.day) !== day)
+      : [...slots, { day, time: '', room: '' }].sort((a, b) => ((a.day + 6) % 7) - ((b.day + 6) % 7));
+    updateCourse(course.id, { schedule: next });
+    rerender();
+  };
+
+  const upcoming = nextMeeting(course);
+
+  return el('div', { class: 'card' },
+    el('h2', { text: 'When it meets' }),
+    el('p', { text: 'Set this and the course appears on the weekly planner in Overview, with its session number counted from the first week.' }),
+
+    el('div', { class: 'legend' },
+      el('span', { class: 'legend-label', text: 'Days' }),
+      DAYS.map((d) => el('button', {
+        class: slots.some((sl) => Number(sl.day) === d.id) ? 'primary sm' : 'sm',
+        'aria-pressed': String(slots.some((sl) => Number(sl.day) === d.id)),
+        text: d.short,
+        onClick: () => toggleDay(d.id)
+      }))
+    ),
+
+    slots.length
+      ? el('div', { class: 'table-wrap', style: 'margin-top:10px' },
+          el('table', {},
+            el('thead', {}, el('tr', {},
+              el('th', { text: 'Day' }), el('th', { text: 'Starts' }), el('th', { text: 'Room' }))),
+            el('tbody', {}, slots.map((sl, i) => el('tr', {},
+              el('td', { text: (DAYS.find((d) => d.id === Number(sl.day)) || {}).label || '—' }),
+              el('td', {}, el('input', {
+                type: 'time', value: sl.time || '', style: 'width:120px',
+                onChange: (e) => patchSlot(i, { time: e.target.value })
+              })),
+              el('td', {}, el('input', {
+                value: sl.room || '', placeholder: 'B204',
+                onChange: (e) => patchSlot(i, { room: e.target.value.trim() })
+              }))
+            )))
+          ))
+      : el('p', { class: 'hint', text: 'No days chosen, so this course does not appear on the planner.' }),
+
+    el('div', { class: 'grid cols-3', style: 'margin-top:12px' },
+      field('First week begins', el('input', {
+        type: 'date', value: course.startDate || '',
+        onChange: (e) => { updateCourse(course.id, { startDate: e.target.value }); rerender(); }
+      }), 'Needed to number the sessions. Without it the planner still shows the class, just without “Session 9”.'),
+      field('Weeks', el('input', {
+        type: 'number', min: '1', max: '52', value: course.weeks || 14,
+        onChange: (e) => { updateCourse(course.id, { weeks: Number(e.target.value) || 14 }); rerender(); }
+      }), 'How long the term runs, so the planner stops after it.')
+    ),
+
+    upcoming
+      ? el('p', { class: 'hint', text: `Next meeting: ${upcoming.date.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' })}${describeMeeting(upcoming) ? ` — ${describeMeeting(upcoming)}` : ''}.` })
+      : slots.length && course.startDate
+        ? el('p', { class: 'hint', text: 'No meetings left — the term set above has finished.' })
+        : null
+  );
 }
