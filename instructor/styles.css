@@ -138,7 +138,8 @@ main { padding: 22px 20px 80px; max-width: 1440px; margin: 0 auto; }
 .view-head { display: flex; align-items: flex-start; gap: 16px; flex-wrap: wrap; margin-bottom: 18px; }
 .view-head h1 { margin: 0; font-size: 19px; letter-spacing: -.01em; }
 .view-head p { margin: 3px 0 0; color: var(--text-dim); max-width: 68ch; }
-.view-head .spacer { flex: 1; }
+/* Used inside .view-head and inside cards alike, so it is not scoped. */
+.spacer { flex: 1; }
 
 /* ----------------------------------------------------------------- pieces */
 
