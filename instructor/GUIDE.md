@@ -152,6 +152,20 @@ Three things worth knowing:
 **Export CSV** gives you the whole table — every count and score per file — to
 open in Excel.
 
+### Writing the same comment for the fortieth time
+
+Under **A note to the student** in the report dialog there is a **Comment
+bank**. Write a note, press **Save this note**, and it is there on every report
+from now on — press **Insert** to drop it into the box, then edit it as you
+like.
+
+A saved comment can contain `{name}`, `{fullname}` or `{title}`. Those are
+filled in at the moment you insert it, not later, so what lands in the box is
+the finished sentence and you can see exactly what the student will read.
+
+The comments you use most sit at the top of the list. They are saved with
+everything else, so they are in your backup file.
+
 ### Checking whether the work is the student's own
 
 The **Integrity** tab runs six checks and ranks what it finds. Upload the

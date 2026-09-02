@@ -127,6 +127,11 @@ reason and a suggested fix.
 what changed — edited paragraphs with a word-level diff, additions, deletions,
 and relocations.
 
+**Comment bank.** Feedback an instructor writes once and then writes forty
+more times. Saved from the report dialog, inserted back into it, with `{name}`
+and `{title}` resolved on insert so the sentence in the box is the sentence the
+student reads. Most-used first, and in the backup file with everything else.
+
 **Batch triage.** Drop in a folder of submissions and get them back ordered by
 how much they need reading, with the reason for each position written out. It
 also compares every submission against every other one, which is the check no

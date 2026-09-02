@@ -39,6 +39,7 @@ function blankState() {
     courses: [],
     scores: {},
     theses: [],
+    comments: [],
     updatedAt: null
   };
 }
@@ -65,6 +66,7 @@ function migrate(s) {
   s.courses ||= [];
   s.scores ||= {};
   s.theses ||= [];
+  s.comments ||= [];
   s.settings.ai ||= blankState().settings.ai;
   s.settings.languageTool ||= blankState().settings.languageTool;
   s.settings.letterScheme ||= DEFAULT_LETTER_SCHEME.map((x) => ({ ...x }));
@@ -267,6 +269,43 @@ export async function removeThesis(id) {
 }
 
 /* ------------------------------------------------------------- settings */
+
+/* ------------------------------------------------------------ comment bank */
+
+/*
+ * Feedback an instructor writes once and then writes forty more times.
+ * Comments live in the same state object as everything else, so they travel
+ * in the backup file and outlive a browser reset like the gradebook does.
+ *
+ * `uses` is kept so the picker can put the ones actually being used at the
+ * top; a bank sorted alphabetically stops being faster than retyping once it
+ * passes about a dozen entries.
+ */
+export function addComment({ text, tag = '' }) {
+  const body = String(text || '').trim();
+  if (!body) throw new Error('A comment needs some text.');
+  const existing = state.comments.find((c) => c.text === body);
+  if (existing) return existing.id;
+  const id = uid('cm');
+  update((s) => s.comments.unshift({ id, text: body, tag: tag.trim(), uses: 0, createdAt: new Date().toISOString() }));
+  return id;
+}
+
+export function noteCommentUsed(id) {
+  /* Silent: a usage count changing must not re-render the dialog the
+     instructor is typing in. */
+  update((s) => {
+    const c = s.comments.find((x) => x.id === id);
+    if (c) c.uses = (c.uses || 0) + 1;
+  }, { silent: true });
+}
+
+export function removeComment(id) {
+  update((s) => { s.comments = s.comments.filter((c) => c.id !== id); });
+}
+
+export const commentsByUse = () =>
+  [...state.comments].sort((a, b) => (b.uses || 0) - (a.uses || 0) || a.text.localeCompare(b.text));
 
 export function updateSettings(patch) {
   update((s) => Object.assign(s.settings, patch), { type: 'settings' });
