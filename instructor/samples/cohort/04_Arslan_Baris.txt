@@ -1,0 +1,28 @@
+Declaration
+
+I declare that this dissertation is my own work and that it has not been submitted, in whole or in part, for any other degree at this or any other institution. All sources consulted have been acknowledged in the reference list.
+
+Subtitling constraints and the loss of register in televised drama
+
+Abstract
+
+This chapter examines subtitling constraints and the loss of register in televised drama.
+
+1. Introduction
+
+Subtitling is bounded by reading speed, and the bound is severe: roughly seventeen characters per second, which for dense dialogue means substantial reduction. This chapter asks what is lost first when reduction is forced.
+
+The corpus is 480 minutes of British television drama subtitled for Turkish broadcast, with the subtitle file aligned to a transcript of the audio. Every reduction was classified by what it removed. The result is not evenly distributed: markers of register go first, and they go almost completely.
+
+Discourse markers, hedges, hesitation and forms of address account for 71 per cent of all omissions, while propositional content accounts for 9 per cent. A viewer of the subtitled version receives the plot substantially intact and the social texture substantially flattened. Characters who are rude in the original are merely brief in translation.
+
+What the archive records is not a decision but the residue of one. The correspondence between publisher and translator survives, while the reasoning that produced the final wording does not, and the researcher is left reconstructing an argument from its consequences alone. That asymmetry is the methodological problem this chapter takes as its subject, because a history of editorial choice built only on outcomes will mistake accident for intention.
+
+Whether this matters depends on what one takes drama to be about, and the chapter does not settle that question. It establishes only that the loss is systematic rather than incidental, and that it falls on one dimension of the text.
+
+References
+
+Bassnett, S. (2002). Translation studies (3rd ed.). Routledge.
+Casanova, P. (2004). The world republic of letters. Harvard University Press.
+Even-Zohar, I. (1990). Polysystem studies. Poetics Today, 11(1), 1-268.
+Venuti, L. (1995). The translator's invisibility: A history of translation. Routledge.

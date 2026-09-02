@@ -1,0 +1,28 @@
+Declaration
+
+I declare that this dissertation is my own work and that it has not been submitted, in whole or in part, for any other degree at this or any other institution. All sources consulted have been acknowledged in the reference list.
+
+Translator visibility in the Turkish literary review, 1990-2015
+
+Abstract
+
+This chapter examines translator visibility in the Turkish literary review, 1990-2015.
+
+1. Introduction
+
+Reviewers of translated fiction mention the translator in 12 per cent of the reviews in this corpus, and when they do, the mention is almost always a single adjective. This chapter treats that adjective as data.
+
+The corpus consists of 240 reviews published between 1990 and 2015 in four literary magazines, coded for evaluative stance by two coders who reached agreement of 0.81. Mentions were classified as evaluative, descriptive or merely attributive.
+
+Attributive mentions dominate: the translator is named and nothing further is said. Evaluative mentions cluster around two words, akici and basarili, neither of which describes a translation strategy. The vocabulary available to reviewers for discussing translation is, on this evidence, extremely thin.
+
+One might read this as indifference, but the trend line complicates that. Mentions rise from 7 per cent in the first five years to 19 per cent in the last, and the rise is concentrated in one magazine that introduced a translation column in 2004. Institutional provision, not changing taste, appears to drive the increase.
+
+The chapter does not claim that reviewers who name a translator read more carefully than those who do not, since the corpus contains no evidence bearing on that question.
+
+References
+
+Bassnett, S. (2002). Translation studies (3rd ed.). Routledge.
+Casanova, P. (2004). The world republic of letters. Harvard University Press.
+Even-Zohar, I. (1990). Polysystem studies. Poetics Today, 11(1), 1-268.
+Venuti, L. (1995). The translator's invisibility: A history of translation. Routledge.

@@ -49,14 +49,15 @@ feature. Five minutes, in this order:
 
 | Do this | You should see |
 |---|---|
-| Thesis review → paste `samples/grammar-test.txt` → Analyse | **21 of 33 findings** shown by default — 16 errors and 5 warnings, with style suggestions filtered out. `samples/README.md` lists the expected finding for each of its 16 numbered sentences, so you can check the engine against a known answer. |
-| Thesis review → paste `samples/thesis-v1.txt` → Analyse | Stress **68, Overloaded**. 36 findings highlighted in the text. |
+| Thesis review → paste `samples/grammar-test.txt` → Analyse | **22 of 34 findings** shown by default — errors and warnings only, with style suggestions filtered out. `samples/README.md` lists the expected finding for each of its 16 numbered sentences, so you can check the engine against a known answer. |
+| Thesis review → paste `samples/thesis-v1.txt` → Analyse | Stress **68, Overloaded**. 37 findings highlighted in the text. |
 | Argument stress tab | Six over-stressed claims; 6 of 14 claims backed. |
 | Citations tab, toggle **APA 7 → MLA 9** | Findings change as the style changes. |
 | Assign it to a student, **Save review**. Then analyse `samples/other-student.txt` and save that too. | Two saved reviews. |
 | Re-analyse `thesis-v1.txt` → Originality → **Run comparison** | **19% overlap** with the other student, and the shared paragraph quoted. |
-| Originality → AI indicators | **12/100.** Now try `samples/ai-flavoured.txt`: **68/100.** That gap is the whole signal — and note how thin it is. |
+| Originality → AI indicators | **12/100.** Now try `samples/ai-flavoured.txt`: **77/100.** That gap is the whole signal — and note how thin it is. |
 | Compare drafts → `thesis-v1.txt` and `thesis-v2.txt` | 1 paragraph edited with a word-level diff, 1 cut, 2 added, 16 untouched. |
+| Batch triage → **Choose files** → all six of `samples/cohort/` | **2 need a close read** out of 6. `01_Yildirim_Deniz.txt` and `06_Yildirim_Deniz_RESUBMIT.txt` are the same file submitted twice (**88% shared, 2,034 characters**), and `03_Koc_Selin.txt` shares one paragraph with `04_Arslan_Baris.txt`. The declaration and bibliography every paper shares are *not* reported — that is the filter working. |
 | Gradebook, then **Export Excel** | A `.xlsx` with a sheet per course plus statistics. |
 
 **3. Add a local model** (only needed for AI review — everything above already
@@ -125,6 +126,13 @@ reason and a suggested fix.
 **Draft comparison.** Give it version 1 and version 2 and it reports exactly
 what changed — edited paragraphs with a word-level diff, additions, deletions,
 and relocations.
+
+**Batch triage.** Drop in a folder of submissions and get them back ordered by
+how much they need reading, with the reason for each position written out. It
+also compares every submission against every other one, which is the check no
+single-file tool can make: two students who worked together are only visible
+when both papers are on the table at once. Nothing is written to the gradebook,
+and a filename matched to a student is shown as a suggestion, never applied.
 
 ---
 
@@ -446,3 +454,4 @@ Grading scheme, pass mark and letter bands are in Settings.
 | ![Gradebook](docs/screens/04-gradebook.png) | ![Analytics](docs/screens/05-analytics.png) |
 | ![Thesis findings](docs/screens/06-thesis-findings.png) | ![Argument stress](docs/screens/07-thesis-argument.png) |
 | ![Originality](docs/screens/09-thesis-originality.png) | ![Compare drafts](docs/screens/13-compare.png) |
+| ![Batch triage](docs/screens/28-batch-triage.png) | ![Desktop app](docs/screens/27-desktop-app.png) |

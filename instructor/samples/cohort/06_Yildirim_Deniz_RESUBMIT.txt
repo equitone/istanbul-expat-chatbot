@@ -1,0 +1,28 @@
+Declaration
+
+I declare that this dissertation is my own work and that it has not been submitted, in whole or in part, for any other degree at this or any other institution. All sources consulted have been acknowledged in the reference list.
+
+The domestication of Scandinavian crime fiction in Turkish paperback series, 1998-2012
+
+Abstract
+
+This chapter examines the domestication of Scandinavian crime fiction in Turkish paperback series, 1998-2012.
+
+1. Introduction
+
+Crime fiction travels well, and the reasons it travels are commercial before they are literary. Between 1998 and 2012 four Turkish publishers issued Scandinavian crime novels in paperback series with uniform covers and uniform pricing, and the translations they commissioned show a consistent preference for fluency over strangeness.
+
+Venuti (1995) argues that fluent translation renders the translator invisible, and the paperback series bear this out at the level of the sentence. Place names are retained, but idioms are replaced with Turkish equivalents and the long paratactic sentences typical of the Swedish originals are broken into shorter units. The effect is a prose that reads as though it were written for this market.
+
+The corpus for this chapter is 62 novels, compared against their source texts at the level of the opening chapter. Two coders classified each divergence as lexical, syntactic or structural, reaching agreement of 0.79. The distribution is uneven: syntactic divergence is nearly universal, while structural divergence appears in only nine titles, all from one publisher.
+
+That publisher is the exception worth examining. Its editions cut subplots and reorder chapters, which suggests an editorial policy rather than a translator's preference, since three different translators produced the same pattern. Casanova (2004) would read this as a peripheral market asserting its own criteria of readability against a dominant one, and the evidence here is consistent with that reading without proving it.
+
+What remains unresolved is whether readers noticed. Reviews in the period comment on plot and on atmosphere but almost never on translation, which may indicate that the domesticating strategy succeeded, or only that reviewers had no access to the originals.
+
+References
+
+Bassnett, S. (2002). Translation studies (3rd ed.). Routledge.
+Casanova, P. (2004). The world republic of letters. Harvard University Press.
+Even-Zohar, I. (1990). Polysystem studies. Poetics Today, 11(1), 1-268.
+Venuti, L. (1995). The translator's invisibility: A history of translation. Routledge.

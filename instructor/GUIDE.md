@@ -43,7 +43,8 @@ it cannot find any of them it says so and points at the Node installer.
 ### Step 3. Check it works
 
 You should see the app with empty tabs across the top: Overview, Students,
-Courses, Gradebook, Analytics, Thesis review, Compare drafts, Settings.
+Courses, Gradebook, Analytics, Thesis review, Batch triage, Compare drafts,
+Settings.
 
 Go to **Settings** and fill in your name and the current term.
 
@@ -121,6 +122,35 @@ The tabs across the top of the results:
 
 **Save review** stores it so you can reopen it later and so the next thesis can
 be compared against it.
+
+### Marking a whole cohort
+
+Opening twenty-five files to find out which three need work is the part that
+takes the afternoon. **Batch triage** does that pass for you.
+
+**Batch triage** tab → **Choose a folder** (or drag the folder in) → wait.
+
+You get the same submissions back in the order they need reading, and beside
+each one the reason it is in that position: an overloaded argument, a high
+error rate, references cited but never listed, text shared with another
+submission. Click **Open** on any row to read it properly in **Thesis review** —
+it is already parsed, so it opens immediately.
+
+Three things worth knowing:
+
+- **It compares the submissions against each other.** Two students who worked
+  together are invisible when you read their papers one at a time and obvious
+  when both are in the same batch. Bibliographies are excluded from that
+  comparison, because a class reading one syllabus cites the same books.
+- **It writes nothing.** No marks, no saved reviews, no student assignments.
+  Where a filename looks like one of your students it says so as a suggestion,
+  and if the filename could be two students it says that instead of choosing.
+- **A row with no reasons is not a good thesis.** It is one this tool has
+  nothing to say about. It still needs reading; it just does not need reading
+  first.
+
+**Export CSV** gives you the whole table — every count and score per file — to
+open in Excel.
 
 ### Checking whether the work is the student's own
 

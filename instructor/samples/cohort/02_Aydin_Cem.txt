@@ -1,0 +1,28 @@
+Declaration
+
+I declare that this dissertation is my own work and that it has not been submitted, in whole or in part, for any other degree at this or any other institution. All sources consulted have been acknowledged in the reference list.
+
+Retranslation and the ageing of the literary text: three Turkish Madame Bovarys
+
+Abstract
+
+This chapter examines retranslation and the ageing of the literary text: three Turkish Madame Bovarys.
+
+1. Introduction
+
+Retranslation is usually explained by the ageing of language, but the three Turkish versions of Madame Bovary published in 1955, 1982 and 2007 do not support that explanation on its own. The 1955 version is in several respects closer to contemporary usage than the 1982 one.
+
+Bassnett (2002) notes that retranslation often responds to a change in the cultural position of the source text rather than to linguistic obsolescence. The 1982 version appeared alongside a critical edition and carries an apparatus of footnotes; the 2007 version has none and is marketed as a general-readership classic. The three versions therefore address three different readers, and the differences between them follow that address more closely than they follow the calendar.
+
+A sentence-level comparison of the opening thirty pages shows the pattern. The 1982 text preserves French syntax and leaves cultural items untranslated with a footnote. The 2007 text substitutes an explanatory phrase in the body. Neither is more modern; they are differently addressed.
+
+This complicates the standard account without overturning it. Language does age, and some 1955 lexis is now opaque. But the ageing hypothesis predicts a monotonic drift toward the contemporary, and what the corpus shows is oscillation.
+
+A larger corpus would be needed to establish whether this pattern holds beyond one novel, and the present chapter claims only that the single-cause explanation is insufficient for this case.
+
+References
+
+Bassnett, S. (2002). Translation studies (3rd ed.). Routledge.
+Casanova, P. (2004). The world republic of letters. Harvard University Press.
+Even-Zohar, I. (1990). Polysystem studies. Poetics Today, 11(1), 1-268.
+Venuti, L. (1995). The translator's invisibility: A history of translation. Routledge.

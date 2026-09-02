@@ -9,6 +9,7 @@ import renderImport from './views/import.js';
 import renderCourses from './views/courses.js';
 import renderGradebook from './views/gradebook.js';
 import renderAnalytics from './views/analytics.js';
+import renderBatch from './views/batch.js';
 import renderThesis from './views/thesis.js';
 import renderCitations from './views/citations.js';
 import renderIntegrity from './views/integrity.js';
@@ -24,6 +25,7 @@ const VIEWS = [
   { id: 'gradebook', label: 'Gradebook',  render: renderGradebook },
   { id: 'analytics', label: 'Analytics',  render: renderAnalytics },
   { id: 'thesis',    label: 'Thesis review', render: renderThesis },
+  { id: 'batch',     label: 'Batch triage', render: renderBatch },
   { id: 'citations', label: 'Citations',   render: renderCitations },
   { id: 'integrity', label: 'Integrity',   render: renderIntegrity },
   { id: 'compare',   label: 'Compare drafts', render: renderCompare },
@@ -36,7 +38,7 @@ if (!VIEWS.some((v) => v.id === current)) current = 'dashboard';
 
 /* Views that own transient state (an analysed thesis, an in-progress diff)
    must not be blown away by an unrelated store update. */
-const STICKY = new Set(['thesis', 'compare', 'citations', 'research', 'import', 'integrity']);
+const STICKY = new Set(['thesis', 'batch', 'compare', 'citations', 'research', 'import', 'integrity']);
 const rendered = new Set();
 
 function buildTabs() {
@@ -52,7 +54,10 @@ function buildTabs() {
   ));
 }
 
-function go(id) {
+/* `force` exists for one case: handing a document from Batch triage to the
+   Thesis view, where the target is sticky and would otherwise keep the
+   previous thesis on screen. */
+function go(id, { force = false } = {}) {
   current = id;
   location.hash = id;
   VIEWS.forEach((v) => {
@@ -62,7 +67,7 @@ function go(id) {
     section.classList.toggle('active', active);
     if (tab) tab.setAttribute('aria-selected', String(active));
   });
-  renderView(id);
+  renderView(id, { force });
   window.scrollTo(0, 0);
 }
 

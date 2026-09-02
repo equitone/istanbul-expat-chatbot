@@ -46,6 +46,24 @@ function reset() {
   Object.assign(S, { text: '', filename: '', title: '', report: null, extras: {}, panel: 'findings', filters: null, severities: null, savedId: null });
 }
 
+/*
+ * Hand a document straight to this view from elsewhere (Batch triage), so the
+ * instructor does not re-open and re-parse a file the app has already read.
+ * The analysis is redone here rather than passed in: this view owns the shape
+ * of its own report, and a stale one from another tab would be a bug waiting.
+ */
+export function stageThesis({ text, filename = '', title = '', style = 'apa7', studentId = null }) {
+  reset();
+  Object.assign(S, {
+    text,
+    filename,
+    title: title || filename,
+    style,
+    studentId,
+    report: analyseThesis(text, { citationStyle: style })
+  });
+}
+
 /* ------------------------------------------------------------- intake */
 
 function intake(root, ctx) {

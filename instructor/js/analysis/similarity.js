@@ -279,3 +279,98 @@ function hash(str) {
   }
   return h;
 }
+
+/* ------------------------------------------------------------ cross-match */
+
+/*
+ * Reuse across a whole batch, every document against every other.
+ *
+ * compareAgainstCorpus re-fingerprints the entire corpus once per target,
+ * which is fine for one thesis against a shelf and quadratic when the shelf
+ * IS the batch — 30 submissions would fingerprint 900 documents. Here each
+ * document is fingerprinted once and the hashes are inverted into buckets, so
+ * the work is proportional to the number of shared hashes rather than to the
+ * number of pairs.
+ */
+export function crossMatch(entries) {
+  /* Fingerprint the body only. A cohort reading the same syllabus cites the
+     same works, so bibliographies overlap heavily between papers that share
+     nothing else; counting them would put every submission near the top. */
+  const prints = entries.map((e) => {
+    const body = e.text.slice(0, buildDocument(e.text).bodyEnd || e.text.length);
+    return { id: e.id, label: e.label, text: e.text, print: fingerprint(body) };
+  });
+
+  const buckets = new Map();
+  prints.forEach((p, doc) =>
+    p.print.hashes.forEach((s) => {
+      if (!buckets.has(s.h)) buckets.set(s.h, []);
+      buckets.get(s.h).push({ doc, s });
+    })
+  );
+
+  /*
+   * A phrase that turns up across most of the cohort is the assignment brief,
+   * a required declaration or a title page — shared because it was handed out,
+   * not because it was copied.
+   *
+   * The filter only runs on a batch large enough for "most of the cohort" to
+   * mean anything. Below that it does the opposite of its job: in a batch of
+   * three, a passage in all three would be dropped as boilerplate when three
+   * students copying each other is precisely the finding.
+   */
+  const ubiquitous = prints.length >= 5 ? Math.max(4, Math.ceil(prints.length * 0.6)) : Infinity;
+  let suppressed = 0;
+
+  const pairs = new Map();
+  buckets.forEach((list) => {
+    if (list.length < 2) return;
+    if (new Set(list.map((x) => x.doc)).size >= ubiquitous) { suppressed++; return; }
+    for (let i = 0; i < list.length; i++) {
+      for (let j = i + 1; j < list.length; j++) {
+        if (list[i].doc === list[j].doc) continue;
+        const [lo, hi] = list[i].doc < list[j].doc ? [list[i], list[j]] : [list[j], list[i]];
+        const key = `${lo.doc}|${hi.doc}`;
+        let rec = pairs.get(key);
+        if (!rec) {
+          rec = { a: lo.doc, b: hi.doc, aHits: new Map(), bHits: new Map() };
+          pairs.set(key, rec);
+        }
+        rec.aHits.set(lo.s.index, lo.s);
+        rec.bHits.set(hi.s.index, hi.s);
+      }
+    }
+  });
+
+  const results = [];
+  pairs.forEach((rec) => {
+    const A = prints[rec.a];
+    const B = prints[rec.b];
+    const passagesA = mergeRuns([...rec.aHits.values()]).filter((p) => p.count >= MIN_RUN);
+    if (!passagesA.length) return;
+    const passagesB = mergeRuns([...rec.bHits.values()]).filter((p) => p.count >= MIN_RUN);
+    const covered = passagesA.reduce((n, p) => n + (p.end - p.start), 0);
+    results.push({
+      a: A.id,
+      b: B.id,
+      labelA: A.label,
+      labelB: B.label,
+      /* Share of A's fingerprints that also appear in B, and vice versa. A
+         short paper lifted whole into a long one is high one way and low the
+         other, so both are kept rather than averaged away. */
+      containmentA: A.print.hashes.length ? rec.aHits.size / A.print.hashes.length : 0,
+      containmentB: B.print.hashes.length ? rec.bHits.size / B.print.hashes.length : 0,
+      charsCovered: covered,
+      passagesA: passagesA.slice(0, 40),
+      passagesB: passagesB.slice(0, 40)
+    });
+  });
+
+  results.sort(
+    (x, y) => Math.max(y.containmentA, y.containmentB) - Math.max(x.containmentA, x.containmentB)
+  );
+  /* Reported, not hidden: every percentage above is net of this filter, and
+     an instructor comparing two numbers deserves to know one was applied. */
+  results.suppressedPhrases = suppressed;
+  return results;
+}

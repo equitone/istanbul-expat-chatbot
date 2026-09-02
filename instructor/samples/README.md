@@ -9,8 +9,17 @@ Files to try the workbench on before you use real student work.
 | `other-student.txt` | A different student's chapter that shares one paragraph verbatim with `thesis-v1.txt`. Save both under **Thesis review**, then run **Originality → Run comparison** to see the shared passage found. |
 | `grammar-test.txt` | Sixteen numbered sentences, each with one planted fault. The table below says what each should produce, so you can verify the engine rather than guess. |
 | `ai-flavoured.txt` | Written to trip every AI-writing indicator. Compare its score with `thesis-v1.txt`, which is human-written and scores low. This is the fastest way to see how noisy the signal is, and why it is labelled an indicator rather than a verdict. |
+| `cohort/` (6 files) | A cohort for **Batch triage**: five different chapters that legitimately share a declaration and a bibliography, plus one file submitted twice under two names and one paragraph lifted between two others. Exactly two findings should surface. |
 
 None of these are real student work.
+
+The `cohort/` papers are deliberately short (roughly 300 words each), which is
+below the 1,200 words the rate-based measures need. Batch triage says so on
+every row and lowers those reasons a level accordingly, so what stays at the
+top is the shared text — which is a fact about the files rather than a rate
+computed over too few words. Every paper also raises *references listed but
+never cited*, because they share one bibliography and each cites part of it;
+that finding is correct, and it is what a padded bibliography looks like.
 
 
 ## `grammar-test.txt` — expected findings
