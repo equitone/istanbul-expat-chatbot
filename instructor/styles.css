@@ -91,30 +91,39 @@ body {
 
 /* ------------------------------------------------------------------ shell */
 
+/*
+ * The header wraps; it never scrolls.
+ *
+ * A horizontally scrolling tab strip hides the tabs at the end, and the ones
+ * at the end are the ones nobody then discovers. Wrapping costs a second row
+ * on a narrow window and keeps every tab reachable at every width, which is
+ * the trade worth making. The brand is sized to stay out of the way.
+ */
 .app-header {
   display: flex;
   align-items: center;
-  gap: 16px;
-  padding: 0 20px;
-  height: 56px;
+  gap: 8px 14px;
+  flex-wrap: wrap;
+  padding: 7px 16px;
+  min-height: 52px;
   background: var(--surface);
   border-bottom: 1px solid var(--border);
   position: sticky;
   top: 0;
   z-index: 30;
 }
-.brand { display: flex; align-items: baseline; gap: 9px; margin-right: 6px; }
-.brand strong { font-size: 15px; letter-spacing: -.01em; }
-.brand span { font-size: 11px; color: var(--text-faint); text-transform: uppercase; letter-spacing: .07em; }
+.brand { display: flex; align-items: baseline; gap: 6px; flex: 0 0 auto; }
+.brand strong { font-size: 13px; letter-spacing: -.01em; }
+.brand span { font-size: 9px; color: var(--text-faint); text-transform: uppercase; letter-spacing: .06em; }
 
-.tabs { display: flex; gap: 2px; flex: 1; overflow-x: auto; }
+.tabs { display: flex; flex-wrap: wrap; gap: 2px; flex: 1 1 auto; min-width: 0; }
 .tab {
   appearance: none;
   border: 0;
   background: none;
   font: inherit;
   color: var(--text-dim);
-  padding: 7px 12px;
+  padding: 6px 9px;
   border-radius: var(--radius-sm);
   cursor: pointer;
   white-space: nowrap;

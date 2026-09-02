@@ -74,20 +74,32 @@ async function load(file, root, ctx) {
   renderImport(root, ctx);
 }
 
+const GENERIC_SHEET = /^(sheet|page|sayfa|tablo|table|worksheet|data|list|liste|export|rapor|report)\s*\d*$/i;
+
 function analyseSheet() {
   const sheet = S.workbook.sheets[S.sheetIndex];
   S.layout = detectLayout(sheet.rows);
   S.mapping = {
     nameCol: S.layout.nameCol,
+    firstNameCol: S.layout.firstNameCol,
+    lastNameCol: S.layout.lastNameCol,
     numberCol: S.layout.numberCol,
     levelCol: S.layout.levelCol,
     emailCol: S.layout.emailCol,
+    classYearCol: S.layout.classYearCol,
+    totalCol: S.layout.totalCol,
+    letterCol: S.layout.letterCol,
+    statusCol: S.layout.statusCol,
     gradeCols: [...S.layout.gradeCols],
     maxScorePerColumn: {}
   };
   const guessedYear = (S.workbook.filename.match(/(20\d\d)/) || sheet.name.match(/(20\d\d)/) || [])[1] || '';
   S.meta = {
-    title: sheet.name && !/^sheet\d*$/i.test(sheet.name) ? sheet.name : S.workbook.filename.replace(/\.[^.]+$/, ''),
+    /* A sheet called "Page 1" or "Sheet1" names the export, not the course;
+       the filename is the better guess in that case. */
+    title: sheet.name && !GENERIC_SHEET.test(sheet.name.trim())
+      ? sheet.name
+      : S.workbook.filename.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ').trim(),
     code: '',
     level: 'undergraduate',
     term: guessedYear ? `Fall ${guessedYear}` : getState().settings.defaultTerm,
@@ -96,8 +108,12 @@ function analyseSheet() {
   rebuildPlan();
 }
 
+const hasName = (m) =>
+  Boolean(m) && ((m.nameCol !== null && m.nameCol !== undefined) ||
+                 (m.firstNameCol !== null && m.firstNameCol !== undefined));
+
 function rebuildPlan() {
-  if (!S.layout || !S.mapping || S.mapping.nameCol === null || S.mapping.nameCol === undefined) { S.plan = null; return; }
+  if (!S.layout || !hasName(S.mapping)) { S.plan = null; return; }
   S.plan = buildPlan(S.layout, S.mapping, S.meta, getState().students);
   S.plan.sourceName = S.workbook.filename;
 }
@@ -120,32 +136,50 @@ function sheetPicker(root, ctx) {
 
 function mappingCard(root, ctx) {
   const L = S.layout;
+  const SINGLE = {
+    name: 'nameCol', firstName: 'firstNameCol', lastName: 'lastNameCol',
+    number: 'numberCol', level: 'levelCol', email: 'emailCol',
+    classYear: 'classYearCol', total: 'totalCol', letter: 'letterCol', status: 'statusCol'
+  };
   const roleFor = (idx) => {
-    if (idx === S.mapping.nameCol) return 'name';
-    if (idx === S.mapping.numberCol) return 'number';
-    if (idx === S.mapping.levelCol) return 'level';
-    if (idx === S.mapping.emailCol) return 'email';
+    const hit = Object.entries(SINGLE).find(([, key]) => S.mapping[key] === idx);
+    if (hit) return hit[0];
     if (S.mapping.gradeCols.includes(idx)) return 'grade';
     return 'ignore';
   };
   const setRole = (idx, role) => {
-    ['nameCol', 'numberCol', 'levelCol', 'emailCol'].forEach((k) => { if (S.mapping[k] === idx) S.mapping[k] = null; });
+    Object.values(SINGLE).forEach((k) => { if (S.mapping[k] === idx) S.mapping[k] = null; });
     S.mapping.gradeCols = S.mapping.gradeCols.filter((x) => x !== idx);
-    if (role === 'name') S.mapping.nameCol = idx;
-    else if (role === 'number') S.mapping.numberCol = idx;
-    else if (role === 'level') S.mapping.levelCol = idx;
-    else if (role === 'email') S.mapping.emailCol = idx;
+    if (SINGLE[role]) S.mapping[SINGLE[role]] = idx;
     else if (role === 'grade') S.mapping.gradeCols = [...S.mapping.gradeCols, idx].sort((a, b) => a - b);
     rebuildPlan();
     renderImport(root, ctx);
   };
 
+  const ROLE_OPTIONS = [
+    ['ignore', 'ignore'],
+    ['name', 'Full name'],
+    ['firstName', 'First name'],
+    ['lastName', 'Surname'],
+    ['number', 'Student no.'],
+    ['classYear', 'Year of study'],
+    ['grade', 'A mark'],
+    ['total', 'Recorded total'],
+    ['letter', 'Letter grade'],
+    ['status', 'Pass / fail'],
+    ['level', 'Level'],
+    ['email', 'Email']
+  ];
+
   return el('div', { class: 'card' },
     el('h2', { text: 'What is in each column?' }),
     el('p', { text: `Header taken from row ${L.headerRow + 1}. The guesses below are usually right; correct anything that is not.` }),
-    S.mapping.nameCol === null || S.mapping.nameCol === undefined
-      ? banner('warn', 'No name column identified. Choose one below — nothing can be imported without it.')
+    L.sectionCode
+      ? el('p', { class: 'hint', text: `Every column ends in “${L.sectionCode}”. That is the section code, not part of any column name, so it has been removed — components are named “Vize”, not “Vize(%20)${L.sectionCode}”.` })
       : null,
+    hasName(S.mapping)
+      ? null
+      : banner('warn', 'No name column identified. Choose one below — either a full-name column, or a first-name and a surname column to join.'),
     el('div', { class: 'table-wrap' },
       el('table', {},
         el('thead', {}, el('tr', {},
@@ -156,14 +190,16 @@ function mappingCard(root, ctx) {
           const role = roleFor(col.index);
           return el('tr', {},
             el('td', { text: letter(col.index) }),
-            el('td', { style: 'font-weight:600', text: col.header }),
+            el('td', {},
+              el('div', { style: 'font-weight:600', text: col.label || col.header }),
+              col.weight ? el('span', { class: 'hint', style: 'margin:0', text: `worth ${col.weight}% — from the header` }) : null
+            ),
             el('td', { class: 'wrap', style: 'font-size:12px;color:var(--text-dim)', text: col.sampleValues.join(' · ') || '—' }),
             el('td', {}, el('select', {
               style: 'width:auto;min-width:120px',
               onChange: (e) => setRole(col.index, e.target.value)
             },
-              [['ignore', 'ignore'], ['name', 'Student name'], ['number', 'Student no.'], ['grade', 'A mark'], ['level', 'Level'], ['email', 'Email']]
-                .map(([v, t]) => el('option', { value: v, selected: role === v, text: t }))
+              ROLE_OPTIONS.map(([v, t]) => el('option', { value: v, selected: role === v, text: t }))
             )),
             el('td', { class: 'num' }, role === 'grade'
               ? el('input', {
@@ -211,6 +247,9 @@ function planCard(root, ctx) {
     ),
 
     p.conflicts.length ? conflictCard(root, ctx) : null,
+
+    componentsCard(p),
+    p.check ? checkCard(p.check) : null,
 
     p.skipped.length
       ? el('div', { class: 'card' },
@@ -397,3 +436,53 @@ const letter = (i) => {
   do { s = String.fromCharCode(65 + (n % 26)) + s; n = Math.floor(n / 26) - 1; } while (n >= 0);
   return s;
 };
+
+/*
+ * What the course will actually be marked out of. Shown before the import,
+ * because a wrong weight is invisible afterwards — every total is simply a
+ * little off, and nothing announces it.
+ */
+function componentsCard(p) {
+  const total = p.components.filter((c) => !c.resitFor).reduce((n, c) => n + (Number(c.weight) || 0), 0);
+  const nameOf = (id) => (p.components.find((c) => c.id === id) || {}).name || '';
+  return el('div', { class: 'card' },
+    el('h2', { text: 'Components and weights' }),
+    table(
+      ['Component', { label: 'Weight', num: true }, { label: 'Out of', num: true }, 'Where the weight came from'],
+      p.components.map((c) => [
+        c.name,
+        c.resitFor ? '—' : `${c.weight}%`,
+        String(c.maxScore),
+        c.resitFor
+          ? `Resit for ${nameOf(c.resitFor)} — the better of the two marks counts, so it carries no weight of its own`
+          : c.weightFromHeader ? 'the column header' : 'split evenly, because no header declared one'
+      ]),
+      { footer: [['Total', `${Math.round(total * 10) / 10}%`, '', '']] }
+    ),
+    Math.abs(total - 100) > 0.5
+      ? banner('warn', `These weights add up to ${Math.round(total * 10) / 10}%, not 100%. Import anyway if that is right for this course; otherwise fix the columns above.`)
+      : null
+  );
+}
+
+/*
+ * The sheet brought its own answer with it. Recomputing it and comparing is
+ * the only check available that the weights, the resit rule and the mark
+ * columns were all read correctly — and it checks against the instructor's
+ * own data rather than against an assumption.
+ */
+function checkCard(check) {
+  const all = check.agreed === check.checked;
+  return el('div', { class: 'card' },
+    el('h2', { text: 'Checked against the totals already in the sheet' }),
+    all
+      ? banner('privacy', `All ${check.checked} recorded totals match what the app computes from the columns above. The weights and the resit rule were read correctly.`)
+      : banner('warn', `${check.agreed} of ${check.checked} recorded totals match. ${check.checked - check.agreed} do not — listed below.`),
+    all ? null : el('p', { class: 'hint', text: 'A difference is usually a mark entered by hand over the formula, which is yours to keep. It can also mean a weight was read wrongly, in which case correct it above. Nothing here is changed either way — the marks import exactly as the sheet has them.' }),
+    all ? null : table(
+      ['Student', 'No.', { label: 'Sheet says', num: true }, { label: 'Computed', num: true }],
+      check.differences.map((d) => [d.name, d.studentNo || '—', String(d.recorded), String(d.computed)])
+    ),
+    !all && check.moreDifferences ? el('p', { class: 'hint', text: `…and ${check.moreDifferences} more.` }) : null
+  );
+}

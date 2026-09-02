@@ -129,10 +129,27 @@ export function courseTotal(componentScores, components) {
   let weightTotal = 0;
   const missing = [];
 
+  /*
+   * A resit stands in for the exam it replaces rather than beside it: it
+   * carries no weight of its own and the better of the two marks is the one
+   * that counts. Weighting it separately would take the total past 100% and
+   * would credit a student twice for sitting the same paper again.
+   */
+  const resitOf = new Map();
+  components.forEach((c) => { if (c.resitFor) resitOf.set(c.resitFor, c); });
+
   components.forEach((c) => {
+    if (c.resitFor) return;
     const weight = Number(c.weight) || 0;
     weightTotal += weight;
-    const raw = componentScores ? componentScores[c.id] : null;
+    let raw = componentScores ? componentScores[c.id] : null;
+
+    const resit = resitOf.get(c.id);
+    if (resit && componentScores) {
+      const alt = componentScores[resit.id];
+      if (Number.isFinite(alt) && (!Number.isFinite(raw) || alt > raw)) raw = alt;
+    }
+
     if (!Number.isFinite(raw)) {
       missing.push(c.id);
       return;
