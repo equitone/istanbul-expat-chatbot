@@ -97,6 +97,25 @@ a sheet per course, statistics, and every thesis finding.
 
 ---
 
+## Setting up how a course is marked
+
+**Courses** tab → open the course → **Assessment components**.
+
+A new course starts with five: Class participation, Vize, Mazeret, Final and
+Bütünleme. Change any weight or max score by typing over it, remove what you
+do not use, and add your own at the bottom.
+
+Two of those five have a dash instead of a weight, on purpose. **Mazeret**
+stands in for a missed Vize and **Bütünleme** for a failed Final, so each is
+set to *replace* the exam it stands in for in the **Replaces** column. A
+replacement carries the weight of the exam it replaces and the better of the
+two marks counts. Weighting it separately would take the course past 100% and
+credit a student twice for one paper.
+
+Use the same **Replaces** setting for any make-up exam you add yourself.
+
+---
+
 ## The week at a glance
 
 **Courses** tab → open a course → **When it meets** → click the days it meets,

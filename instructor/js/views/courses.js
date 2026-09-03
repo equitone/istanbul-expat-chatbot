@@ -42,7 +42,12 @@ export default function renderCourses(root, ctx) {
 }
 
 function courseDetail(course, s, root, ctx) {
-  const totalWeight = course.components.reduce((n, c) => n + (Number(c.weight) || 0), 0);
+  /* Replacement exams are excluded: they carry the weight of the exam they
+     stand in for, so counting them here would report 160% on a course that
+     adds up correctly. */
+  const totalWeight = course.components
+    .filter((c) => !c.resitFor)
+    .reduce((n, c) => n + (Number(c.weight) || 0), 0);
   const rerender = () => renderCourses(root, ctx);
 
   return el('div', {},
@@ -72,11 +77,30 @@ function courseDetail(course, s, root, ctx) {
       totalWeight !== 100
         ? el('div', { class: 'banner warn', text: `Weights currently total ${num(totalWeight)}%. Final marks are computed against the full 100%, so anything missing counts as unearned.` })
         : el('div', { class: 'banner info', text: 'Weights total 100%.' }),
-      table(['Component', { label: 'Weight %', num: true }, { label: 'Max score', num: true }, ''],
+      el('p', { class: 'hint', text: 'A make-up or resit exam should be set to replace the exam it stands in for. It then carries no weight of its own and the better of the two marks counts — which is how Mazeret and Bütünleme are meant to work, and why weighting them separately would take the course past 100%.' }),
+      table(['Component', { label: 'Weight %', num: true }, { label: 'Max score', num: true }, 'Replaces', ''],
         course.components.map((c) => [
           el('td', {}, el('input', { value: c.name, onChange: (e) => patchComponent(course.id, c.id, { name: e.target.value }) })),
-          el('td', { class: 'num' }, el('input', { class: 'grade-input', type: 'number', min: '0', max: '100', value: c.weight, onChange: (e) => patchComponent(course.id, c.id, { weight: Number(e.target.value) }) })),
+          el('td', { class: 'num' }, c.resitFor
+            ? el('span', { class: 'hint', title: 'A replacement exam carries the weight of the exam it replaces.', text: '—' })
+            : el('input', { class: 'grade-input', type: 'number', min: '0', max: '100', value: c.weight, onChange: (e) => patchComponent(course.id, c.id, { weight: Number(e.target.value) }) })),
           el('td', { class: 'num' }, el('input', { class: 'grade-input', type: 'number', min: '1', value: c.maxScore, onChange: (e) => patchComponent(course.id, c.id, { maxScore: Number(e.target.value) }) })),
+          el('td', {}, el('select', {
+            style: 'width:auto;min-width:130px',
+            onChange: (e) => {
+              const target = e.target.value || null;
+              /* A replacement holds no weight of its own; releasing one hands
+                 back a zero rather than silently restoring a number the
+                 instructor never chose. */
+              patchComponent(course.id, c.id, { resitFor: target, weight: target ? 0 : Number(c.weight) || 0 });
+              rerender();
+            }
+          },
+            el('option', { value: '', selected: !c.resitFor, text: 'nothing — it is its own' }),
+            course.components
+              .filter((x) => x.id !== c.id && !x.resitFor)
+              .map((x) => el('option', { value: x.id, selected: c.resitFor === x.id, text: x.name }))
+          )),
           el('td', {}, el('button', { class: 'ghost sm', text: 'Remove', onClick: async () => {
             if (await confirmDialog('Remove component?', `Marks recorded for “${c.name}” will be deleted.`, 'Remove')) removeComponent(course.id, c.id);
           } }))

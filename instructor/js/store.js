@@ -177,7 +177,7 @@ export function addCourse(data) {
     level: data.level || 'undergraduate',
     term: (data.term || state.settings.defaultTerm || '').trim(),
     credits: Number(data.credits) || 0,
-    components: (data.components || defaultComponents()).map((c) => ({ id: uid('cmp'), ...c })),
+    components: resolveReplaces((data.components || defaultComponents()).map((c) => ({ id: uid('cmp'), ...c }))),
     schedule: data.schedule || [],
     startDate: data.startDate || '',
     weeks: Number(data.weeks) || 14,
@@ -188,12 +188,37 @@ export function addCourse(data) {
   return course;
 }
 
+/*
+ * The scheme a new course starts with.
+ *
+ * Two of these five carry no weight of their own. Mazeret is the make-up
+ * exam for a missed Vize and Bütünleme is the resit for the Final: each
+ * stands in place of the exam it replaces and the better mark counts. Given
+ * a weight of their own they would take the course past 100% and credit a
+ * student twice for sitting one paper — which is exactly the fault this app
+ * found in the real gradebook it was tested against.
+ *
+ * `replaces` names the component by its position here; addCourse turns it
+ * into the generated id, since ids do not exist yet at this point.
+ */
+/* Turn a `replaces: 'Vize'` written by name into a resitFor holding the id
+   that was generated a moment ago. */
+function resolveReplaces(components) {
+  return components.map((c) => {
+    const { replaces, ...rest } = c;
+    if (!replaces) return { ...rest, resitFor: rest.resitFor || null };
+    const target = components.find((x) => x.name === replaces);
+    return { ...rest, resitFor: target ? target.id : null };
+  });
+}
+
 function defaultComponents() {
   return [
-    { name: 'Participation', weight: 10, maxScore: 100 },
-    { name: 'Midterm', weight: 30, maxScore: 100 },
-    { name: 'Term paper', weight: 25, maxScore: 100 },
-    { name: 'Final exam', weight: 35, maxScore: 100 }
+    { name: 'Class participation', weight: 20, maxScore: 100 },
+    { name: 'Vize', weight: 20, maxScore: 100 },
+    { name: 'Mazeret', weight: 0, maxScore: 100, replaces: 'Vize' },
+    { name: 'Final', weight: 60, maxScore: 100 },
+    { name: 'Bütünleme', weight: 0, maxScore: 100, replaces: 'Final' }
   ];
 }
 
