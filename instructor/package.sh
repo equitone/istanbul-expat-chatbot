@@ -50,6 +50,24 @@ macOS
 
 Do NOT double-click index.html. It will not work.
 
+
+FIRST FIVE MINUTES
+------------------
+  1. Import   -> choose your marks spreadsheet. It reads the Turkish
+                 column names, the weights in the headers and the resit
+                 rule, then tells you whether its totals match yours.
+
+  2. Courses  -> open the course -> "When it meets": tick the days, set
+                 the time, the room, and the date the first week begins.
+
+  3. Overview -> your Weekly planner is now there: every class, which
+                 meeting of the course it is ("Session 9"), and a to-do
+                 list under each one. Type in the box and press Enter.
+                 Use > to plan a class weeks ahead.
+
+  4. Thesis review -> paste or drop a thesis -> "Report for student"
+                 gives a colour-marked PDF they can correct themselves.
+
 Full instructions, including the backup rule, are in GUIDE.md
 (open it with Notepad, or any Markdown reader).
 

@@ -158,13 +158,30 @@ function plannerCard(s, root, go) {
   const monday = addDays(weekStart(new Date()), weekOffset * 7);
   const rerender = () => renderDashboard(root, { go });
 
-  if (!s.courses.length) return null;
+  /*
+   * Always rendered, even with nothing to show.
+   *
+   * It used to return null when there were no courses, so on a fresh install
+   * the planner did not exist anywhere on screen and there was no way to find
+   * out that it should. A feature that hides until it is already configured
+   * cannot be configured.
+   */
+  if (!s.courses.length) {
+    return el('div', { class: 'card' },
+      el('h2', { text: 'Weekly planner' }),
+      el('p', { class: 'hint', text: 'Your teaching week appears here — each class, which meeting of the course it is, and a to-do list for that session. It needs a course first.' }),
+      el('div', { class: 'row' },
+        el('button', { class: 'primary', text: 'Create a course', onClick: () => go('courses') }),
+        el('button', { text: 'Import a spreadsheet', onClick: () => go('import') })
+      )
+    );
+  }
 
   if (!scheduled.length) {
     return el('div', { class: 'card' },
-      el('h2', { text: 'This week' }),
-      el('p', { class: 'hint', text: 'No course has days set yet, so there is nothing to lay out. Open a course and fill in “When it meets” — the planner builds itself from that.' }),
-      el('button', { text: 'Set a course timetable', onClick: () => go('courses') })
+      el('h2', { text: 'Weekly planner' }),
+      el('p', { class: 'hint', text: 'You have a course but it has no days set, so there is nothing to lay out yet. Open it, fill in “When it meets” — the days, the time, the room and the date the first week begins — and your week appears here with a to-do list under each class.' }),
+      el('button', { class: 'primary', text: 'Set a course timetable', onClick: () => go('courses') })
     );
   }
 
@@ -177,8 +194,8 @@ function plannerCard(s, root, go) {
 
   return el('div', { class: 'card' },
     el('div', { class: 'row', style: 'align-items:center;gap:10px;margin-bottom:4px' },
-      el('h2', { style: 'margin:0', text: label }),
-      el('span', { class: 'hint', style: 'margin:0', text: `${monday.toLocaleDateString(undefined, { day: 'numeric', month: 'short' })} – ${addDays(monday, 6).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })} · ${meetings.length} class${meetings.length === 1 ? '' : 'es'}` }),
+      el('h2', { style: 'margin:0', text: 'Weekly planner' }),
+      el('span', { class: 'hint', style: 'margin:0', text: `${label} · ${monday.toLocaleDateString(undefined, { day: 'numeric', month: 'short' })} – ${addDays(monday, 6).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })} · ${meetings.length} class${meetings.length === 1 ? '' : 'es'}` }),
       el('div', { class: 'spacer' }),
       el('button', { class: 'sm', text: '‹', title: 'Previous week', onClick: () => { weekOffset--; rerender(); } }),
       weekOffset !== 0 ? el('button', { class: 'sm', text: 'Today', onClick: () => { weekOffset = 0; rerender(); } }) : null,
