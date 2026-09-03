@@ -158,7 +158,7 @@ export async function testConnection(settings, { signal } = {}) {
       ...(ai.apiKey ? { authorization: `Bearer ${ai.apiKey}` } : {})
     },
     body: JSON.stringify({
-      model: ai.model || models[0] || 'llama3.1',
+      model: ai.model || models[0] || 'llama3.1:8b',
       messages: [{ role: 'user', content: 'Reply with the single word: ready' }],
       stream: false
     })
@@ -282,7 +282,7 @@ async function callLocal(userPrompt, ai, signal) {
       ...(ai.apiKey ? { authorization: `Bearer ${ai.apiKey}` } : {})
     },
     body: JSON.stringify({
-      model: ai.model || 'llama3.1',
+      model: ai.model || 'llama3.1:8b',
       messages: [
         { role: 'system', content: SYSTEM_PROMPT },
         { role: 'user', content: userPrompt }

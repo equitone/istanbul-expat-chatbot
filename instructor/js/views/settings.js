@@ -81,22 +81,33 @@ export default function renderSettings(root, ctx) {
         : el('p', { class: 'hint', text: 'Without it, grammar checking is the built-in rules only: strong on academic patterns, thin on general grammar.' })
     ),
 
-    el('div', { class: 'card' },
-      el('h2', { text: 'AI review (optional, off by default)' }),
+    el('div', { class: 'card', id: 'ai-setup' },
+      el('h2', { text: 'AI review and model setup (optional, off by default)' }),
       el('p', { text: 'Everything else in this app runs locally. This is the one feature that can send text elsewhere — so it stays off until you turn it on, and it tells you where the text goes.' }),
       el('label', { class: 'inline' },
         el('input', { type: 'checkbox', checked: ai.enabled, onChange: (e) => setAi({ enabled: e.target.checked }) }),
         el('span', { text: 'Enable AI review' })
       ),
-      ai.enabled
-        ? el('div', {},
+      /*
+       * The settings below used to be hidden until the checkbox was ticked,
+       * which meant anyone who came here to set a model up found a lone
+       * checkbox and an explanation — nothing to fill in. Typing an address
+       * into a box sends nothing; only ticking Enable and pressing a review
+       * button does. So the fields are always here and the checkbox governs
+       * use, which is what the privacy promise was ever about.
+       */
+      !ai.enabled
+        ? el('p', { class: 'hint', text: 'Fill these in now if you like — nothing is transmitted by doing so. No text leaves this machine until the box above is ticked and you press a Review button.' })
+        : null,
+      ollamaHelp(ai),
+      el('div', {},
             el('div', { class: 'grid cols-2' },
               field('Provider', el('select', { onChange: (e) => setAi({ provider: e.target.value }) },
                 el('option', { value: 'local', selected: ai.provider === 'local', text: 'Local model (nothing leaves your machine)' }),
                 el('option', { value: 'anthropic', selected: ai.provider === 'anthropic', text: 'Claude API (text is sent to Anthropic)' })
               )),
               field('Model', el('input', {
-                value: ai.model || (ai.provider === 'local' ? 'llama3.1' : DEFAULT_MODEL),
+                value: ai.model || (ai.provider === 'local' ? 'llama3.1:8b' : DEFAULT_MODEL),
                 onChange: (e) => setAi({ model: e.target.value })
               }))
             ),
@@ -124,16 +135,13 @@ export default function renderSettings(root, ctx) {
                   field('API key', el('input', { type: 'password', value: ai.apiKey || '', placeholder: 'sk-ant-…', onChange: (e) => setAi({ apiKey: e.target.value }) }),
                     'Stored in this browser’s local storage in plain text, and sent to Anthropic with each request. Anyone with access to this computer or this page can read it. Use a key you can revoke.')
                 )
-          )
-        : el('p', { class: 'hint', text: 'While this is off, no text ever leaves this machine except the reference strings you explicitly send with the Deep research buttons.' }),
-      ai.enabled
-        ? el('div', { style: 'margin-top:12px' },
-            el('div', { class: 'row' },
-              el('button', { id: 'ai-test', text: 'Test connection', onClick: runTest }),
-              el('span', { id: 'ai-test-result', class: 'hint' })
-            )
-          )
-        : null
+          ),
+      el('div', { style: 'margin-top:12px' },
+        el('div', { class: 'row' },
+          el('button', { id: 'ai-test', text: 'Test connection', onClick: runTest }),
+          el('span', { id: 'ai-test-result', class: 'hint' })
+        )
+      )
     ),
 
     el('div', { class: 'card' },
@@ -187,6 +195,8 @@ export default function renderSettings(root, ctx) {
       ].map((r) => [r[0], el('td', { class: 'wrap' }, chip(r[1].includes('online') ? 'online' : 'offline', r[1].includes('online') ? 'medium' : 'good'), ` ${r[1]}`), el('td', { class: 'wrap', text: r[2] })]))
     )
   );
+
+  applyPendingFocus(root);
 
   storageEstimate().then((est) => {
     const line = document.getElementById('storage-line');
@@ -257,4 +267,45 @@ async function runTest(e) {
   } finally {
     btn.disabled = false;
   }
+}
+
+/*
+ * The steps, where the person actually is when they need them.
+ *
+ * The Research tab explains this too, but somebody who lands here from a
+ * menu rather than from that button would otherwise face an endpoint box
+ * with no clue what is meant to be listening on the other end.
+ */
+function ollamaHelp(ai) {
+  if (ai.provider === 'anthropic') return null;
+  return el('details', { class: 'howto', open: !ai.endpoint },
+    el('summary', { text: 'How to get a model running on this computer' }),
+    el('ol', {},
+      el('li', {}, 'Install ', el('strong', { text: 'Ollama' }), ' from ollama.com — there is a normal Windows and Mac installer and it needs no account.'),
+      el('li', {}, 'Open Terminal (Mac) or Command Prompt (Windows) and run ', el('code', { text: 'ollama pull llama3.1:8b' }), ' — about 5 GB, once.'),
+      el('li', {}, 'Start it with enough context for a thesis: ', el('code', { text: 'OLLAMA_CONTEXT_LENGTH=32768 ollama serve' })),
+      el('li', {}, 'Press the ', el('strong', { text: 'Ollama' }), ' button below, set Model to ', el('code', { text: 'llama3.1:8b' }), ' and Context window to ', el('code', { text: '32768' }), ', then press ', el('strong', { text: 'Test connection' }), '.')
+    ),
+    el('p', { class: 'hint', text: 'That third step is not optional. Ollama defaults to a few thousand tokens of context and silently drops whatever does not fit — a whole thesis would be reviewed from its first pages only, with nothing to tell you. This app refuses rather than pretending, and shows you the arithmetic.' })
+  );
+}
+
+/*
+ * Arriving here from the Research tab's "no model" panel. Without this the
+ * button dropped the instructor at the top of a seven-card page with no
+ * indication which card they had been sent to.
+ */
+let pendingFocus = null;
+export function focusAiSetup() { pendingFocus = 'ai-setup'; }
+
+function applyPendingFocus(root) {
+  if (!pendingFocus) return;
+  const target = root.querySelector(`#${pendingFocus}`);
+  pendingFocus = null;
+  if (!target) return;
+  requestAnimationFrame(() => {
+    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    target.classList.add('flash');
+    setTimeout(() => target.classList.remove('flash'), 1800);
+  });
 }

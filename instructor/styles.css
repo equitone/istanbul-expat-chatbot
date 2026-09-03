@@ -544,3 +544,28 @@ dialog .dlg-foot { padding: 12px 18px; border-top: 1px solid var(--border); disp
   border: 1px dashed var(--border);
 }
 .planner-add:focus { border-style: solid; background: var(--surface); }
+
+/* A card the instructor was sent to, so the jump is visible rather than
+   leaving them at the top of a long page wondering what changed. */
+.card.flash { animation: flash 1.8s ease-out; }
+@keyframes flash {
+  0%, 55% { box-shadow: 0 0 0 3px var(--accent); border-color: var(--accent); }
+  100%    { box-shadow: 0 0 0 3px transparent; }
+}
+
+/* The "how to get a model running" block inside Settings. */
+details.howto {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  padding: 10px 13px;
+  margin: 12px 0;
+  font-size: 13px;
+}
+details.howto summary { cursor: pointer; font-weight: 600; }
+details.howto ol { margin: 10px 0 6px 18px; padding: 0; line-height: 1.75; }
+details.howto li { margin-bottom: 3px; }
+details.howto code {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 4px; padding: 1px 5px; font-size: 12px;
+}

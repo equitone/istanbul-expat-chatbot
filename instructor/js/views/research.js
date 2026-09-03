@@ -17,6 +17,7 @@ import { getState } from '../store.js';
 import { searchOpenAlex, searchCrossref, formatReference, setContactEmail, findPriorWork } from '../analysis/verify.js';
 import { assessTopic } from '../analysis/topic.js';
 import { reviewThesis, isConfigured as aiReady } from '../analysis/ai.js';
+import { focusAiSetup } from './settings.js';
 import { downloadText } from '../io/files.js';
 
 const S = {
@@ -192,7 +193,7 @@ function askPanel(root, ctx) {
 
       el('p', { class: 'hint', text: 'Why the context length matters: Ollama defaults to a few thousand tokens and silently drops anything beyond it. Left at the default, a whole thesis would be reviewed from its first pages only — so the app refuses rather than pretending, and tells you the arithmetic.' }),
 
-      el('button', { class: 'primary', text: 'Open settings', onClick: () => ctx.go('settings') })
+      el('button', { class: 'primary', text: 'Set up a model', onClick: () => { focusAiSetup(); ctx.go('settings'); } })
     );
   }
 
@@ -269,7 +270,7 @@ async function askModel(prompt, settings) {
     const res = await fetch(url, {
       method: 'POST',
       headers: { 'content-type': 'application/json', ...(ai.apiKey ? { authorization: `Bearer ${ai.apiKey}` } : {}) },
-      body: JSON.stringify({ model: ai.model || 'llama3.1', stream: false, messages: [{ role: 'system', content: system }, { role: 'user', content: prompt }] })
+      body: JSON.stringify({ model: ai.model || 'llama3.1:8b', stream: false, messages: [{ role: 'system', content: system }, { role: 'user', content: prompt }] })
     });
     if (!res.ok) throw new Error(`The local model returned ${res.status}.`);
     const d = await res.json();

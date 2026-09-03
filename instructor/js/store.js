@@ -31,7 +31,12 @@ function blankState() {
       scaleMax: 100,
       passMark: 50,
       letterScheme: DEFAULT_LETTER_SCHEME.map((s) => ({ ...s })),
-      ai: { enabled: false, provider: 'anthropic', model: 'claude-opus-5', apiKey: '', endpoint: '' },
+      /* Defaults to a model running on this computer, because that is the
+         only option consistent with the rest of the app; the model name is
+         left empty so each provider supplies its own. An instructor who
+         chooses the Claude API keeps that choice — this is the default for a
+         fresh install, not a migration. */
+      ai: { enabled: false, provider: 'local', model: '', apiKey: '', endpoint: '' },
       /* Optional local grammar engine. Off until the instructor installs it. */
       languageTool: { enabled: false, endpoint: 'http://localhost:8081', language: 'en-GB', picky: false }
     },
