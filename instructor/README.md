@@ -127,6 +127,13 @@ reason and a suggested fix.
 what changed — edited paragraphs with a word-level diff, additions, deletions,
 and relocations.
 
+**Ask a question.** A question in plain English becomes a catalogue search,
+and the answer is what the records actually say — counts, span, most-cited,
+subject terms — with every source listed and linked beneath it. It needs
+nothing installed and cannot invent a reference, because it generates nothing.
+A configured model writes prose on top of the same records rather than instead
+of them.
+
 **Reports for the student.** Thesis review, Citations, Integrity, Compare
 drafts, Batch triage and Analytics all produce one printable document.
 Findings are marked in the text in colour and the colours survive the print

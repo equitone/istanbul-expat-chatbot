@@ -18,6 +18,13 @@ cp -r "$DIR"/index.html "$DIR"/styles.css "$DIR"/js "$DIR"/vendor \
       "$DIR"/serve.js "$DIR"/serve.rb "$DIR/Start Workbench.command" \
       "$STAGE/InstructorWorkbench/"
 
+# Stamp the build date into the copy being shipped, so a screenshot of the
+# header says which version it is instead of leaving everyone to guess.
+BUILD_ID="$(date +%Y-%m-%d-%H%M)"
+sed -i.bak "s/^export const BUILD = .*/export const BUILD = '${BUILD_ID}';/" \
+    "$STAGE/InstructorWorkbench/js/version.js"
+rm -f "$STAGE/InstructorWorkbench/js/version.js.bak"
+
 # Zip preserves the executable bit; Finder will not run a .command without it.
 chmod +x "$STAGE/InstructorWorkbench/start.sh" "$STAGE/InstructorWorkbench/Start Workbench.command"
 

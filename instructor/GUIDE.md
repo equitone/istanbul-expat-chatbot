@@ -97,6 +97,27 @@ a sheet per course, statistics, and every thesis finding.
 
 ---
 
+## Asking a question about the literature
+
+**Research** tab → **Ask a question**. Type in your own words — *"what is the
+debate about modernist form and empire?"* — and press Ask.
+
+It works with nothing installed. Your question is turned into a search, and
+what comes back is real records from OpenAlex: how many matched, the years
+they span, the most-cited one to start from, which are free to read, and the
+subject terms to search with next. Each source is listed underneath with a
+link, an abstract, and buttons to save it or copy it as APA or MLA.
+
+It does not write prose without a model, and it says so rather than
+pretending. Nothing there is generated, so nothing there is invented — which
+is the half a chatbot gets wrong.
+
+Set a model up in Settings and it writes the answer as well, using those same
+records; the sources stay listed beneath so anything the prose names can be
+checked against the record without leaving the page.
+
+---
+
 ## Setting up how a course is marked
 
 **Courses** tab → open the course → **Assessment components**.

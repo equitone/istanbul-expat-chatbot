@@ -569,3 +569,13 @@ details.howto code {
   background: var(--surface); border: 1px solid var(--border);
   border-radius: 4px; padding: 1px 5px; font-size: 12px;
 }
+
+/* Build stamp in the header — small, greyed, and always readable. */
+.brand .build {
+  font-size: 9px;
+  color: var(--text-faint);
+  letter-spacing: .04em;
+  padding: 1px 5px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+}

@@ -31,6 +31,7 @@ const S = {
   busy: null,
   chat: [],
   chatDraft: '',
+  lastTotal: 0,
   saved: []
 };
 
@@ -38,7 +39,7 @@ const TABS = [
   { id: 'assess', label: 'Is this topic worth it?', hint: 'Put a thesis statement in and see who is already standing on that ground — and where the room is' },
   { id: 'papers', label: 'Papers & books', hint: 'OpenAlex — 250M works, including monographs and chapters' },
   { id: 'doi', label: 'Journal articles', hint: 'Crossref — publisher-deposited records with a DOI' },
-  { id: 'ask', label: 'Ask a model', hint: 'A conversation, not a catalogue. Verify anything it names.' },
+  { id: 'ask', label: 'Ask a question', hint: 'Ask in your own words. Answers come from the catalogues; add a model in Settings and it will write prose as well.' },
   { id: 'list', label: 'Saved list', hint: 'What you have kept from the searches above' }
 ];
 
@@ -167,55 +168,43 @@ async function doSearch(root, ctx) {
 
 /* ------------------------------------------------------------------ chat */
 
+/*
+ * Ask a question.
+ *
+ * This used to refuse to render at all without a model configured, which made
+ * it a dead end for the only person it was built for: an instructor who has
+ * not installed anything. It now always answers.
+ *
+ * With no model, the answer is the retrieval half of what a tool like
+ * Perplexity does — the question is turned into a search, the catalogue is
+ * queried, and what came back is reported with the sources attached. It does
+ * not write prose and does not pretend to; every line is something a record
+ * actually says. That is worth more to a supervisor than invented fluency,
+ * and it is the half that cannot fabricate a reference.
+ *
+ * With a model configured, the model answers instead and the sources are
+ * still fetched and shown beside it, so anything it names can be checked
+ * against the record without leaving the page.
+ */
 function askPanel(root, ctx) {
   const settings = getState().settings;
-  if (!aiReady(settings)) {
-    /*
-     * "No model configured" and a button to Settings is true and useless: it
-     * does not say what to install. These are the exact steps, because the
-     * instructor is not going to go and research Ollama to use one tab.
-     */
-    return el('div', { class: 'card' },
-      el('h2', { text: 'No model is set up yet' }),
-      el('p', { text: 'The other three tabs work without one — they search real catalogues. This tab is the only part that needs a model, and it can be a model running on this computer, so nothing leaves it.' }),
-
-      el('h3', { style: 'font-size:13px;margin:18px 0 6px', text: 'The offline way — recommended' }),
-      el('ol', { style: 'margin:0 0 10px 18px;font-size:13px;line-height:1.7' },
-        el('li', {}, 'Install ', el('strong', { text: 'Ollama' }), ' from ollama.com — Windows and Mac installers, no account needed.'),
-        el('li', {}, 'Open a terminal and run ', el('code', { text: 'ollama pull llama3.1:8b' }), ' — about 5 GB, once.'),
-        el('li', {}, 'Start it with a context big enough for a thesis: ', el('code', { text: 'OLLAMA_CONTEXT_LENGTH=32768 ollama serve' })),
-        el('li', {}, 'In Settings → AI review, choose ', el('strong', { text: 'Local model' }), ', press the Ollama preset, set the model name to ', el('code', { text: 'llama3.1:8b' }), ' and the context to ', el('code', { text: '32768' }), '.')
-      ),
-      banner('privacy', 'With a local model the text goes to a program on this computer and no further. The offline guarantee is unchanged.'),
-
-      el('h3', { style: 'font-size:13px;margin:18px 0 6px', text: 'Or the Claude API' }),
-      el('p', { class: 'hint', text: 'Better answers, no install, but the text you type is sent to Anthropic and it is billed per use. Settings → AI review → Claude API, then paste a key.' }),
-
-      el('p', { class: 'hint', text: 'Why the context length matters: Ollama defaults to a few thousand tokens and silently drops anything beyond it. Left at the default, a whole thesis would be reviewed from its first pages only — so the app refuses rather than pretending, and tells you the arithmetic.' }),
-
-      el('button', { class: 'primary', text: 'Set up a model', onClick: () => { focusAiSetup(); ctx.go('settings'); } })
-    );
-  }
-
-  const local = settings.ai.provider === 'local';
+  const ready = aiReady(settings);
+  const local = ready && settings.ai.provider === 'local';
 
   return el('div', {},
-    el('div', { class: local ? 'banner privacy' : 'banner warn' },
-      local
-        ? `Answers come from your local model at ${settings.ai.endpoint}. Nothing in this conversation leaves the computer.`
-        : `This conversation is sent to ${settings.ai.model} at Anthropic. Do not paste student work here.`
-    ),
+    ready
+      ? el('div', { class: local ? 'banner privacy' : 'banner warn' },
+          local
+            ? `A model at ${settings.ai.endpoint} writes the answer and the catalogues supply the sources. Nothing in this conversation leaves the computer.`
+            : `This conversation is sent to ${settings.ai.model} at Anthropic. Do not paste student work here.`)
+      : el('div', { class: 'banner info' },
+          'No model is set up, so answers are assembled from the catalogues rather than written as prose — real records, with links. Adding a model in Settings makes it write as well.'),
+
     el('div', { class: 'card' },
       S.chat.length
-        ? el('div', { style: 'max-height:52vh;overflow-y:auto;margin-bottom:12px' },
-            S.chat.map((m) => el('div', {
-              style: `margin-bottom:12px;padding:10px 13px;border-radius:8px;background:${m.role === 'user' ? 'var(--accent-soft)' : 'var(--surface-2)'}`
-            },
-              el('div', { class: 'hint', style: 'margin-bottom:4px', text: m.role === 'user' ? 'You' : 'Model' }),
-              el('div', { style: 'white-space:pre-wrap;font-size:14px', text: m.content })
-            ))
-          )
-        : el('p', { class: 'hint', text: 'Ask about a field, a debate, or where to start reading. The model has no access to your students’ work and cannot search the catalogues — for records, use the other two tabs.' }),
+        ? el('div', { id: 'chat-log', style: 'max-height:56vh;overflow-y:auto;margin-bottom:12px' },
+            S.chat.map((m) => turnCard(m, root, ctx)))
+        : el('p', { class: 'hint', text: 'Ask in your own words — “what is the debate about modernist form and empire?”, “who writes on translation and censorship in Turkey?”. The question is searched against 250 million works; your students’ writing is never part of it.' }),
       S.busy ? el('p', { class: 'hint' }, el('span', { class: 'spinner' }), ` ${S.busy}`) : null,
       el('textarea', {
         id: 'research-chat',
@@ -225,13 +214,40 @@ function askPanel(root, ctx) {
         onKeyDown: (e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) send(root, ctx); }
       }),
       el('div', { class: 'row', style: 'margin-top:10px' },
-        el('button', { class: 'primary', disabled: Boolean(S.busy), text: 'Send', onClick: () => send(root, ctx) }),
+        el('button', { class: 'primary', disabled: Boolean(S.busy), text: 'Ask', onClick: () => send(root, ctx) }),
         el('span', { class: 'hint', text: 'Ctrl/⌘ + Enter' }),
         el('div', { class: 'spacer' }),
+        !ready ? el('button', { class: 'sm', text: 'Add a model for prose answers', onClick: () => { focusAiSetup(); ctx.go('settings'); } }) : null,
         S.chat.length ? el('button', { class: 'ghost sm', text: 'Clear', onClick: () => { S.chat = []; renderResearch(root, ctx); } }) : null
       ),
-      el('p', { class: 'hint', style: 'margin-top:10px', text: 'A model will invent plausible references. Anything it names should be checked in the Papers or Journal articles tab before you pass it to a student.' })
+      el('p', { class: 'hint', style: 'margin-top:10px', text: ready
+        ? 'A model will invent plausible references. Every source listed under an answer came from a catalogue and is real; anything the prose names that is not in that list has not been checked.'
+        : 'Everything below an answer is a real record from OpenAlex. Nothing here is generated, so nothing here is invented.' })
     )
+  );
+}
+
+/* One turn in the conversation: the question, the answer, and the records the
+   answer rests on. */
+function turnCard(m, root, ctx) {
+  if (m.role === 'user') {
+    return el('div', { style: 'margin-bottom:12px;padding:10px 13px;border-radius:8px;background:var(--accent-soft)' },
+      el('div', { class: 'hint', style: 'margin-bottom:4px', text: 'You' }),
+      el('div', { style: 'white-space:pre-wrap;font-size:14px', text: m.content })
+    );
+  }
+
+  return el('div', { style: 'margin-bottom:14px' },
+    el('div', { style: 'padding:10px 13px;border-radius:8px;background:var(--surface-2)' },
+      el('div', { class: 'hint', style: 'margin-bottom:4px', text: m.source === 'model' ? 'Model' : 'From the catalogue' }),
+      el('div', { style: 'white-space:pre-wrap;font-size:14px', text: m.content })
+    ),
+    m.works && m.works.length
+      ? el('div', { style: 'margin-top:8px' },
+          el('div', { class: 'hint', style: 'margin:0 0 6px', text: `${m.works.length} source${m.works.length === 1 ? '' : 's'} — real records, click a title to open it` }),
+          m.works.map((w) => workCard(w, root, ctx))
+        )
+      : null
   );
 }
 
@@ -239,20 +255,109 @@ async function send(root, ctx) {
   const box = document.getElementById('research-chat');
   const text = box.value.trim();
   if (!text) return;
+  const settings = getState().settings;
+  const ready = aiReady(settings);
+
   S.chat.push({ role: 'user', content: text });
   S.chatDraft = '';
-  S.busy = 'Waiting for the model…';
+  S.busy = ready ? 'Searching, then asking the model…' : 'Searching the catalogue…';
   renderResearch(root, ctx);
+  setContactEmail(settings.contactEmail || '');
 
+  /* The sources are fetched either way. With a model they are what its prose
+     can be checked against; without one they are the answer. */
+  let works = [];
+  let searchError = null;
   try {
-    const history = S.chat.map((m) => `${m.role === 'user' ? 'Question' : 'Answer'}: ${m.content}`).join('\n\n');
-    const reply = await askModel(history, getState().settings);
-    S.chat.push({ role: 'assistant', content: reply });
+    const found = await searchOpenAlex(queryFromQuestion(text), { perPage: 8 });
+    works = found.works;
+    S.lastTotal = found.total;
   } catch (err) {
-    S.chat.push({ role: 'assistant', content: `Could not get an answer: ${err.message}` });
+    searchError = describeFailure(err);
   }
+
+  if (ready) {
+    try {
+      const history = S.chat.filter((m) => m.role === 'user' || m.source === 'model')
+        .map((m) => `${m.role === 'user' ? 'Question' : 'Answer'}: ${m.content}`).join('\n\n');
+      const grounding = works.length
+        ? `\n\nThese records were found in a scholarly catalogue for this question. Prefer them over anything you recall, and say when you are going beyond them:\n${works.map((w) => `- ${w.title}${w.year ? ` (${w.year})` : ''}${w.authors ? ` — ${w.authors}` : ''}`).join('\n')}`
+        : '';
+      const reply = await askModel(history + grounding, settings);
+      S.chat.push({ role: 'assistant', source: 'model', content: reply, works });
+    } catch (err) {
+      S.chat.push({ role: 'assistant', source: 'catalogue', works, content: `The model could not be reached: ${err.message}\n\n${summarise(text, works, searchError)}` });
+    }
+  } else {
+    S.chat.push({ role: 'assistant', source: 'catalogue', works, content: summarise(text, works, searchError) });
+  }
+
   S.busy = null;
   renderResearch(root, ctx);
+}
+
+/*
+ * A question is not a query. "What is the debate about modernist form and
+ * empire?" searched literally matches nothing useful, because the catalogue
+ * indexes titles and abstracts, and no title contains "what is the debate
+ * about". Strip the question down to its content words.
+ */
+export function queryFromQuestion(question) {
+  const STOP = new Set(`what which who whom whose when where why how is are was were do does did can could would should
+    the a an of in on at to for from by with about into over under between across and or but if then than that this these
+    those there here it its i me my we our you your he she they there any some most more much many best good
+    has have had been being be am get gets got
+    tell show find give explain describe list write writes writing wrote written say says know think want need
+    please anything anyone something publish publishes published publishing argue argues argued discuss discusses
+    research paper papers article articles study studies book books work works literature field topic question debate
+    main key major important recent new latest current`.split(/\s+/).filter(Boolean));
+  const words = String(question)
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s-]/gu, ' ')
+    .split(/\s+/)
+    .filter((w) => w.length > 2 && !STOP.has(w));
+  /* If stripping left nothing, the question was all scaffolding — search it
+     as written rather than sending an empty query. */
+  return words.length ? words.slice(0, 12).join(' ') : String(question).trim();
+}
+
+/*
+ * What the catalogue found, in plain sentences. Every number here is counted
+ * from the records listed underneath; nothing is inferred and nothing is
+ * written that a reader cannot verify against that list.
+ */
+function summarise(question, works, failure) {
+  if (failure) {
+    return `${failure.headline}. ${failure.detail}`;
+  }
+  if (!works.length) {
+    return `Nothing in OpenAlex matched that. The catalogue indexes titles, abstracts and metadata rather than full text, so a question phrased as a sentence often finds less than two or three keywords would. Try naming the specific terms.`;
+  }
+
+  const years = works.map((w) => Number(w.year)).filter((y) => Number.isFinite(y));
+  const cited = [...works].sort((a, b) => (b.citedBy || 0) - (a.citedBy || 0));
+  const open = works.filter((w) => w.openAccess).length;
+
+  const lines = [];
+  lines.push(`${S.lastTotal ? `${S.lastTotal.toLocaleString()} works match this in OpenAlex; the ${works.length} closest are below.` : `${works.length} works below.`}`);
+  if (years.length) {
+    lines.push(`They run from ${Math.min(...years)} to ${Math.max(...years)}.`);
+  }
+  if (cited[0] && cited[0].citedBy) {
+    lines.push(`The most cited is “${cited[0].title}”${cited[0].year ? ` (${cited[0].year})` : ''} at ${cited[0].citedBy.toLocaleString()} citations — usually where to start.`);
+  }
+  if (open) lines.push(`${open} of them are free to read.`);
+
+  const concepts = new Map();
+  works.forEach((w) => (w.concepts || []).forEach((c) => concepts.set(c, (concepts.get(c) || 0) + 1)));
+  const common = [...concepts.entries()].filter(([, n]) => n > 1).sort((a, b) => b[1] - a[1]).slice(0, 5);
+  if (common.length) {
+    lines.push(`Most are filed under ${common.map(([c, n]) => `${c} (${n})`).join(', ')} — useful terms to search with next.`);
+  }
+
+  lines.push('');
+  lines.push('This is what the catalogue holds, not a written answer. Set up a model in Settings if you want prose.');
+  return lines.join('\n');
 }
 
 /*

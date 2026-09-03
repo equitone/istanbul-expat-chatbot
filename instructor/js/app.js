@@ -1,6 +1,7 @@
 /* app.js — bootstrap and routing. Each view renders into its own section. */
 import { $, el, mount, toast } from './ui.js';
 import { subscribe, getState } from './store.js';
+import { BUILD } from './version.js';
 import { exportWorkbook, exportAllCsv } from './export/workbook.js';
 
 import renderDashboard from './views/dashboard.js';
@@ -127,6 +128,14 @@ window.addEventListener('hashchange', () => {
   const id = location.hash.replace('#', '');
   if (id && id !== current && VIEWS.some((v) => v.id === id)) go(id);
 });
+
+/* Stamp the build into the header so which version is running is a thing you
+   can read rather than deduce. */
+const stamp = document.getElementById('build-stamp');
+if (stamp) {
+  stamp.textContent = BUILD;
+  stamp.title = `Build ${BUILD}. Quote this if something looks wrong.`;
+}
 
 buildTabs();
 go(current);
