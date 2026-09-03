@@ -28,6 +28,9 @@ TYPES = {
 def respond(client, status, type, body)
   client.print "HTTP/1.1 #{status}\r\n"
   client.print "Content-Type: #{type}\r\n"
+  # Never cache: a stale module would leave a replaced folder looking unchanged.
+  client.print "Cache-Control: no-store, must-revalidate\r\n"
+  client.print "Pragma: no-cache\r\n"
   client.print "Content-Length: #{body.bytesize}\r\n"
   client.print "Connection: close\r\n\r\n"
   client.print body

@@ -110,6 +110,9 @@ try {
         if (-not $type) { $type = 'application/octet-stream' }
         $bytes = [System.IO.File]::ReadAllBytes($resolved)
         $response.ContentType = $type
+        # Never cache: a stale module would leave a replaced folder looking unchanged.
+        $response.Headers.Add('Cache-Control', 'no-store, must-revalidate')
+        $response.Headers.Add('Pragma', 'no-cache')
         $response.ContentLength64 = $bytes.Length
         $response.OutputStream.Write($bytes, 0, $bytes.Length)
       } else {

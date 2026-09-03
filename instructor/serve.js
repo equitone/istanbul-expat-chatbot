@@ -41,7 +41,21 @@ http.createServer((req, res) => {
     const target = !err && stat.isDirectory() ? path.join(full, 'index.html') : full;
     fs.readFile(target, (err2, data) => {
       if (err2) { res.writeHead(404, { 'content-type': 'text/plain' }).end(`Not found: ${rel}`); return; }
-      res.writeHead(200, { 'content-type': TYPES[path.extname(target).toLowerCase()] || 'application/octet-stream' });
+      res.writeHead(200, {
+        'content-type': TYPES[path.extname(target).toLowerCase()] || 'application/octet-stream',
+        /*
+         * Never cache.
+         *
+         * Without this the browser keeps the previous copy of every module,
+         * so replacing the folder with a newer version changes nothing on
+         * screen — the instructor updates the app and still sees the old one,
+         * with nothing to explain why. On localhost there is no bandwidth to
+         * save and being correct matters more.
+         */
+        'cache-control': 'no-store, must-revalidate',
+        pragma: 'no-cache',
+        expires: '0'
+      });
       res.end(data);
     });
   });
