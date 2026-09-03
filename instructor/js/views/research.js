@@ -169,10 +169,30 @@ async function doSearch(root, ctx) {
 function askPanel(root, ctx) {
   const settings = getState().settings;
   if (!aiReady(settings)) {
+    /*
+     * "No model configured" and a button to Settings is true and useless: it
+     * does not say what to install. These are the exact steps, because the
+     * instructor is not going to go and research Ollama to use one tab.
+     */
     return el('div', { class: 'card' },
-      emptyState('No model configured',
-        'This panel talks to whichever model you set up in Settings — a local one, so nothing leaves the machine, or the Claude API.',
-        el('button', { class: 'primary', text: 'Open settings', onClick: () => ctx.go('settings') }))
+      el('h2', { text: 'No model is set up yet' }),
+      el('p', { text: 'The other three tabs work without one — they search real catalogues. This tab is the only part that needs a model, and it can be a model running on this computer, so nothing leaves it.' }),
+
+      el('h3', { style: 'font-size:13px;margin:18px 0 6px', text: 'The offline way — recommended' }),
+      el('ol', { style: 'margin:0 0 10px 18px;font-size:13px;line-height:1.7' },
+        el('li', {}, 'Install ', el('strong', { text: 'Ollama' }), ' from ollama.com — Windows and Mac installers, no account needed.'),
+        el('li', {}, 'Open a terminal and run ', el('code', { text: 'ollama pull llama3.1:8b' }), ' — about 5 GB, once.'),
+        el('li', {}, 'Start it with a context big enough for a thesis: ', el('code', { text: 'OLLAMA_CONTEXT_LENGTH=32768 ollama serve' })),
+        el('li', {}, 'In Settings → AI review, choose ', el('strong', { text: 'Local model' }), ', press the Ollama preset, set the model name to ', el('code', { text: 'llama3.1:8b' }), ' and the context to ', el('code', { text: '32768' }), '.')
+      ),
+      banner('privacy', 'With a local model the text goes to a program on this computer and no further. The offline guarantee is unchanged.'),
+
+      el('h3', { style: 'font-size:13px;margin:18px 0 6px', text: 'Or the Claude API' }),
+      el('p', { class: 'hint', text: 'Better answers, no install, but the text you type is sent to Anthropic and it is billed per use. Settings → AI review → Claude API, then paste a key.' }),
+
+      el('p', { class: 'hint', text: 'Why the context length matters: Ollama defaults to a few thousand tokens and silently drops anything beyond it. Left at the default, a whole thesis would be reviewed from its first pages only — so the app refuses rather than pretending, and tells you the arithmetic.' }),
+
+      el('button', { class: 'primary', text: 'Open settings', onClick: () => ctx.go('settings') })
     );
   }
 

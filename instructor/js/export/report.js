@@ -172,6 +172,18 @@ function page(body, title, student) {
                  letter-spacing: .07em; color: #1f6f6b; }
   .note p { margin: 6px 0 0; }
   .lead { font-size: 14px; color: #3a4250; }
+  table.grid { width: 100%; border-collapse: collapse; margin: 10px 0 16px;
+               font: 12.5px/1.45 -apple-system, "Segoe UI", Roboto, sans-serif; }
+  table.grid th { text-align: left; border-bottom: 1px solid #1a1f2b; padding: 5px 8px 5px 0;
+                  font-weight: 600; color: #5b6472; text-transform: uppercase;
+                  font-size: 10.5px; letter-spacing: .05em; }
+  table.grid td { border-bottom: 1px solid #e6eaf0; padding: 5px 8px 5px 0; vertical-align: top; }
+  table.grid tr:last-child td { border-bottom: 0; }
+  ul.plain { margin: 8px 0 16px 18px; padding: 0; font-size: 14px; }
+  ul.plain li { margin-bottom: 5px; }
+  .caveat { font: 12px/1.5 -apple-system, "Segoe UI", Roboto, sans-serif;
+            color: #5b6472; background: #f6f7f9; border-left: 3px solid #c9d0da;
+            padding: 9px 12px; margin: 4px 0 16px; }
   .tiles { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
   .tile { flex: 1 1 150px; border: 1px solid #d8dde5; border-radius: 6px; padding: 10px 12px; }
   .tile .l { font: 10px -apple-system, sans-serif; text-transform: uppercase;
@@ -240,6 +252,54 @@ export function openPrintable(html) {
 
 export function downloadReport(html, filename) {
   downloadBlob(new Blob([html], { type: 'text/html;charset=utf-8' }), filename);
+}
+
+
+/* ------------------------------------------------- reports for other tabs */
+
+/*
+ * A second entry point for the tabs that are not a thesis review — draft
+ * comparison, cohort triage, class statistics.
+ *
+ * It reuses page(), which is the point: one stylesheet, one print rule, one
+ * set of colours, and the same guarantee that the file references nothing
+ * outside itself. A second styling system would drift from this one and would
+ * be the place an external font or a CDN eventually crept in.
+ *
+ * Blocks are plain data so callers do not build HTML:
+ *   { heading, lead, tiles: [[label, value, sub]], table: { headers, rows },
+ *     list: [string], note }
+ */
+export function buildSimpleReport({ title, subtitle = '', instructor = '', institution = '', note = '', blocks = [] }) {
+  const parts = [`
+<header class="head">
+  <div class="title">
+    <h1>${esc(title)}</h1>
+    <p class="who">${[subtitle && esc(subtitle), instructor && `Prepared by ${esc(instructor)}`, institution && esc(institution)].filter(Boolean).join(' · ')}</p>
+  </div>
+  <div class="stamp">${new Date().toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })}</div>
+</header>`];
+
+  if (note) parts.push(`<div class="note"><strong>Note</strong><p>${esc(note).replace(/\n/g, '<br>')}</p></div>`);
+
+  blocks.filter(Boolean).forEach((b) => {
+    if (b.heading) parts.push(`<h2>${esc(b.heading)}${b.count !== undefined ? `<span class="count">${esc(String(b.count))}</span>` : ''}</h2>`);
+    if (b.lead) parts.push(`<p class="lead">${esc(b.lead)}</p>`);
+    if (b.tiles && b.tiles.length) {
+      parts.push(`<div class="tiles">${b.tiles.map(([l, v, sub]) => tile(l, v, sub)).join('')}</div>`);
+    }
+    if (b.table && b.table.rows && b.table.rows.length) {
+      parts.push(`<table class="grid"><thead><tr>${b.table.headers.map((h) => `<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>${
+        b.table.rows.map((r) => `<tr>${r.map((c) => `<td>${esc(c ?? '—')}</td>`).join('')}</tr>`).join('')
+      }</tbody></table>`);
+    }
+    if (b.list && b.list.length) {
+      parts.push(`<ul class="plain">${b.list.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>`);
+    }
+    if (b.caveat) parts.push(`<p class="caveat">${esc(b.caveat)}</p>`);
+  });
+
+  return page(parts.join('\n'), title, '');
 }
 
 /* ---------------------------------------------------------------- helpers */

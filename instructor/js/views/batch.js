@@ -25,6 +25,7 @@ import { getState, LEVEL_LABEL } from '../store.js';
 import { analyseThesis } from '../analysis/index.js';
 import { aiIndicators, crossMatch } from '../analysis/similarity.js';
 import { extractText, SUPPORTED, downloadText } from '../io/files.js';
+import { buildSimpleReport, openPrintable, downloadReport } from '../export/report.js';
 import { stageThesis } from './thesis.js';
 
 const S = {
@@ -50,7 +51,8 @@ export default function renderBatch(root, ctx) {
       ),
       el('div', { class: 'spacer' }),
       S.rows.length ? el('button', { text: 'Clear', onClick: () => { reset(); renderBatch(root, ctx); } }) : null,
-      S.rows.length ? el('button', { text: 'Export CSV', onClick: exportCsv }) : null
+      S.rows.length ? el('button', { text: 'Export CSV', onClick: exportCsv }) : null,
+      S.rows.length ? el('button', { class: 'primary', text: 'Print triage report', onClick: printTriage }) : null
     ),
     S.running ? progressCard() : intake(root, ctx),
     S.failures.length ? failureCard() : null,
@@ -506,4 +508,56 @@ function csvCell(v) {
   const s = String(v ?? '');
   const safe = /^[=+\-@]/.test(s) ? `'${s}` : s;
   return /[",\n]/.test(safe) ? `"${safe.replace(/"/g, '""')}"` : safe;
+}
+
+/*
+ * The triage table as a document — for the instructor's own record of how a
+ * cohort was screened and why each paper was ranked where it was. Same page
+ * shell as every other report, so it is self-contained and prints in colour.
+ */
+function printTriage() {
+  const rows = [...S.rows].sort(SORTS[S.sort].fn);
+  const flagged = rows.filter((r) => (r.reasons || []).some((x) => x.level === 'high'));
+
+  const html = buildSimpleReport({
+    title: 'Batch triage',
+    subtitle: `${S.rows.length} submissions · ordered by ${SORTS[S.sort].label.toLowerCase()}`,
+    instructor: getState().settings.instructor || '',
+    institution: getState().settings.institution || '',
+    blocks: [
+      { tiles: [
+          ['Submissions', String(S.rows.length)],
+          ['Need a close read', String(flagged.length)],
+          ['Nothing flagged', String(rows.filter((r) => !(r.reasons || []).some((x) => x.level !== 'low')).length)],
+          ['Shared passages', String(S.pairs.length)]
+        ] },
+      { heading: 'In the order they need reading', count: rows.length,
+        table: {
+          headers: ['Submission', 'Student (suggested)', 'Words', 'Stress', 'Why it is here'],
+          rows: rows.map((r) => [
+            r.filename,
+            r.match ? (r.match.ambiguous ? `ambiguous: ${r.match.alternatives.join(' or ')}` : r.match.student.name) : '—',
+            String(r.report.doc.bodyWords.length),
+            String(r.report.scorecard.stressIndex),
+            (r.reasons || []).map((x) => `${x.key}: ${x.text}`).join('; ') || 'nothing flagged'
+          ])
+        } },
+      S.pairs.length ? { heading: 'Submissions sharing text', count: S.pairs.length,
+        table: {
+          headers: ['One', 'The other', 'Share of each', 'Longest passage'],
+          rows: S.pairs.slice(0, 40).map((p) => [
+            p.labelA, p.labelB,
+            `${Math.round(p.containmentA * 100)}% / ${Math.round(p.containmentB * 100)}%`,
+            `${Math.max(...p.passagesA.map((x) => x.end - x.start), 0)} chars`
+          ])
+        },
+        caveat: 'Matching is by five-word fingerprints over the body only; bibliographies are excluded. Shared text is not by itself misconduct — read the passages before drawing a conclusion.' } : null,
+      { caveat: 'This pass compares these files against each other and against nothing else. A passage taken from a published book or the open web is invisible here. The AI figures are statistical tendencies, not evidence, and misfire hardest on non-native English writers.' }
+    ]
+  });
+
+  try { openPrintable(html); } catch (err) {
+    downloadReport(html, `batch-triage-${new Date().toISOString().slice(0, 10)}.html`);
+    toast('Pop-up blocked, so the report was downloaded instead.', '');
+  }
 }

@@ -1,5 +1,7 @@
 import { el, mount, stat, chip, int, num, pct, toast, banner, emptyState, escapeHtml } from '../ui.js';
+import { getState } from '../store.js';
 import { compareDocuments } from '../analysis/compare.js';
+import { buildSimpleReport, openPrintable, downloadReport } from '../export/report.js';
 import { extractText, SUPPORTED, downloadText } from '../io/files.js';
 
 const S = { a: null, b: null, result: null, busy: null, filter: 'all' };
@@ -13,7 +15,8 @@ export default function renderCompare(root, ctx) {
       ),
       el('div', { class: 'spacer' }),
       S.result ? el('button', { text: 'Start over', onClick: () => { S.a = null; S.b = null; S.result = null; renderCompare(root, ctx); } }) : null,
-      S.result ? el('button', { class: 'primary', text: 'Export change list', onClick: exportDiff }) : null
+      S.result ? el('button', { text: 'Export change list', onClick: exportDiff }) : null,
+      S.result ? el('button', { class: 'primary', text: 'Report for student', onClick: () => printDiff() }) : null
     ),
     el('div', { class: 'card' },
       el('div', { class: 'grid cols-2' },
@@ -187,3 +190,56 @@ function exportDiff() {
   });
   downloadText(lines.join('\n'), `draft-comparison-${Date.now()}.txt`);
 }
+
+/*
+ * The change list as a document the student can be sent.
+ *
+ * Same page shell as the thesis report, so it prints with the same colours
+ * and, like that one, references nothing outside itself.
+ */
+function printDiff() {
+  const { changes, summary } = S.result;
+  const label = { modified: 'Edited', added: 'Added', removed: 'Removed', moved: 'Moved', unchanged: 'Unchanged' };
+  const listed = changes.filter((c) => c.type !== 'unchanged');
+
+  const html = buildSimpleReport({
+    title: 'What changed between the two drafts',
+    subtitle: [S.a && S.a.name, S.b && S.b.name].filter(Boolean).join('  →  '),
+    instructor: getState().settings.instructor || '',
+    institution: getState().settings.institution || '',
+    blocks: [
+      { tiles: [
+          ['Edited', String(summary.modified)],
+          ['Added', String(summary.added)],
+          ['Removed', String(summary.removed)],
+          ['Moved', String(summary.moved)],
+          ['Untouched', String(summary.unchanged)],
+          ['Net words', `${summary.netWords >= 0 ? '+' : ''}${summary.netWords}`]
+        ] },
+      { heading: 'Every change', count: listed.length,
+        lead: listed.length
+          ? 'Paragraph by paragraph, in the order they appear in the new draft.'
+          : 'Nothing changed between these two files.',
+        table: {
+          headers: ['#', 'What happened', 'Text'],
+          rows: listed.slice(0, 200).map((c, i) => [
+            String(i + 1),
+            label[c.type] || c.type,
+            clipText((c.type === 'removed' ? c.oldText : c.newText) || c.oldText || '', 320)
+          ])
+        } },
+      listed.length > 200 ? { caveat: `Only the first 200 changes are listed; there are ${listed.length}.` } : null,
+      { caveat: 'Paragraphs are matched by similarity, so a paragraph rewritten from scratch is reported as one removal and one addition rather than as an edit.' }
+    ]
+  });
+
+  try { openPrintable(html); } catch (err) {
+    downloadReport(html, `draft-changes-${new Date().toISOString().slice(0, 10)}.html`);
+    toast('Pop-up blocked, so the report was downloaded instead.', '');
+  }
+}
+
+const clipText = (t, n) => {
+  const one = String(t || '').replace(/\s+/g, ' ').trim();
+  return one.length > n ? `${one.slice(0, n - 1)}…` : one;
+};

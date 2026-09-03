@@ -1,6 +1,8 @@
 import { el, mount, stat, table, chip, barChart, num, int, pct, emptyState, meter } from '../ui.js';
 import { getState, LEVELS, LEVEL_LABEL } from '../store.js';
-import { courseTotal, classSummary, describe, correlation } from '../stats.js';
+import { courseTotal, classSummary, describe, correlation, toLetter } from '../stats.js';
+import { buildSimpleReport, openPrintable, downloadReport } from '../export/report.js';
+import { toast } from '../ui.js';
 
 let selectedId = null;
 
@@ -19,7 +21,8 @@ export default function renderAnalytics(root, ctx) {
       s.courses.length ? el('select', {
         style: 'width:auto;min-width:230px',
         onChange: (e) => { selectedId = e.target.value; renderAnalytics(root, ctx); }
-      }, s.courses.map((c) => el('option', { value: c.id, selected: c.id === selectedId, text: `${c.code ? `${c.code} — ` : ''}${c.title}` }))) : null
+      }, s.courses.map((c) => el('option', { value: c.id, selected: c.id === selectedId, text: `${c.code ? `${c.code} — ` : ''}${c.title}` }))) : null,
+      course ? el('button', { class: 'primary', text: 'Print report', onClick: () => printAnalytics(course, s) }) : null
     ),
     !s.courses.length
       ? emptyState('No courses yet', 'Statistics appear once a course has enrolled students with marks.',
@@ -148,4 +151,72 @@ function levelComparison(s) {
         el('td', { class: 'num', text: pct(r.sum.passRate) })
       ]))
   );
+}
+
+/*
+ * Class statistics as a document — the thing that gets attached to a board of
+ * examiners paper. Marks are per student, so this one is for the instructor
+ * and the department rather than for a student; the roster is included
+ * precisely because that is what a moderation meeting needs to see.
+ */
+function printAnalytics(course, s) {
+  const scheme = s.settings.letterScheme;
+  const rows = course.enrolled.map((id) => {
+    const st = s.students.find((x) => x.id === id);
+    const t = courseTotal((s.scores[course.id] || {})[id], course.components);
+    return { st, total: t.absolute, complete: t.complete };
+  }).filter((r) => r.st);
+
+  const marks = rows.map((r) => r.total).filter(Number.isFinite);
+  const summary = classSummary(marks.map((m) => ({ score: m })), {
+    scaleMax: s.settings.scaleMax, passMark: s.settings.passMark, scheme
+  });
+
+  const html = buildSimpleReport({
+    title: `${course.code ? `${course.code} — ` : ''}${course.title}`,
+    subtitle: [LEVEL_LABEL[course.level], course.term, `${rows.length} enrolled`].filter(Boolean).join(' · '),
+    instructor: s.settings.instructor || '',
+    institution: s.settings.institution || '',
+    blocks: [
+      { tiles: [
+          ['Graded', `${summary.graded} of ${rows.length}`],
+          ['Mean', num(summary.mean, 1)],
+          ['Median', num(summary.median, 1)],
+          ['Std dev', num(summary.stdev, 1)],
+          ['Pass rate', pct(summary.passRate)],
+          ['Mean GPA', num(summary.meanGpa, 2)]
+        ] },
+      { heading: 'Components',
+        table: {
+          headers: ['Component', 'Weight', 'Out of', 'Class mean'],
+          rows: course.components.map((c) => [
+            c.name,
+            c.resitFor ? 'resit' : `${c.weight}%`,
+            String(c.maxScore),
+            num(describe(course.enrolled.map((id) => ((s.scores[course.id] || {})[id] || {})[c.id])).mean, 1)
+          ])
+        } },
+      { heading: 'Letter distribution',
+        table: {
+          headers: ['Letter', 'Count', 'Share'],
+          rows: summary.letters.filter((l) => l.count).map((l) => [l.letter, String(l.count), pct(l.share)])
+        } },
+      { heading: 'Marks', count: rows.length,
+        table: {
+          headers: ['Student', 'No.', 'Mark', 'Letter', 'Complete'],
+          rows: rows.sort((a, b) => (b.total ?? -1) - (a.total ?? -1)).map((r) => [
+            r.st.name, r.st.studentNo || '—',
+            Number.isFinite(r.total) ? num(r.total, 1) : '—',
+            Number.isFinite(r.total) ? (toLetter(r.total, scheme) || {}).letter || '—' : '—',
+            r.complete ? 'yes' : 'not all components'
+          ])
+        } },
+      { caveat: 'Marks are computed against the full weighting; a component not yet entered counts as unearned, which is why an incomplete row reads lower than it will finish. Where a resit replaces an exam, the better of the two marks is used.' }
+    ]
+  });
+
+  try { openPrintable(html); } catch (err) {
+    downloadReport(html, `${(course.code || course.title).replace(/[^a-z0-9]+/gi, '-').toLowerCase()}-statistics.html`);
+    toast('Pop-up blocked, so the report was downloaded instead.', '');
+  }
 }

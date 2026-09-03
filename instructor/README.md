@@ -127,6 +127,14 @@ reason and a suggested fix.
 what changed — edited paragraphs with a word-level diff, additions, deletions,
 and relocations.
 
+**Reports for the student.** Thesis review, Citations, Integrity, Compare
+drafts, Batch triage and Analytics all produce one printable document.
+Findings are marked in the text in colour and the colours survive the print
+dialog, so the student receives their own writing with the mistakes shown in
+place and can correct them. Every report is a single self-contained HTML file:
+no scripts, no fonts, no images, no external references of any kind — verified
+by loading one and counting the requests it makes, which is one, for itself.
+
 **Weekly planner.** Give a course its days, time, room and start date and the
 Overview tab lays out the week: what is taught when, which meeting of the
 course it is, and a to-do list attached to that specific session. Session
