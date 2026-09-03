@@ -4,6 +4,7 @@ import {
 } from '../store.js';
 import { DEFAULT_LETTER_SCHEME } from '../stats.js';
 import { downloadText } from '../io/files.js';
+import { describeEndpoint } from '../endpoints.js';
 import { DEFAULT_MODEL, testConnection } from '../analysis/ai.js';
 import { LANGUAGES, testConnection as testLanguageTool } from '../analysis/languagetool.js';
 
@@ -55,7 +56,9 @@ export default function renderSettings(root, ctx) {
       ),
       (s.settings.languageTool || {}).enabled
         ? el('div', {},
-            banner('privacy', 'LanguageTool runs as a program on this computer and listens on localhost. The thesis text goes to your own process and no further — the offline guarantee is unchanged.'),
+            /* Derived from the address in the box below, not asserted. A
+               remote address used to sit under a banner claiming localhost. */
+            endpointBanner(s.settings.languageTool.endpoint, 'The thesis text'),
             el('div', { class: 'grid cols-2' },
               field('Address', el('input', { value: s.settings.languageTool.endpoint || '', placeholder: 'http://localhost:8081', onChange: (e) => setLt({ endpoint: e.target.value }) })),
               field('Variety of English', el('select', { onChange: (e) => setLt({ language: e.target.value }) },
@@ -122,7 +125,7 @@ export default function renderSettings(root, ctx) {
                       onClick: () => setAi({ endpoint: preset.endpoint })
                     }))
                   ),
-                  banner('privacy', 'With a local model, the thesis text goes to a server you run — Ollama, LM Studio, llama.cpp or vLLM — and no further. This keeps the privacy guarantee intact.'),
+                  endpointBanner(ai.endpoint, 'The thesis text'),
                   field('Endpoint', el('input', { value: ai.endpoint || '', placeholder: 'http://localhost:11434/v1', onChange: (e) => setAi({ endpoint: e.target.value }) }),
                     'The OpenAI-compatible base URL. Ollama: http://localhost:11434/v1 — LM Studio: http://localhost:1234/v1'),
                   field('API key (usually blank for local servers)', el('input', { type: 'password', value: ai.apiKey || '', onChange: (e) => setAi({ apiKey: e.target.value }) })),
@@ -308,4 +311,17 @@ function applyPendingFocus(root) {
     target.classList.add('flash');
     setTimeout(() => target.classList.remove('flash'), 1800);
   });
+}
+
+/*
+ * Say where an endpoint actually points, rather than printing a promise the
+ * code does not check. An empty box gets the default reassurance, because
+ * nothing has been chosen yet and nothing is being sent.
+ */
+function endpointBanner(endpoint, what) {
+  if (!String(endpoint || '').trim()) {
+    return el('p', { class: 'hint', text: 'Put the address of the server below. Anything starting http://localhost is a program on this computer, and the text goes no further than that.' });
+  }
+  const d = describeEndpoint(endpoint, { what });
+  return banner(d.tone || 'warn', d.text);
 }
