@@ -46,6 +46,8 @@ export default function renderSettings(root, ctx) {
       )
     ),
 
+    offlineLockCard(s, root, ctx),
+
     el('div', { class: 'card' },
       el('h2', { text: 'Grammar engine' }),
       el('p', { text: 'The built-in rules always run and need nothing installed. LanguageTool is an optional second engine that runs on this computer — thousands of rules against the built-in forty, and far better on ordinary grammar. On a set of faults written for neither engine, the built-in rules caught 4 of 15 and LanguageTool caught 11.' }),
@@ -108,8 +110,13 @@ export default function renderSettings(root, ctx) {
             el('div', { class: 'grid cols-2' },
               field('Provider', el('select', { onChange: (e) => setAi({ provider: e.target.value }) },
                 el('option', { value: 'local', selected: ai.provider === 'local', text: 'Local model (nothing leaves your machine)' }),
-                el('option', { value: 'anthropic', selected: ai.provider === 'anthropic', text: 'Claude API (text is sent to Anthropic)' })
-              )),
+                /* Not offered while the lock is on. Leaving it selectable and
+                   failing later would teach the instructor that the app is
+                   broken rather than that the lock is doing its job. */
+                s.settings.offlineLock
+                  ? null
+                  : el('option', { value: 'anthropic', selected: ai.provider === 'anthropic', text: 'Claude API (text is sent to Anthropic)' })
+              ), s.settings.offlineLock ? 'Only a model on this computer can be used while the lock is on.' : ''),
               field('Model', el('input', {
                 value: ai.model || (ai.provider === 'local' ? 'llama3.1:8b' : DEFAULT_MODEL),
                 onChange: (e) => setAi({ model: e.target.value })
@@ -346,4 +353,49 @@ function modelNameWarning(ai) {
     `“${name}” is a hosted model — it runs on its vendor's servers and cannot be installed on this computer, so a local server will answer "model not found". `
     + 'Put the name of a model you have actually pulled here, such as llama3.1:8b. '
     + 'If you meant to use Claude, switch the provider above to Claude API — and note that this sends your text to Anthropic.');
+}
+
+/*
+ * The lock, at the top of Settings because it governs everything below it.
+ *
+ * Switching it off is deliberately a two-step confirmation naming what
+ * becomes possible, because the thing being turned off is the guarantee the
+ * instructor was given about their students' work.
+ */
+function offlineLockCard(s, root, ctx) {
+  const on = s.settings.offlineLock !== false;
+  return el('div', { class: 'card', id: 'offline-lock', style: `border-color:var(--${on ? 'good' : 'high'})` },
+    el('div', { class: 'row', style: 'align-items:center;gap:8px' },
+      chip(on ? 'locked' : 'UNLOCKED', on ? 'good' : 'high'),
+      el('h2', { style: 'margin:0', text: 'Lock to this computer' })
+    ),
+    on
+      ? el('div', {},
+          el('p', { text: 'Nothing can leave this machine. Student names, marks, thesis text and everything else stay here, and no button in this app can send them anywhere — the block is on the network itself, not on the buttons, so a mis-typed address or a wrong click cannot get past it.' }),
+          el('p', { class: 'hint', text: 'A model or a grammar server running on this computer still works: localhost is this computer. What is refused is any address that is not.' }),
+          el('p', { class: 'hint', text: 'Switched off, these become possible: the Claude API (which sends the whole thesis to Anthropic), scholarly lookups that send a student’s references and thesis statement to Crossref and OpenAlex, and the Research tab’s searches.' })
+        )
+      : el('div', {},
+          banner('warn', 'The lock is off. Citation checks and prior-work lookups send parts of a student’s thesis to Crossref and OpenAlex, and the Claude API option sends the whole text to Anthropic. Turn the lock back on unless you have a reason not to.')
+        ),
+    el('div', { class: 'row', style: 'margin-top:10px' },
+      on
+        ? el('button', {
+            text: 'Unlock online features…',
+            onClick: async () => {
+              const ok = await confirmDialog(
+                'Allow this app to reach the internet?',
+                'While unlocked, the Research tab can search online, citation checking can send a student’s reference list and thesis statement to Crossref and OpenAlex, and the Claude API option becomes available — that one sends the entire thesis to Anthropic.\n\nThe lock exists so that no wrong button can leak student work. Turn it off only if you need an online lookup, and turn it back on afterwards.',
+                'Unlock'
+              );
+              if (ok) { updateSettings({ offlineLock: false }); toast('Online features unlocked. Student work can now leave this computer.', 'error'); }
+            }
+          })
+        : el('button', {
+            class: 'primary',
+            text: 'Lock it again',
+            onClick: () => { updateSettings({ offlineLock: true }); toast('Locked. Nothing can leave this computer.', 'good'); }
+          })
+    )
+  );
 }

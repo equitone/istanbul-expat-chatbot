@@ -28,6 +28,10 @@ function blankState() {
       instructor: '',
       institution: '',
       defaultTerm: currentTerm(),
+      /* Nothing may leave this computer. Default on: a privacy control that
+         has to be found and switched on has already failed. netguard.js
+         enforces it at the network layer; this is only the switch. */
+      offlineLock: true,
       scaleMax: 100,
       passMark: 50,
       letterScheme: DEFAULT_LETTER_SCHEME.map((s) => ({ ...s })),
@@ -74,6 +78,9 @@ function migrate(s) {
   s.theses ||= [];
   s.comments ||= [];
   s.tasks ||= [];
+  /* Absent in anything saved before the lock existed, and absence must mean
+     locked rather than open. */
+  if (typeof s.settings.offlineLock !== 'boolean') s.settings.offlineLock = true;
   s.settings.ai ||= blankState().settings.ai;
   s.settings.languageTool ||= blankState().settings.languageTool;
   s.settings.letterScheme ||= DEFAULT_LETTER_SCHEME.map((x) => ({ ...x }));

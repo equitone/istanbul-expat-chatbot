@@ -127,6 +127,14 @@ reason and a suggested fix.
 what changed — edited paragraphs with a word-level diff, additions, deletions,
 and relocations.
 
+**Locked to this computer.** On by default. The block is on the browser's
+network calls rather than on the buttons, so no wrong click, mis-typed address
+or future edit can send student work anywhere. Verified by configuring the app
+to leak — Claude API keyed up, LanguageTool pointed at a public server — then
+pressing every verification button and watching the wire: nothing left the
+machine, and fetch, XHR, sendBeacon, WebSocket and EventSource were all
+refused, while localhost stayed reachable.
+
 **Ask a question.** A question in plain English becomes a catalogue search,
 and the answer is what the records actually say — counts, span, most-cited,
 subject terms — with every source listed and linked beneath it. It needs

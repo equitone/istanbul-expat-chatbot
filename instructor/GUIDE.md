@@ -97,6 +97,33 @@ a sheet per course, statistics, and every thesis finding.
 
 ---
 
+## The lock
+
+**Settings → Lock to this computer** is on when the app is installed, and
+while it is on nothing can leave the machine. Not the marks, not a student's
+name, not a line of anyone's thesis.
+
+It is not a warning and not a hidden button. The block sits on the browser's
+own network calls, underneath every feature, so it does not matter which
+button is pressed, whether an address was mis-typed, or what a future version
+of this app adds — anything addressed to somewhere other than this computer is
+refused before it is sent.
+
+A model or a grammar checker running on your own machine still works, because
+`localhost` *is* your machine. What is refused is any address that is not.
+
+While the lock is on, the Research tab stands down and says so rather than
+offering searches that would fail, and the Claude API option is not offered.
+
+Turning it off takes a confirmation that names what becomes possible: catalogue
+lookups that send a student's reference list and thesis statement to Crossref
+and OpenAlex, and the Claude API, which sends the entire thesis to Anthropic.
+Everything else — marking, the gradebook, thesis analysis, batch triage, draft
+comparison, every report — never needed the network and is unaffected either
+way.
+
+---
+
 ## Asking a question about the literature
 
 **Research** tab → **Ask a question**. Type in your own words — *"what is the

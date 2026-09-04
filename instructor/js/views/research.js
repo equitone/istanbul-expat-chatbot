@@ -54,7 +54,10 @@ export default function renderResearch(root, ctx) {
       S.saved.length ? el('button', { text: `Export saved list (${S.saved.length})`, onClick: exportSaved }) : null
     ),
 
-    banner('warn', 'Only what you type here leaves this computer. Your students’ names, marks and thesis texts are never sent by this tab — searches carry the query alone.'),
+    locked()
+      ? el('div', { class: 'banner privacy' },
+          'This tab is switched off: the workbench is locked to this computer, so it cannot search online. Everything else in the app works normally. Settings → “Lock to this computer” if you need to change that.')
+      : banner('warn', 'Only what you type here leaves this computer. Your students’ names, marks and thesis texts are never sent by this tab — searches carry the query alone.'),
 
     el('div', { class: 'row', style: 'margin-bottom:6px' },
       TABS.map((t) => el('button', {
@@ -65,7 +68,8 @@ export default function renderResearch(root, ctx) {
     ),
     el('p', { class: 'hint', style: 'margin:0 0 14px', text: (TABS.find((t) => t.id === S.tab) || {}).hint }),
 
-    S.tab === 'assess' ? assessPanel(root, ctx)
+    locked() ? lockedPanel(ctx)
+      : S.tab === 'assess' ? assessPanel(root, ctx)
       : S.tab === 'ask' ? askPanel(root, ctx)
       : S.tab === 'list' ? savedPanel(root, ctx)
       : searchPanel(root, ctx)
@@ -632,4 +636,19 @@ async function doAssess(root, ctx) {
   }
   S.busy = null;
   renderResearch(root, ctx);
+}
+
+/* The lock, read from the guard that enforces it rather than from a second
+   copy of the setting — one source of truth, so the screen cannot disagree
+   with what the network will actually do. */
+const locked = () => Boolean(window.__offlineLock && window.__offlineLock.locked());
+
+function lockedPanel(ctx) {
+  return el('div', { class: 'card' },
+    el('h2', { text: 'Searching is switched off' }),
+    el('p', { text: 'This is the only tab that needs the internet, and the workbench is currently locked to this computer so that student work cannot leave it by any route. Rather than offer buttons that would fail, the tab stands down.' }),
+    el('p', { class: 'hint', text: 'Marking, the gradebook, thesis analysis, batch triage, draft comparison and every report still work exactly as they do now — none of them ever needed the network.' }),
+    el('p', { class: 'hint', text: 'Unlocking is in Settings and says plainly what it allows: catalogue lookups that carry a student’s references and thesis statement, and the Claude API option that sends the whole text to Anthropic.' }),
+    el('button', { text: 'Open Settings', onClick: () => ctx.go('settings') })
+  );
 }
