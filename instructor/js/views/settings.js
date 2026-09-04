@@ -103,6 +103,7 @@ export default function renderSettings(root, ctx) {
         ? el('p', { class: 'hint', text: 'Fill these in now if you like — nothing is transmitted by doing so. No text leaves this machine until the box above is ticked and you press a Review button.' })
         : null,
       ollamaHelp(ai),
+      modelNameWarning(ai),
       el('div', {},
             el('div', { class: 'grid cols-2' },
               field('Provider', el('select', { onChange: (e) => setAi({ provider: e.target.value }) },
@@ -324,4 +325,25 @@ function endpointBanner(endpoint, what) {
   }
   const d = describeEndpoint(endpoint, { what });
   return banner(d.tone || 'warn', d.text);
+}
+
+/*
+ * A hosted model's name pointed at a local server.
+ *
+ * "claude-sonnet-5" with the provider set to Local is a contradiction: Ollama
+ * has never heard of it, so the request fails with a bare "model not found".
+ * Worse than the error is the belief behind it — that Claude is running on
+ * this computer. It is not, and it cannot; those models only exist behind
+ * their vendor's API. Say so before the instructor sends anything.
+ */
+const HOSTED_NAME = /^(claude|gpt|o[1-4]|gemini|grok|mistral-large|command-r)/i;
+
+function modelNameWarning(ai) {
+  if (ai.provider !== 'local') return null;
+  const name = String(ai.model || '').trim();
+  if (!name || !HOSTED_NAME.test(name)) return null;
+  return banner('warn',
+    `“${name}” is a hosted model — it runs on its vendor's servers and cannot be installed on this computer, so a local server will answer "model not found". `
+    + 'Put the name of a model you have actually pulled here, such as llama3.1:8b. '
+    + 'If you meant to use Claude, switch the provider above to Claude API — and note that this sends your text to Anthropic.');
 }
