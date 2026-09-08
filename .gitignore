@@ -1,0 +1,8 @@
+# Build artifact from instructor/package.sh — regenerate it with that script
+# rather than tracking a 1 MB binary that changes on every build.
+InstructorWorkbench.zip
+
+# Electron build output
+instructor/desktop/dist/
+instructor/desktop/node_modules/
+node_modules/
