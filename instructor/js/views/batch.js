@@ -284,9 +284,15 @@ function reasonsFor(r) {
   const words = r.report.doc.bodyWords.length || 1;
   const per1000 = (n) => (n / words) * 1000;
 
-  const stress = r.report.scorecard.stressIndex;
-  if (stress > 65) out.push({ level: 'high', key: 'Argument', text: `stress ${stress} — ${r.report.argument.stressBand.toLowerCase()}` });
-  else if (stress > 45) out.push({ level: 'medium', key: 'Argument', text: `stress ${stress} — strained` });
+  /* The triage question for a literature cohort: is this one still summarising
+     the novel? Only asked where enough paragraphs were classifiable to mean it. */
+  const bl = r.report.bloom;
+  if (bl.classifiedParagraphs >= 4) {
+    const share = Math.round(bl.readingShare * 100);
+    if (bl.readingShare < 0.20) out.push({ level: 'high', key: 'Thinking', text: `only ${share}% of paragraphs get past restating the text` });
+    else if (bl.readingShare < 0.40) out.push({ level: 'medium', key: 'Thinking', text: `${share}% of paragraphs go beyond restating` });
+    if (bl.longestSummaryRun >= 5) out.push({ level: 'medium', key: 'Summary', text: `${bl.longestSummaryRun} paragraphs of unbroken summary` });
+  }
 
   const o = r.overlap;
   if (o && (o.containment >= 0.20 || o.longest >= 900)) {
@@ -358,7 +364,7 @@ const attentionOf = (r) =>
 const SORTS = {
   attention: { label: 'Needs attention', fn: (a, b) => attentionOf(b) - attentionOf(a) || a.filename.localeCompare(b.filename) },
   name: { label: 'Filename', fn: (a, b) => a.filename.localeCompare(b.filename) },
-  stress: { label: 'Argument stress', fn: (a, b) => b.report.scorecard.stressIndex - a.report.scorecard.stressIndex },
+  thinking: { label: 'Least analysis first', fn: (a, b) => a.report.bloom.readingShare - b.report.bloom.readingShare },
   overlap: { label: 'Overlap with others', fn: (a, b) => (b.overlap?.containment || 0) - (a.overlap?.containment || 0) },
   ai: { label: 'AI signals', fn: (a, b) => b.ai.score - a.ai.score },
   length: { label: 'Length', fn: (a, b) => b.report.doc.bodyWords.length - a.report.doc.bodyWords.length }
@@ -390,7 +396,7 @@ function results(root, ctx) {
         el('p', { class: 'hint', style: 'margin:0;max-width:460px', text: 'Order is set by the reasons listed on each row, not by a hidden score. A row with no reasons is not a good thesis — it is one this tool has nothing to say about.' })
       ),
       table(
-        ['Submission', 'Student (suggested)', { label: 'Words', num: true }, { label: 'Stress', num: true }, 'Why it is here', ''],
+        ['Submission', 'Student (suggested)', { label: 'Words', num: true }, 'Level of thinking', 'Why it is here', ''],
         rows.map((r) => rowFor(r, root, ctx))
       )
     ),
@@ -404,7 +410,8 @@ function results(root, ctx) {
 }
 
 /* Same bands the Thesis view uses: 25 sound, 45 serviceable, 65 strained. */
-const stressTone = (v) => (v > 65 ? 'high' : v > 45 ? 'medium' : v > 25 ? 'low' : 'good');
+/* Low share of analysis is what wants attention, so the scale is inverted. */
+const readingTone = (v) => (v < 0.2 ? 'high' : v < 0.4 ? 'medium' : v < 0.6 ? 'low' : 'good');
 
 function rowFor(r, root, ctx) {
   return el('tr', {},
@@ -414,7 +421,9 @@ function rowFor(r, root, ctx) {
     ),
     el('td', {}, matchCell(r)),
     el('td', { class: 'num', text: int(r.report.doc.bodyWords.length) }),
-    el('td', { class: 'num' }, chip(String(r.report.scorecard.stressIndex), stressTone(r.report.scorecard.stressIndex))),
+    el('td', {}, r.report.bloom.classifiedParagraphs
+      ? chip(`${r.report.bloom.dominant.label} · ${Math.round(r.report.bloom.readingShare * 100)}%`, readingTone(r.report.bloom.readingShare))
+      : chip('—')),
     el('td', {}, (r.reasons || []).length
       ? el('div', { class: 'row', style: 'flex-wrap:wrap;gap:4px' },
           r.reasons.map((x) => chip(`${x.key}: ${x.text}`, x.level)))
@@ -473,7 +482,7 @@ function pairsCard() {
 /* --------------------------------------------------------------- export */
 
 function exportCsv() {
-  const head = ['File', 'Path', 'Suggested student', 'Match confidence', 'Words', 'Stress index', 'Stress band',
+  const head = ['File', 'Path', 'Suggested student', 'Match confidence', 'Words', 'Level of thinking', 'Beyond restating %',
     'Grammar', 'Spelling', 'Style', 'Citation style', 'Argument', 'Structure',
     'Reading ease', 'Grade level', 'AI indicator', 'Top overlap with', 'Overlap %', 'Reasons'];
   const lines = [...S.rows].sort(SORTS[S.sort].fn).map((r) => [
@@ -482,8 +491,8 @@ function exportCsv() {
     r.match ? r.match.student.name : '',
     r.match ? (r.match.ambiguous ? 'ambiguous' : r.match.confident ? 'confident' : 'weak') : 'none',
     r.report.doc.bodyWords.length,
-    r.report.scorecard.stressIndex,
-    r.report.argument.stressBand,
+    r.report.bloom.dominant ? r.report.bloom.dominant.label : '',
+    Math.round(r.report.bloom.readingShare * 100),
     r.report.counts.grammar,
     r.report.counts.typo,
     r.report.counts.style,
@@ -533,12 +542,12 @@ function printTriage() {
         ] },
       { heading: 'In the order they need reading', count: rows.length,
         table: {
-          headers: ['Submission', 'Student (suggested)', 'Words', 'Stress', 'Why it is here'],
+          headers: ['Submission', 'Student (suggested)', 'Words', 'Level of thinking', 'Why it is here'],
           rows: rows.map((r) => [
             r.filename,
             r.match ? (r.match.ambiguous ? `ambiguous: ${r.match.alternatives.join(' or ')}` : r.match.student.name) : '—',
             String(r.report.doc.bodyWords.length),
-            String(r.report.scorecard.stressIndex),
+            r.report.bloom.dominant ? `${r.report.bloom.dominant.label} · ${Math.round(r.report.bloom.readingShare * 100)}% beyond restating` : '—',
             (r.reasons || []).map((x) => `${x.key}: ${x.text}`).join('; ') || 'nothing flagged'
           ])
         } },

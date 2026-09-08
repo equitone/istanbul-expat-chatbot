@@ -190,10 +190,19 @@ explaining each one. Click a finding to jump to it.
 The tabs across the top of the results:
 
 - **Findings** — spelling, grammar, punctuation, register.
-- **Argument stress** — the important one. It finds claims the student
-  asserts confidently but supports with nothing: no citation, no evidence, no
-  stated reason. Those are the passages an examiner opens the viva with. The
-  score runs 0 (sound) to 100 (overloaded).
+- **Level of thinking** — the important one. It places each paragraph on
+  Bloom's revised taxonomy (Anderson & Krathwohl 2001): is the student
+  *retelling* the novel or *reading* it? The headline number is the share of
+  paragraphs that get past restating the primary source. Every row shows the
+  exact wording that decided its level, so you can overrule it on sight.
+  There is no combined score: Bloom's is a ladder of kinds of thinking, not a
+  scale of quality, and a chapter of close analysis is not worse than one that
+  proposes a framework.
+- **Claims & support** — finds claims the student asserts confidently but
+  supports with nothing: no citation, no evidence, no stated reason. Those are
+  the passages an examiner opens the viva with. Counts only — the 0–100
+  "stress index" that used to sit here was invented for this tool and has been
+  removed.
 - **Citations** — checks the referencing against APA 7 or MLA 9. Use the
   toggle to switch; the check re-runs.
 - **Originality** — compares against the other theses you have saved here,

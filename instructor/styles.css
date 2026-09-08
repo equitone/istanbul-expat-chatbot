@@ -29,6 +29,7 @@
   --cat-typo:      #d1495b;
   --cat-grammar:   #d98324;
   --cat-argument:  #7b4bc4;
+  --cat-bloom:     #1f7a8c;
   --cat-structure: #0d8a72;
   --cat-ai:        #2b6cb0;
   --cat-citation:  #9a5b13;
@@ -69,6 +70,7 @@
     --cat-typo:      #f0788c;
     --cat-grammar:   #e0a44f;
     --cat-argument:  #b18aec;
+    --cat-bloom:     #56b3c4;
     --cat-structure: #4dc0a8;
     --cat-ai:        #6aa5e0;
     --cat-citation:  #d0a15e;
@@ -178,7 +180,13 @@ button, .btn {
 button:hover:not(:disabled) { background: var(--surface-2); }
 button:disabled { opacity: .5; cursor: not-allowed; }
 button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); font-weight: 600; }
-button.primary:hover:not(:disabled) { filter: brightness(1.08); }
+/* The generic button:hover rule is more specific than button.primary, so it
+   used to repaint a primary button's background to --surface-2 while leaving
+   the white label in place: the text vanished on hover in the light theme.
+   Restating the background here is what keeps the label readable. */
+button.primary:hover:not(:disabled) { background: var(--accent); filter: brightness(1.08); }
+button.danger:hover:not(:disabled) { background: var(--high-soft); }
+button.ghost:hover:not(:disabled) { background: var(--surface-2); }
 button.danger { color: var(--high); border-color: var(--high); background: transparent; }
 button.danger:hover:not(:disabled) { background: var(--high-soft); }
 button.ghost { border-color: transparent; background: transparent; color: var(--text-dim); }
@@ -332,6 +340,7 @@ tfoot td { background: var(--surface-2); font-weight: 600; }
 .reader mark.typo      { background: color-mix(in srgb, var(--cat-typo) 22%, transparent); border-bottom: 2px solid var(--cat-typo); }
 .reader mark.grammar   { background: color-mix(in srgb, var(--cat-grammar) 22%, transparent); border-bottom: 2px solid var(--cat-grammar); }
 .reader mark.argument  { background: color-mix(in srgb, var(--cat-argument) 18%, transparent); border-bottom: 2px solid var(--cat-argument); }
+.reader mark.bloom     { background: color-mix(in srgb, var(--cat-bloom) 16%, transparent); border-bottom: 2px solid var(--cat-bloom); }
 .reader mark.structure { background: color-mix(in srgb, var(--cat-structure) 18%, transparent); border-bottom: 2px solid var(--cat-structure); }
 .reader mark.ai        { background: color-mix(in srgb, var(--cat-ai) 18%, transparent); border-bottom: 2px solid var(--cat-ai); }
 .reader mark.citation  { background: color-mix(in srgb, var(--cat-citation) 20%, transparent); border-bottom: 2px solid var(--cat-citation); }
@@ -391,6 +400,7 @@ tfoot td { background: var(--surface-2); font-weight: 600; }
 .finding.cat-typo { border-left-color: var(--cat-typo); }
 .finding.cat-grammar { border-left-color: var(--cat-grammar); }
 .finding.cat-argument { border-left-color: var(--cat-argument); }
+.finding.cat-bloom { border-left-color: var(--cat-bloom); }
 .finding.cat-structure { border-left-color: var(--cat-structure); }
 .finding.cat-ai { border-left-color: var(--cat-ai); }
 .finding.cat-citation { border-left-color: var(--cat-citation); }
@@ -579,3 +589,21 @@ details.howto code {
   border: 1px solid var(--border);
   border-radius: 999px;
 }
+
+
+/* ---------------------------------------------------------- Bloom ladder */
+/* Six rungs, read bottom-up like the taxonomy itself. Height is share of
+   paragraphs; the rung the text mostly sits on is filled, the rest outlined. */
+.ladder { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; align-items: end; height: 132px; margin: 6px 0 10px; }
+.ladder .rung { display: flex; flex-direction: column; justify-content: flex-end; height: 100%; gap: 4px; }
+.ladder .bar { background: color-mix(in srgb, var(--cat-bloom) 22%, transparent); border: 1px solid color-mix(in srgb, var(--cat-bloom) 45%, transparent); border-radius: 4px 4px 0 0; min-height: 3px; transition: height .15s; }
+.ladder .rung.is-dominant .bar { background: var(--cat-bloom); border-color: var(--cat-bloom); }
+.ladder .rung.is-empty .bar { background: transparent; border-style: dashed; }
+.ladder .cap { font-size: 10px; text-align: center; color: var(--text-dim); line-height: 1.25; }
+.ladder .cap b { display: block; font-size: 11px; color: var(--text); font-weight: 600; }
+.ladder .rung.is-dominant .cap b { color: var(--cat-bloom); }
+.para-row { display: grid; grid-template-columns: 42px 96px 1fr; gap: 10px; align-items: start; padding: 7px 0; border-bottom: 1px solid var(--border); font-size: 12px; }
+.para-row:last-child { border-bottom: 0; }
+.para-row .lv { font-weight: 600; font-size: 11px; }
+.para-row .ex { color: var(--text-dim); }
+.para-row .ev { font-family: var(--mono); font-size: 10px; color: var(--cat-bloom); }

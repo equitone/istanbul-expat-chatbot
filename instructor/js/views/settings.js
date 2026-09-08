@@ -195,7 +195,8 @@ export default function renderSettings(root, ctx) {
       el('p', { text: 'Worth knowing before you rely on any number it produces.' }),
       table(['Check', 'Basis', 'Limit'], [
         ['Spelling, grammar, punctuation', 'Rule engine, offline', 'Heuristic. Tuned to avoid false positives, so it misses cases rather than inventing them.'],
-        ['Argument stress', 'Rule engine, offline', 'Measures whether the text does the work of supporting a claim. It cannot judge whether a claim is true.'],
+        ['Level of thinking', 'Word lists, offline', 'Bloom’s revised taxonomy (Anderson & Krathwohl 2001) applied paragraph by paragraph. It matches wording, not thought, and shows the wording behind every decision so you can overrule it.'],
+        ['Claims & support', 'Rule engine, offline', 'Counts whether an assertion has a citation, quotation or stated reason near it. It cannot judge whether a claim is true, and it produces no combined score.'],
         ['Citation style (APA 7 / MLA 9)', 'Rule engine, offline', 'Checks form, not truth.'],
         ['Reuse against your corpus', 'Fingerprinting, offline', 'Only sees theses saved in this workbench. No web index, no journal index. Heavy paraphrase passes.'],
         ['Voice consistency', 'Stylometry, offline', 'Flags passages unlike the rest of the document. A flag is a question, not an answer.'],

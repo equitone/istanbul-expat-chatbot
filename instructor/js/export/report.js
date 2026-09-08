@@ -67,7 +67,7 @@ export function buildReportHtml(report, opts = {}) {
   <div class="tiles">
     ${tile('Words', fmt(report.structure.words))}
     ${tile('Points raised', fmt(shown.length), `${c.high} to fix · ${c.medium} to check`)}
-    ${tile('Argument stress', `${report.argument.stressIndex}/100`, report.argument.stressBand)}
+    ${tile('Level of thinking', report.bloom.dominant ? report.bloom.dominant.label : '—', report.bloom.classifiedParagraphs ? `${Math.round(report.bloom.readingShare * 100)}% of paragraphs go beyond restating` : 'not enough classifiable prose')}
     ${tile('Claims supported', pct(report.argument.claimSupportRatio), `${report.argument.supportedClaims} of ${report.argument.claims}`)}
   </div>
   <p class="lead">This report lists what a checking tool and your supervisor found. Items marked

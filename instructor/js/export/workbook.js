@@ -255,12 +255,12 @@ function componentAnalysisSheet(state) {
 }
 
 function thesisSummarySheet(state) {
-  const header = ['Student', 'Level', 'Title', 'File', 'Words', 'Stress index', 'Band', 'Total findings', 'High severity', 'Analysed'];
+  const header = ['Student', 'Level', 'Title', 'File', 'Words', 'Level of thinking', 'Beyond restating %', 'Total findings', 'High severity', 'Analysed'];
   const rows = state.theses.map((t) => {
     const st = state.students.find((s) => s.id === t.studentId);
     return [
       st ? st.name : '(unassigned)', st ? LEVEL_LABEL[st.level] : '',
-      t.title, t.filename, t.wordCount, t.stressIndex, t.stressBand,
+      t.title, t.filename, t.wordCount, t.bloomLabel, t.readingShare === null || t.readingShare === undefined ? '' : Math.round(t.readingShare * 100),
       t.issueCount, t.highCount, new Date(t.savedAt).toLocaleString()
     ];
   });

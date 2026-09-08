@@ -298,8 +298,9 @@ export async function saveThesis(meta, payload) {
     title: meta.title || 'Untitled',
     filename: meta.filename || '',
     wordCount: meta.wordCount || 0,
-    stressIndex: meta.stressIndex ?? null,
-    stressBand: meta.stressBand ?? null,
+    bloomLevel: meta.bloomLevel ?? null,
+    bloomLabel: meta.bloomLabel ?? null,
+    readingShare: meta.readingShare ?? null,
     issueCount: meta.issueCount ?? 0,
     highCount: meta.highCount ?? 0,
     savedAt: new Date().toISOString()

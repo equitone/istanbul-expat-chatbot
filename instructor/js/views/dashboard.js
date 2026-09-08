@@ -91,15 +91,17 @@ export default function renderDashboard(root, { go }) {
           s.theses.length
             ? el('div', { class: 'card' },
                 el('h2', { text: 'Recent thesis reviews' }),
-                table(['Student', 'Title', { label: 'Words', num: true }, { label: 'Stress', num: true }, 'Band', { label: 'Findings', num: true }, 'Reviewed'],
+                table(['Student', 'Title', { label: 'Words', num: true }, 'Level of thinking', 'Beyond restating', { label: 'Findings', num: true }, 'Reviewed'],
                   [...s.theses].reverse().slice(0, 8).map((t) => {
                     const st = s.students.find((x) => x.id === t.studentId);
                     return [
                       st ? st.name : '(unassigned)',
                       t.title,
                       el('td', { class: 'num', text: int(t.wordCount) }),
-                      el('td', { class: 'num', text: t.stressIndex ?? '—' }),
-                      el('td', {}, chip(t.stressBand || '—', bandTone(t.stressBand))),
+                      el('td', { text: t.bloomLabel || '—' }),
+                      el('td', {}, t.readingShare === null || t.readingShare === undefined
+                        ? chip('—')
+                        : chip(`${Math.round(t.readingShare * 100)}% beyond restating`, t.readingShare >= 0.4 ? 'good' : 'medium')),
                       el('td', { class: 'num', text: int(t.issueCount) }),
                       relTime(t.savedAt)
                     ];
@@ -140,7 +142,6 @@ function backupReminder(s, go) {
   );
 }
 
-const bandTone = (b) => ({ Sound: 'good', Serviceable: 'accent', Strained: 'medium', Overloaded: 'high' }[b] || '');
 
 /* ------------------------------------------------------------- planner */
 

@@ -7,6 +7,7 @@ import { buildDocument } from './text.js';
 import { analyseMechanics } from './mechanics.js';
 import { analyseGrammar } from './grammar.js';
 import { analyseArgument } from './argument.js';
+import { analyseBloom } from './bloom.js';
 import { analyseOverview } from './overview.js';
 import { analyseCitations } from './citations.js';
 
@@ -21,7 +22,8 @@ export const CATEGORY_META = {
   grammar: { label: 'Grammar errors', colour: 'var(--cat-grammar)' },
   typo: { label: 'Spelling & punctuation', colour: 'var(--cat-typo)' },
   citation: { label: 'Citation style', colour: 'var(--cat-citation)' },
-  argument: { label: 'Argument stress', colour: 'var(--cat-argument)' },
+  argument: { label: 'Argument support', colour: 'var(--cat-argument)' },
+  bloom: { label: 'Level of thinking', colour: 'var(--cat-bloom)' },
   structure: { label: 'Structure & sources', colour: 'var(--cat-structure)' },
   ai: { label: 'AI review', colour: 'var(--cat-ai)' },
   style: { label: 'Style suggestions', colour: 'var(--cat-style)' }
@@ -34,6 +36,7 @@ export function analyseThesis(rawText, { citationStyle = 'apa7' } = {}) {
   const mechanics = analyseMechanics(doc);
   const grammar = analyseGrammar(doc);
   const argument = analyseArgument(doc);
+  const bloom = analyseBloom(doc);
   const overview = analyseOverview(doc, argument);
   const citations = analyseCitations(doc, citationStyle);
 
@@ -41,6 +44,7 @@ export function analyseThesis(rawText, { citationStyle = 'apa7' } = {}) {
     ...mechanics.issues,
     ...grammar.issues,
     ...argument.issues,
+    ...bloom.issues,
     ...overview.issues,
     ...citations.issues
   ]);
@@ -53,8 +57,12 @@ export function analyseThesis(rawText, { citationStyle = 'apa7' } = {}) {
   const scorecard = {
     mechanicsPer1000: per1000(merged.filter((i) => i.category === 'typo').length),
     grammarPer1000: per1000(merged.filter((i) => i.category === 'grammar').length),
-    stressIndex: argument.metrics.stressIndex,
-    stressBand: argument.metrics.stressBand,
+    /* Bloom's is a distribution, not a rank, so the scorecard carries the two
+       facts that are comparable across theses: where most paragraphs sit, and
+       how much of the text gets past restating the primary source. */
+    bloomDominant: bloom.metrics.dominant ? bloom.metrics.dominant.n : null,
+    bloomDominantLabel: bloom.metrics.dominant ? bloom.metrics.dominant.label : null,
+    readingShare: bloom.metrics.readingShare,
     readingEase: overview.readability.fleschReadingEase,
     gradeLevel: overview.readability.fleschKincaidGrade
   };
@@ -73,13 +81,15 @@ export function analyseThesis(rawText, { citationStyle = 'apa7' } = {}) {
       grammar: count('grammar'),
       style: count('style'),
       argument: count('argument'),
+      bloom: count('bloom'),
       structure: count('structure'),
       citation: count('citation')
     },
     dialect: mechanics.dialect,
     grammarMetrics: grammar.metrics,
     argument: argument.metrics,
-    stressComponents: argument.metrics.stressComponents,
+    bloom: bloom.metrics,
+    bloomParagraphs: bloom.paragraphs,
     readability: overview.readability,
     rhythm: overview.rhythm,
     vocabulary: overview.vocabulary,

@@ -3,6 +3,7 @@ import {
   emptyState, banner, meter, confirmDialog, escapeHtml
 } from '../ui.js';
 import { getState, LEVEL_LABEL, saveThesis, loadThesisDocument, removeThesis } from '../store.js';
+import { LEVELS as BLOOM_LEVELS } from '../analysis/bloom.js';
 import { analyseThesis, buildSegments, dominantIssue, CATEGORY_META } from '../analysis/index.js';
 import { compareAgainstCorpus, voiceConsistency, aiIndicators } from '../analysis/similarity.js';
 import { verifyReference, findPriorWork, setContactEmail } from '../analysis/verify.js';
@@ -216,11 +217,11 @@ function recount(report) {
 
 function analysed(root, ctx) {
   const r = S.report;
-  const band = (r.argument.stressBand || '').toLowerCase();
 
   const panels = [
     ['findings', `Findings (${r.counts.total})`],
-    ['argument', 'Argument stress'],
+    ['bloom', 'Level of thinking'],
+    ['argument', 'Claims & support'],
     ['citations', 'Citations'],
     ['originality', 'Originality'],
     ['research', 'Deep research'],
@@ -230,18 +231,18 @@ function analysed(root, ctx) {
   return el('div', {},
     el('div', { class: 'grid cols-4', style: 'margin-bottom:16px' },
       el('div', { class: 'stat' },
-        el('div', { class: 'label', text: 'Argument stress index' }),
+        el('div', { class: 'label', text: 'Where the thinking sits' }),
         el('div', { class: 'stress-dial' },
-          el('div', { class: `num ${band}`, text: String(r.argument.stressIndex) }),
+          el('div', { class: 'num', style: 'color:var(--cat-bloom)', text: r.bloom.dominant ? String(r.bloom.dominant.n) : '—' }),
           el('div', {},
-            el('div', { style: 'font-weight:600', text: r.argument.stressBand }),
-            el('div', { class: 'sub', text: `${r.argument.criticalStressPoints} critical point${r.argument.criticalStressPoints === 1 ? '' : 's'}` })
+            el('div', { style: 'font-weight:600', text: r.bloom.dominant ? r.bloom.dominant.label : 'Not classifiable' }),
+            el('div', { class: 'sub', text: r.bloom.dominant ? `most of ${int(r.bloom.classifiedParagraphs)} paragraphs` : 'too little signposted prose' })
           )
         )
       ),
       stat('Findings', int(r.counts.total), `${r.counts.high} high · ${r.counts.medium} medium · ${r.counts.low} low`, r.counts.high > 12 ? 'high' : ''),
       stat('Length', int(r.structure.words), `${int(r.structure.paragraphs)} paragraphs · ~${r.structure.readingMinutes} min read`),
-      stat('Claim support', pct(r.argument.claimSupportRatio), `${r.argument.supportedClaims} of ${r.argument.claims} claims backed`, r.argument.claimSupportRatio > 0.7 ? 'good' : r.argument.claimSupportRatio < 0.4 ? 'high' : '')
+      stat('Beyond restating', pct(r.bloom.readingShare), `${int(r.bloom.readingParagraphs)} of ${int(r.bloom.classifiedParagraphs)} paragraphs analyse or judge`, r.bloom.readingShare >= 0.4 ? 'good' : r.bloom.classifiedParagraphs ? 'medium' : '')
     ),
 
     el('div', { class: 'row', style: 'margin-bottom:14px' },
@@ -257,6 +258,7 @@ function analysed(root, ctx) {
     ),
 
     S.panel === 'findings' ? findingsPanel(root, ctx)
+      : S.panel === 'bloom' ? bloomPanel(root, ctx)
       : S.panel === 'argument' ? argumentPanel()
       : S.panel === 'citations' ? citationsPanel(root, ctx)
       : S.panel === 'originality' ? originalityPanel(root, ctx)
@@ -382,6 +384,32 @@ function renderHighlighted(text, issues) {
   return out;
 }
 
+
+/*
+ * Jump to a paragraph in the reader by its opening words. focusIssue() can
+ * only find text that carries a <mark>, and most paragraphs carry none — so
+ * this walks the rendered text nodes instead and scrolls to the match.
+ */
+function scrollToText(snippet) {
+  const reader = document.getElementById('reader');
+  if (!reader || !snippet) return false;
+  const needle = String(snippet).replace(/\s+/g, ' ').trim().slice(0, 60);
+  if (needle.length < 12) return false;
+  const walker = document.createTreeWalker(reader, NodeFilter.SHOW_TEXT);
+  let node;
+  while ((node = walker.nextNode())) {
+    const hay = node.textContent.replace(/\s+/g, ' ');
+    const at = hay.indexOf(needle.slice(0, 24));
+    if (at < 0) continue;
+    const el = node.parentElement;
+    reader.querySelectorAll('mark.focus').forEach((m) => m.classList.remove('focus'));
+    if (el && el !== reader) el.classList.add('focus');
+    (el && el !== reader ? el : node.parentElement).scrollIntoView({ behavior: 'smooth', block: 'center' });
+    return true;
+  }
+  return false;
+}
+
 function focusIssue(issue, idx) {
   const reader = document.getElementById('reader');
   if (!reader) return;
@@ -398,22 +426,100 @@ function focusIssue(issue, idx) {
   }
 }
 
+
+/* ----------------------------------------------------------- bloom panel */
+
+/*
+ * Bloom's revised taxonomy (Anderson & Krathwohl 2001), applied paragraph by
+ * paragraph. Shown as a distribution rather than a score, and every row can be
+ * clicked back to the paragraph that produced it — a classification the
+ * supervisor cannot check is a classification they should not trust.
+ */
+function bloomPanel(root, ctx) {
+  const b = S.report.bloom;
+  const paras = S.report.bloomParagraphs || [];
+  const max = Math.max(1, ...b.distribution.map((d) => d.count));
+
+  return el('div', {},
+    el('div', { class: 'card', style: 'margin-bottom:14px' },
+      el('h2', { text: 'Where the thinking sits' }),
+      el('p', { text: b.reading }),
+      el('div', { class: 'ladder' },
+        b.distribution.map((d) => el('div', {
+          class: `rung${b.dominant && d.n === b.dominant.n ? ' is-dominant' : ''}${d.count ? '' : ' is-empty'}`
+        },
+          el('div', { class: 'bar', style: `height:${Math.round((d.count / max) * 88)}%` }),
+          el('div', { class: 'cap' }, el('b', { text: d.label }), `${d.count}`)
+        ))
+      ),
+      el('p', { class: 'hint', text: `${int(b.classifiedParagraphs)} of ${int(b.totalParagraphs)} body paragraphs carried a recognisable move. The other ${int(b.unclassifiedParagraphs)} are left unclassified rather than counted as low-level thinking — no signal is not the same as no thought.` })
+    ),
+
+    el('div', { class: 'grid cols-2' },
+      el('div', { class: 'card' },
+        el('h2', { text: 'Paragraph by paragraph' }),
+        el('p', { class: 'hint', text: 'Click a row to jump to it in the text. The right-hand column is the exact wording that decided the level — if it is wrong, you can see immediately why.' }),
+        el('div', {}, paras.map((p) => {
+          const lv = p.level ? BLOOM_LEVELS.find((l) => l.n === p.level) : null;
+          return el('div', {
+            class: 'para-row',
+            style: 'cursor:pointer',
+            onClick: () => { S.panel = 'findings'; renderThesis(root, ctx); requestAnimationFrame(() => scrollToText(p.excerpt)); }
+          },
+            el('div', { class: 'lv', style: lv ? 'color:var(--cat-bloom)' : 'color:var(--text-dim)', text: lv ? String(lv.n) : '—' }),
+            el('div', { class: 'lv', style: lv ? '' : 'color:var(--text-dim);font-weight:400', text: lv ? lv.label : (p.announcedOnly ? 'announced' : 'unclassified') }),
+            el('div', {},
+              el('div', { class: 'ex', text: clipText(p.excerpt, 150) }),
+              p.evidence.length ? el('div', { class: 'ev', text: p.evidence.slice(0, 4).map((e) => e.text).join(' · ') }) : null
+            )
+          );
+        }))
+      ),
+
+      el('div', { class: 'card' },
+        el('h2', { text: 'What each level means here' }),
+        table(['Level', 'Counted when the text…'], BLOOM_LEVELS.map((l) => [
+          el('td', {}, chip(`${l.n} ${l.label}`, b.dominant && b.dominant.n === l.n ? 'accent' : '')),
+          el('td', { class: 'wrap', text: l.gloss })
+        ])),
+        el('p', { class: 'hint', style: 'margin-top:10px', text: 'Asserting that something is significant counts as Understand, not Analyse. Analyse is credited only where the text names a relationship — a contrast, a tension, an effect, a shift. That line is a judgement call and you may disagree with it.' }),
+        el('h2', { style: 'margin-top:18px', text: 'What this cannot do' }),
+        banner('warn', 'This matches wording, not thinking. A student who signposts well reads higher than one who does the same work silently, and an announced move (“this chapter will analyse…”) is deliberately not counted as the move itself. Bloom’s is a ladder of kinds of thinking, not of quality: a chapter of close analysis is not worse than one that proposes a framework. Treat every row as a place to look, never as a mark.'),
+        el('p', { class: 'hint', text: 'Anderson, L. W. & Krathwohl, D. R. (2001), A Taxonomy for Learning, Teaching and Assessing — the revision of Bloom (1956). English and Turkish cue words are both recognised.' })
+      )
+    )
+  );
+}
+
+const clipText = (t, n) => (String(t || '').length > n ? `${String(t).slice(0, n - 1)}…` : String(t || ''));
+
 /* -------------------------------------------------------- argument panel */
 
 function argumentPanel() {
   const a = S.report.argument;
   return el('div', { class: 'grid cols-2' },
     el('div', { class: 'card' },
-      el('h2', { text: 'What the stress index is made of' }),
-      el('p', { text: 'Each component contributes up to its weight. A high contribution is where the argument is carrying more than it supports.' }),
-      a.stressComponents.map((c) => el('div', { class: 'metric-row' },
-        el('div', { class: 'name' },
-          c.key,
-          el('small', { text: `${c.contribution} of ${c.weight} points` }),
-          meter(c.load, c.load > 0.66 ? 'high' : c.load > 0.33 ? 'medium' : 'good')
-        ),
-        el('div', { class: 'n', text: `${c.contribution}` })
-      ))
+      el('h2', { text: 'Does the text support what it asserts?' }),
+      el('p', { text: 'A claim is a sentence that asserts something — it carries a claim verb, an evaluative adjective, an absolute, or “should/must”. It counts as supported when a citation, a quotation, a figure or a stated reason appears within two sentences in the same paragraph.' }),
+      banner('info', 'These are counts, not a grade. There is no combined score here: the six-component “stress index” this panel used to show was invented for this tool, and a number a supervisor cannot defend to a student is worse than no number.'),
+      el('div', { class: 'metric-row' },
+        el('div', { class: 'name' }, 'Claims with evidence or a citation',
+          el('small', { text: `${int(a.stronglySupportedClaims)} of ${int(a.claims)}` }),
+          meter(a.evidenceBackedRatio, a.evidenceBackedRatio > 0.6 ? 'good' : a.evidenceBackedRatio > 0.35 ? 'medium' : 'high')),
+        el('div', { class: 'n', text: pct(a.evidenceBackedRatio) })
+      ),
+      el('div', { class: 'metric-row' },
+        el('div', { class: 'name' }, 'Body paragraphs carrying support',
+          el('small', { text: 'paragraphs of 35 words or more' }),
+          meter(a.paragraphsWithSupport, a.paragraphsWithSupport > 0.6 ? 'good' : 'medium')),
+        el('div', { class: 'n', text: pct(a.paragraphsWithSupport) })
+      ),
+      el('div', { class: 'metric-row' },
+        el('div', { class: 'name' }, 'Paragraphs testing a counterargument',
+          el('small', { text: 'against the same paragraph count' }),
+          meter(a.counterargumentCoverage, a.counterargumentCoverage > 0.25 ? 'good' : 'medium')),
+        el('div', { class: 'n', text: pct(a.counterargumentCoverage) })
+      )
     ),
     el('div', { class: 'card' },
       el('h2', { text: 'Argument measurements' }),
@@ -422,12 +528,12 @@ function argumentPanel() {
         ['Backed by evidence or citation', int(a.stronglySupportedClaims), pct(a.evidenceBackedRatio)],
         ['Backed by reasoning only', int(a.supportedClaims - a.stronglySupportedClaims), ''],
         ['Unsupported', int(a.claims - a.supportedClaims), a.claimSupportRatio < 0.5 ? 'over half the claims stand alone' : ''],
-        ['Critical stress points', int(a.criticalStressPoints), 'asserted with certainty, supported by nothing'],
+        ['Asserted with certainty, supported by nothing', int(a.criticalStressPoints), ''],
         ['Paragraphs with support', pct(a.paragraphsWithSupport), ''],
         ['Counterargument coverage', pct(a.counterargumentCoverage), a.counterargumentCoverage < 0.15 ? 'the argument is never tested against an objection' : ''],
         ['Hedges per claim', num(a.hedgesPerClaim, 2), a.hedgesPerClaim < 0.3 ? 'under-qualified' : a.hedgesPerClaim > 1.5 ? 'over-qualified' : 'well calibrated'],
         ['Boosters per claim', num(a.boostersPerClaim, 2), a.boostersPerClaim > 0.5 ? 'certainty outruns evidence' : ''],
-        ['Cohesion gaps', int(a.cohesionGaps), 'paragraph pairs with no shared vocabulary or connective'],
+        ['Cohesion gaps', int(a.cohesionGaps), `paragraph pairs with no shared vocabulary or connective, out of ${int(a.bodyParagraphs)} paragraphs of 35+ words`],
         ['Citations', int(a.citations), `${int(a.uniqueSources)} distinct sources`],
         ['Citation density', num(a.citationsPerThousandWords, 1), 'per 1000 words']
       ].map((row) => [row[0], el('td', { class: 'num', text: row[1] }), row[2]])),
@@ -814,8 +920,9 @@ async function save(root, ctx) {
       title: S.title || S.filename || 'Untitled',
       filename: S.filename,
       wordCount: r.structure.words,
-      stressIndex: r.argument.stressIndex,
-      stressBand: r.argument.stressBand,
+      bloomLevel: r.bloom.dominant ? r.bloom.dominant.n : null,
+      bloomLabel: r.bloom.dominant ? r.bloom.dominant.label : null,
+      readingShare: r.bloom.readingShare,
       issueCount: r.counts.total,
       highCount: r.counts.high
     },
@@ -843,14 +950,14 @@ function savedList(root, ctx) {
   if (!s.theses.length) return null;
   return el('div', { class: 'card' },
     el('h2', { text: 'Saved reviews' }),
-    table(['Student', 'Title', { label: 'Words', num: true }, { label: 'Stress', num: true }, { label: 'Findings', num: true }, '', ''],
+    table(['Student', 'Title', { label: 'Words', num: true }, 'Level', { label: 'Findings', num: true }, '', ''],
       [...s.theses].reverse().map((t) => {
         const st = s.students.find((x) => x.id === t.studentId);
         return [
           st ? st.name : '(unassigned)',
           t.title,
           el('td', { class: 'num', text: int(t.wordCount) }),
-          el('td', { class: 'num', text: t.stressIndex ?? '—' }),
+          el('td', { text: t.bloomLabel || '—' }),
           el('td', { class: 'num', text: int(t.issueCount) }),
           el('td', {}, el('button', { class: 'sm', text: 'Reopen', onClick: async () => {
             const doc = await loadThesisDocument(t.id);
@@ -881,8 +988,10 @@ function exportReport() {
     `Generated ${new Date().toLocaleString()}`,
     `Words ${r.structure.words} · Paragraphs ${r.structure.paragraphs} · Citation style ${r.citationStyle === 'apa7' ? 'APA 7' : 'MLA 9'}`,
     '',
-    `ARGUMENT STRESS INDEX: ${r.argument.stressIndex}/100 (${r.argument.stressBand})`,
-    ...r.argument.stressComponents.map((c) => `  ${c.key}: ${c.contribution}/${c.weight}`),
+    `LEVEL OF THINKING (Bloom's revised taxonomy, Anderson & Krathwohl 2001)`,
+    `  ${r.bloom.reading}`,
+    ...r.bloom.distribution.filter((d) => d.count).map((d) => `  ${d.n} ${d.label}: ${d.count} paragraph(s)`),
+    `  Unclassified: ${r.bloom.unclassifiedParagraphs} of ${r.bloom.totalParagraphs}`,
     '',
     `FINDINGS: ${r.counts.total} (${r.counts.high} high, ${r.counts.medium} medium, ${r.counts.low} low)`,
     ''

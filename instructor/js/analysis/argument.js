@@ -307,39 +307,18 @@ export function analyseArgument(doc) {
     });
   }
 
-  const stress = computeStressIndex(metrics);
-  return { issues, metrics: { ...metrics, ...stress }, claims, marks, citations };
+  return { issues, metrics, claims, marks, citations };
 }
 
-/* --------------------------------------------------------- stress index */
-/* 0 = structurally sound, 100 = the argument is carrying far more than it supports. */
-function computeStressIndex(m) {
-  const band = (v, good, bad) => clamp((v - good) / (bad - good), 0, 1);
-  const components = [
-    { key: 'Unsupported claims',      weight: 30, load: band(1 - m.claimSupportRatio, 0.15, 0.70) },
-    { key: 'Overclaiming',            weight: 20, load: band(m.criticalStressPoints / Math.max(1, m.claims), 0.02, 0.25) },
-    { key: 'Evidence density',        weight: 15, load: band(1 - m.paragraphsWithSupport, 0.25, 0.85) },
-    { key: 'Counterargument testing', weight: 15, load: band(1 - m.counterargumentCoverage, 0.70, 0.98) },
-    { key: 'Cohesion',                weight: 10, load: band(m.cohesionGaps / Math.max(1, m.bodyParagraphs), 0.02, 0.25) },
-    { key: 'Certainty calibration',   weight: 10, load: hedgeImbalance(m) }
-  ];
-  const index = Math.round(components.reduce((n, c) => n + c.weight * c.load, 0));
-  const label = index <= 25 ? 'Sound' : index <= 45 ? 'Serviceable' : index <= 65 ? 'Strained' : 'Overloaded';
-  return {
-    stressIndex: index,
-    stressBand: label,
-    stressComponents: components.map((c) => ({ ...c, contribution: Math.round(c.weight * c.load) }))
-  };
-}
-
-/* Healthy academic prose hedges roughly 0.3–1.2 times per claim.
-   Below that it overclaims; far above it, it evades.                */
-function hedgeImbalance(m) {
-  const r = m.hedgesPerClaim;
-  if (r >= 0.3 && r <= 1.2) return 0;
-  if (r < 0.3) return clamp((0.3 - r) / 0.3, 0, 1);
-  return clamp((r - 1.2) / 2.0, 0, 1) * 0.7; // over-hedging is the milder fault
-}
+/*
+ * The Argument Stress Index used to live here: a 0-100 composite of six
+ * weighted components. It was removed deliberately. The underlying signals are
+ * real — unsupported claims, hedge/booster balance and lexical cohesion are all
+ * measurable — but the weights, the thresholds and the four-band label were
+ * invented, and presenting them as a score gave the number an authority no
+ * supervisor could defend to a student who challenged it. The measurements
+ * below are still reported, individually and without a ranking on top.
+ */
 
 /* ---------------------------------------------------------------- helpers */
 

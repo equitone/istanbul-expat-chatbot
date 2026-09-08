@@ -50,8 +50,9 @@ feature. Five minutes, in this order:
 | Do this | You should see |
 |---|---|
 | Thesis review → paste `samples/grammar-test.txt` → Analyse | **22 of 34 findings** shown by default — errors and warnings only, with style suggestions filtered out. `samples/README.md` lists the expected finding for each of its 16 numbered sentences, so you can check the engine against a known answer. |
-| Thesis review → paste `samples/thesis-v1.txt` → Analyse | Stress **68, Overloaded**. 37 findings highlighted in the text. |
-| Argument stress tab | Six over-stressed claims; 6 of 14 claims backed. |
+| Thesis review → paste `samples/thesis-v1.txt` → Analyse | **Understand**, with **38% beyond restating**. 37 findings highlighted in the text. |
+| Level of thinking tab | 8 of 11 body paragraphs classified: 4 Understand, 1 each Apply / Analyse / Evaluate / Create. The wording behind each is shown beside it. |
+| Claims & support tab | Six over-stressed claims; 6 of 14 claims backed. No combined score. |
 | Citations tab, toggle **APA 7 → MLA 9** | Findings change as the style changes. |
 | Assign it to a student, **Save review**. Then analyse `samples/other-student.txt` and save that too. | Two saved reviews. |
 | Re-analyse `thesis-v1.txt` → Originality → **Run comparison** | **19% overlap** with the other student, and the shared paragraph quoted. |
@@ -274,7 +275,8 @@ cannot see, and the same table is built into the Settings tab.
 | Check | Basis | Limit |
 |---|---|---|
 | Spelling, grammar, punctuation | Rules, offline | Heuristic, tuned for precision. Misses cases rather than inventing them. |
-| Argument stress | Rules, offline | Measures support, not truth. |
+| Level of thinking (Bloom's) | Word lists, offline | Matches wording, not thought. A student who signposts reads higher than one who works silently. English and Turkish cues. |
+| Claims & support | Rules, offline | Measures support, not truth. Counts only, no composite score. |
 | Citation style (APA 7 / MLA 9) | Rules, offline | Checks form, not existence. |
 | Reuse against your corpus | Fingerprinting, offline | Only sees theses saved in this workbench. Heavy paraphrase passes. |
 | Voice consistency | Stylometry, offline | Flags passages unlike the rest. A flag is a question, not an answer. |
@@ -487,6 +489,6 @@ Grading scheme, pass mark and letter bands are in Settings.
 | | |
 |---|---|
 | ![Gradebook](docs/screens/04-gradebook.png) | ![Analytics](docs/screens/05-analytics.png) |
-| ![Thesis findings](docs/screens/06-thesis-findings.png) | ![Argument stress](docs/screens/07-thesis-argument.png) |
+| ![Thesis findings](docs/screens/06-thesis-findings.png) | ![Level of thinking](docs/screens/07-thesis-bloom.png) |
 | ![Originality](docs/screens/09-thesis-originality.png) | ![Compare drafts](docs/screens/13-compare.png) |
 | ![Batch triage](docs/screens/28-batch-triage.png) | ![Desktop app](docs/screens/27-desktop-app.png) |
