@@ -8,7 +8,7 @@
 import {
   el, mount, chip, table, toast, field, int, num, banner, emptyState, confirmDialog
 } from '../ui.js';
-import { getState, LEVELS, LEVEL_LABEL } from '../store.js';
+import { getState, LEVELS, LEVEL_LABEL , academicYearFromTerm, currentAcademicYear } from '../store.js';
 import { readWorkbook, detectLayout, buildPlan, applyPlan } from '../io/import-xlsx.js';
 
 const S = {
@@ -103,7 +103,11 @@ function analyseSheet() {
     code: '',
     level: 'undergraduate',
     term: guessedYear ? `Fall ${guessedYear}` : getState().settings.defaultTerm,
-    year: guessedYear
+    year: guessedYear,
+    /* A sheet from 2023 belongs in 2023-2024, not in whatever year the
+       workbench happens to be showing. Guess from the sheet, fall back to
+       the active year. */
+    academicYear: guessedYear ? academicYearFromTerm(`Fall ${guessedYear}`) : getState().settings.activeYear
   };
   rebuildPlan();
 }
@@ -225,8 +229,8 @@ function metaCard(root, ctx) {
       field('Level', el('select', { onChange: (e) => { S.meta.level = e.target.value; rebuildPlan(); renderImport(root, ctx); } },
         LEVELS.map((l) => el('option', { value: l.id, text: l.label, selected: l.id === S.meta.level })))),
       field('Term', el('input', { value: S.meta.term, onChange: set('term') })),
-      field('Academic year', el('input', { value: S.meta.year, placeholder: '2024', onChange: set('year') }),
-        'Students created by this import are tagged with it, so you can filter the roster by year later.')
+      field('Academic year', el('input', { value: S.meta.academicYear, placeholder: currentAcademicYear(), onChange: set('academicYear') }),
+        'The course is filed under this. Import an old gradebook and set the year it belongs to, then archive it in one go from the Courses tab.')
     )
   );
 }

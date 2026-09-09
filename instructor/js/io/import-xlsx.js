@@ -11,6 +11,7 @@
  * Nothing is committed to the store until applyPlan() is called.
  */
 import { loadScript } from './files.js';
+import { nameKey } from '../turkish.js';
 import { uid, getState, update } from '../store.js';
 
 /*
@@ -337,6 +338,14 @@ export function buildPlan(layout, mapping, meta, existingStudents) {
     return [first, last].filter(Boolean).join(' ');
   };
 
+  /* Where the sheet gives Adı and Soyadı separately, keep them apart. Guessing
+     which token of a joined name is the surname is unreliable for the Arabic
+     and Persian names on the same roster, and the sheet already knows. */
+  const partsOf = (row) => ({
+    firstName: firstNameCol !== null && firstNameCol !== undefined ? String(row[firstNameCol] ?? '').trim() : '',
+    lastName: lastNameCol !== null && lastNameCol !== undefined ? String(row[lastNameCol] ?? '').trim() : ''
+  });
+
   layout.body.forEach((row, i) => {
     const rawName = nameOf(row);
     if (!rawName) { skipped.push({ row: i, reason: 'no name' }); return; }
@@ -362,8 +371,13 @@ export function buildPlan(layout, mapping, meta, existingStudents) {
       ? existingStudents.find((s) => s.studentNo && s.studentNo === studentNo)
       : null;
 
+    /* nameKey, not toLowerCase: 'MELİS'.toLowerCase() yields 'i' plus a
+       combining dot, so a plain comparison called MELİS KESER and Melis Keser
+       different people — for 30 of the 100 students in a real cohort, which
+       is exactly the duplicate warning this is here to raise. */
+    const incomingKey = nameKey(rawName);
     const nameMatches = existingStudents.filter(
-      (s) => s.name.trim().toLowerCase() === rawName.toLowerCase() && (!byNumber || s.id !== byNumber.id)
+      (s) => nameKey(s.name) === incomingKey && (!byNumber || s.id !== byNumber.id)
     );
 
     let conflict = null;
@@ -379,7 +393,7 @@ export function buildPlan(layout, mapping, meta, existingStudents) {
           year: s.year
         }))
       };
-    } else if (byNumber && byNumber.name.trim().toLowerCase() !== rawName.toLowerCase()) {
+    } else if (byNumber && nameKey(byNumber.name) !== incomingKey) {
       /* Same number, different name — a typo, or the number was reused. */
       conflict = {
         reason: 'number-name-mismatch',
@@ -399,6 +413,7 @@ export function buildPlan(layout, mapping, meta, existingStudents) {
 
     students.push({
       name: rawName,
+      ...partsOf(row),
       studentNo,
       level: level || meta.level,
       email: cell(emailCol),
@@ -436,7 +451,8 @@ export function buildPlan(layout, mapping, meta, existingStudents) {
       code: meta.code,
       level: meta.level,
       term: meta.term,
-      year: meta.year
+      year: meta.year,
+      academicYear: meta.academicYear || ''
     },
     components: componentDefs,
     students,
@@ -558,6 +574,8 @@ export function applyPlan(plan) {
         const student = {
           id: uid('stu'),
           name: row.name,
+          firstName: row.firstName || '',
+          lastName: row.lastName || '',
           studentNo: row.studentNo,
           level: row.level || plan.course.level,
           email: row.email || '',
@@ -578,6 +596,7 @@ export function applyPlan(plan) {
         const existing = state.students.find((s) => s.id === row.resolution);
         if (existing) {
           if (!existing.studentNo && row.studentNo) existing.studentNo = row.studentNo;
+          if (!existing.lastName && row.lastName) { existing.firstName = row.firstName || ''; existing.lastName = row.lastName; }
           if (!existing.year && (row.year || plan.course.year)) existing.year = row.year || plan.course.year;
           if (!existing.classYear && row.classYear) existing.classYear = row.classYear;
           if (!existing.email && row.email) existing.email = row.email;
@@ -592,6 +611,10 @@ export function applyPlan(plan) {
       level: plan.course.level,
       term: plan.course.term,
       year: plan.course.year || '',
+      /* Filed under an academic year from the start, so importing three years
+         of old gradebooks does not pile them all into the current one. */
+      academicYear: plan.course.academicYear || getState().settings.activeYear,
+      archived: false,
       credits: 0,
       components: plan.components.map((c) => ({
         id: c.id, name: c.name, weight: c.weight, maxScore: c.maxScore,

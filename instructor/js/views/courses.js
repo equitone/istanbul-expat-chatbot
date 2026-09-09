@@ -2,15 +2,25 @@ import { el, mount, table, chip, field, toast, confirmDialog, int, num, emptySta
 import { DAYS, nextMeeting, describeMeeting, toIso } from '../schedule.js';
 import {
   getState, LEVELS, LEVEL_LABEL, addCourse, updateCourse, removeCourse,
-  addComponent, removeComponent, setEnrolment
+  addComponent, removeComponent, setEnrolment, SCHEMES, schemeById, defaultSchemeFor,
+  academicYears, setActiveYear, setCourseArchived, archiveYear, currentAcademicYear
 } from '../store.js';
+import { compare as trCompare } from '../turkish.js';
 
 let selectedId = null;
+/* Archived courses are out of the way by default and one click from being
+   back. Hiding them irreversibly would be a deletion wearing a nicer word. */
+let showArchived = false;
 
 export default function renderCourses(root, ctx) {
   const s = getState();
-  if (!s.courses.some((c) => c.id === selectedId)) selectedId = s.courses[0] ? s.courses[0].id : null;
+  const year = s.settings.activeYear;
+  const inYear = s.courses.filter((c) => c.academicYear === year);
+  const listed = (showArchived ? inYear : inYear.filter((c) => !c.archived))
+    .sort((a, b) => Number(a.archived) - Number(b.archived) || trCompare(a.code || a.title, b.code || b.title));
+  if (!listed.some((c) => c.id === selectedId)) selectedId = listed[0] ? listed[0].id : null;
   const course = s.courses.find((c) => c.id === selectedId) || null;
+  const archivedCount = inYear.filter((c) => c.archived).length;
 
   mount(root,
     el('div', { class: 'view-head' },
@@ -22,23 +32,102 @@ export default function renderCourses(root, ctx) {
       el('button', { class: 'primary', text: 'New course', onClick: () => newCourseDialog(root, ctx) })
     ),
 
-    !s.courses.length
-      ? emptyState('No courses yet', 'Create one and it arrives with a standard set of components you can rename or reweight.',
-          el('button', { class: 'primary', text: 'New course', onClick: () => newCourseDialog(root, ctx) }))
+    yearBar(s, year, inYear, archivedCount, root, ctx),
+
+    !listed.length
+      ? emptyState(
+          inYear.length ? `Nothing showing in ${year}` : 'No courses yet',
+          inYear.length
+            ? `All ${inYear.length} course(s) filed under ${year} are archived. Show them below, or switch to another year — nothing has been deleted.`
+            : 'Create one and choose the assessment scheme that matches how you actually mark it.',
+          inYear.length
+            ? el('button', { class: 'primary', text: `Show archived (${archivedCount})`, onClick: () => { showArchived = true; renderCourses(root, ctx); } })
+            : el('button', { class: 'primary', text: 'New course', onClick: () => newCourseDialog(root, ctx) }))
       : el('div', { class: 'grid', style: 'grid-template-columns:minmax(220px,280px) minmax(0,1fr)' },
           el('div', { class: 'card', style: 'padding:8px' },
-            s.courses.map((c) => el('button', {
+            listed.map((c) => el('button', {
               class: c.id === selectedId ? 'primary' : 'ghost',
-              style: 'display:block;width:100%;text-align:left;margin-bottom:4px',
+              style: `display:block;width:100%;text-align:left;margin-bottom:4px${c.archived ? ';opacity:.6' : ''}`,
               onClick: () => { selectedId = c.id; renderCourses(root, ctx); }
             },
-              el('div', { style: 'font-weight:600', text: c.code || c.title }),
+              el('div', { style: 'font-weight:600' }, c.code || c.title, c.archived ? ' · archived' : ''),
               el('div', { style: 'font-size:11px;opacity:.75', text: `${LEVEL_LABEL[c.level]} · ${c.term} · ${c.enrolled.length} enrolled` })
             ))
           ),
           course ? courseDetail(course, s, root, ctx) : el('div')
         )
   );
+}
+
+
+/*
+ * The year bar. Everything in the workbench is scoped to one academic year, so
+ * a professor in his fourth year of using this is looking at one year's
+ * courses rather than forty. Archiving is per course or per whole year, and
+ * both are reversible — nothing here deletes anything.
+ */
+function yearBar(s, year, inYear, archivedCount, root, ctx) {
+  const years = academicYears();
+  const live = inYear.filter((c) => !c.archived).length;
+  return el('div', { class: 'card', style: 'margin-bottom:14px' },
+    el('div', { class: 'row', style: 'align-items:center;flex-wrap:wrap' },
+      el('span', { class: 'label', text: 'ACADEMIC YEAR' }),
+      el('select', {
+        onChange: (e) => { setActiveYear(e.target.value); selectedId = null; renderCourses(root, ctx); }
+      }, years.map((y) => el('option', { value: y, selected: y === year, text: y }))),
+      el('button', {
+        class: 'sm',
+        text: 'Start next year',
+        title: 'Switch to the following academic year. Nothing is moved or deleted.',
+        onClick: () => {
+          const next = String(Number(year.split('-')[0]) + 1);
+          setActiveYear(`${next}-${Number(next) + 1}`);
+          selectedId = null;
+          renderCourses(root, ctx);
+        }
+      }),
+      el('div', { class: 'spacer' }),
+      el('span', { class: 'hint', text: `${live} running${archivedCount ? ` · ${archivedCount} archived` : ''}` }),
+      archivedCount ? el('button', {
+        class: showArchived ? 'primary sm' : 'sm',
+        text: showArchived ? 'Hide archived' : `Show archived (${archivedCount})`,
+        onClick: () => { showArchived = !showArchived; renderCourses(root, ctx); }
+      }) : null,
+      live ? el('button', {
+        class: 'sm',
+        text: `Archive all of ${year}`,
+        onClick: async () => {
+          const ok = await confirmDialog(
+            `Archive ${live} course(s) from ${year}?`,
+            'They stay exactly as they are — students, marks and theses all kept — and stop appearing in the gradebook, analytics and the planner. You can bring any of them back from this tab.',
+            'Archive'
+          );
+          if (!ok) return;
+          const n = archiveYear(year);
+          toast(`${n} course(s) archived. Nothing was deleted.`, 'good');
+          selectedId = null;
+          renderCourses(root, ctx);
+        }
+      }) : null
+    )
+  );
+}
+
+/*
+ * addComponent() generates ids one at a time, so a scheme's `replaces: 'Vize'`
+ * cannot be resolved while the components are being added. Link them once they
+ * all exist, by the names the scheme used.
+ */
+function relinkReplacements(courseId, def) {
+  const course = getState().courses.find((c) => c.id === courseId);
+  if (!course) return;
+  def.components().forEach((spec) => {
+    if (!spec.replaces) return;
+    const self = course.components.find((c) => c.name === spec.name);
+    const target = course.components.find((c) => c.name === spec.replaces);
+    if (self && target) { self.resitFor = target.id; self.weight = 0; }
+  });
+  updateCourse(courseId, { components: course.components });
 }
 
 function courseDetail(course, s, root, ctx) {
@@ -57,9 +146,26 @@ function courseDetail(course, s, root, ctx) {
         field('Title', el('input', { value: course.title, onChange: (e) => updateCourse(course.id, { title: e.target.value }) })),
         field('Code', el('input', { value: course.code, onChange: (e) => updateCourse(course.id, { code: e.target.value }) })),
         field('Term', el('input', { value: course.term, onChange: (e) => updateCourse(course.id, { term: e.target.value }) })),
+        field('Academic year', el('input', {
+          value: course.academicYear || '', placeholder: currentAcademicYear(),
+          onChange: (e) => { updateCourse(course.id, { academicYear: e.target.value.trim() }); renderCourses(root, ctx); }
+        }), 'Which year this course is filed under. Archiving works on this.'),
         field('Level', el('select', { onChange: (e) => updateCourse(course.id, { level: e.target.value }) },
           LEVELS.map((l) => el('option', { value: l.id, text: l.label, selected: l.id === course.level })))),
         field('Credits', el('input', { type: 'number', min: '0', step: '0.5', value: course.credits, onChange: (e) => updateCourse(course.id, { credits: Number(e.target.value) }) }))
+      ),
+      el('div', { class: 'row' },
+        el('button', {
+          class: 'sm',
+          text: course.archived ? 'Bring back into this year' : 'Archive this course',
+          title: 'Archiving keeps everything and only takes the course out of the working views.',
+          onClick: () => {
+            setCourseArchived(course.id, !course.archived);
+            toast(course.archived ? 'Course is active again.' : 'Archived. Marks and students kept.', 'good');
+            renderCourses(root, ctx);
+          }
+        }),
+        el('div', { class: 'spacer' })
       ),
       el('button', { class: 'danger sm', text: 'Delete course', onClick: async () => {
         if (await confirmDialog('Delete course?', `This deletes “${course.title}” and every mark recorded in it.`, 'Delete')) {
@@ -74,6 +180,29 @@ function courseDetail(course, s, root, ctx) {
     el('div', { class: 'card' },
       el('h2', { text: 'Assessment components' }),
       el('p', { text: 'Weights are percentages of the final mark. Max score is what the component is marked out of.' }),
+      /* Switching scheme on a course that already holds marks would orphan
+         them, so the offer is only made while the gradebook is still empty. */
+      (() => {
+        const marked = Object.values((s.scores || {})[course.id] || {}).some((byCmp) => Object.keys(byCmp || {}).length);
+        if (marked) return el('p', { class: 'hint', text: 'Marks have been recorded, so the scheme is not swapped wholesale any more — edit the rows below instead. Removing a component removes its marks.' });
+        return el('div', { class: 'row', style: 'align-items:center;margin-bottom:10px' },
+          el('span', { class: 'hint', text: 'Start from a different scheme:' }),
+          el('select', {
+            id: 'course-scheme',
+            onChange: async (e) => {
+              const def = schemeById(e.target.value);
+              const ok = await confirmDialog(`Use the “${def.label}” scheme?`,
+                `${def.note} This replaces the component list. No marks have been recorded on this course, so nothing is lost.`, 'Replace');
+              if (!ok) { renderCourses(root, ctx); return; }
+              updateCourse(course.id, { scheme: def.id, components: [] });
+              def.components().forEach((c) => addComponent(course.id, c));
+              relinkReplacements(course.id, def);
+              toast(`Now marked as a ${def.label.toLowerCase()} course.`, 'good');
+              renderCourses(root, ctx);
+            }
+          }, SCHEMES.map((x) => el('option', { value: x.id, selected: x.id === (course.scheme || ''), text: x.label })))
+        );
+      })(),
       totalWeight !== 100
         ? el('div', { class: 'banner warn', text: `Weights currently total ${num(totalWeight)}%. Final marks are computed against the full 100%, so anything missing counts as unearned.` })
         : el('div', { class: 'banner info', text: 'Weights total 100%.' }),
@@ -162,23 +291,61 @@ function patchComponent(courseId, componentId, patch) {
 
 function newCourseDialog(root, ctx) {
   const s = getState();
+
+  /*
+   * The scheme picker is the point of this dialog. The same instructor runs a
+   * first-year survey marked on two exams, a seminar carried by participation,
+   * and a PhD course that is one long piece of work; retyping five component
+   * rows every time is the kind of small repeated tax that stops a tool being
+   * opened. Choosing the level moves the suggestion, and the suggestion is
+   * only ever a starting point.
+   */
+  let level = 'undergraduate';
+  let scheme = defaultSchemeFor(level);
+
+  const note = el('p', { class: 'hint' });
+  const preview = el('div', { class: 'row tight', style: 'flex-wrap:wrap;margin-top:6px' });
+  const schemeSelect = el('select', { name: 'scheme', onChange: (e) => { scheme = e.target.value; paint(); } },
+    SCHEMES.map((x) => el('option', { value: x.id, text: x.label })));
+
+  function paint() {
+    schemeSelect.value = scheme;
+    const def = schemeById(scheme);
+    note.textContent = def.note;
+    preview.replaceChildren(...(def.components().length
+      ? def.components().map((c) => chip(c.replaces ? `${c.name} · replaces ${c.replaces}` : `${c.name} ${c.weight}%`, c.replaces ? '' : 'accent'))
+      : [el('span', { class: 'hint', text: 'No components — you will add your own.' })]));
+  }
+
   const form = el('form', { id: 'new-course-form', onSubmit: (e) => e.preventDefault() },
-    field('Title', el('input', { name: 'title', required: true, placeholder: 'Modernism and Empire' })),
-    field('Code', el('input', { name: 'code', placeholder: 'CMPL 401' })),
-    field('Level', el('select', { name: 'level' }, LEVELS.map((l) => el('option', { value: l.id, text: l.label })))),
-    field('Term', el('input', { name: 'term', value: s.settings.defaultTerm })),
-    el('p', { class: 'hint', text: 'The course starts with Participation / Midterm / Term paper / Final exam. Change them afterwards.' })
+    el('div', { class: 'grid cols-2' },
+      field('Title', el('input', { name: 'title', required: true, placeholder: 'Modernism and Empire' })),
+      field('Code', el('input', { name: 'code', placeholder: 'CMPL 401' })),
+      field('Level', el('select', {
+        name: 'level',
+        onChange: (e) => { level = e.target.value; scheme = defaultSchemeFor(level); paint(); }
+      }, LEVELS.map((l) => el('option', { value: l.id, text: l.label })))),
+      field('Term', el('input', { name: 'term', value: s.settings.defaultTerm })),
+      field('Academic year', el('input', { name: 'academicYear', value: s.settings.activeYear }),
+        'Courses are filed and archived by this.')
+    ),
+    field('How it is marked', schemeSelect),
+    note,
+    preview
   );
+  paint();
+
   import('../ui.js').then(({ dialog }) => {
     const dlg = dialog('New course', form, [
       el('button', { text: 'Cancel', onClick: () => dlg.close() }),
       el('button', { class: 'primary', text: 'Create', onClick: () => {
         const data = Object.fromEntries(new FormData(form));
         if (!String(data.title).trim()) { toast('A title is required.', 'error'); return; }
-        const c = addCourse(data);
+        const c = addCourse({ ...data, scheme });
         selectedId = c.id;
         dlg.close();
         toast('Course created.', 'good');
+        renderCourses(root, ctx);
       } })
     ]);
   });

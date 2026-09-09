@@ -6,7 +6,8 @@
  * grouped rather than flat.
  */
 import { el, mount, table, chip, field, toast, confirmDialog, int, emptyState } from '../ui.js';
-import { getState, LEVELS, LEVEL_LABEL, addStudent, updateStudent, removeStudent } from '../store.js';
+import { getState, LEVELS, LEVEL_LABEL, addStudent, updateStudent, removeStudent , activeCourses } from '../store.js';
+import { matches as trMatches, compare as trCompare, compareBySurname, listName, splitName, titleCase } from '../turkish.js';
 
 const S = { level: 'all', year: 'all', course: 'all', search: '', grouped: true };
 
@@ -21,7 +22,10 @@ export default function renderStudents(root, ctx) {
 
   /* Enrolment is held on the course, so the lookup is built once per render
      rather than scanned per student per course. */
-  const courses = s.courses;
+  /* The course filter offers this year's live courses. A student enrolled
+     only on an archived course still appears in the roster — people do not
+     get archived, courses do. */
+  const courses = activeCourses();
   const enrolledIn = new Map(courses.map((c) => [c.id, new Set(c.enrolled || [])]));
   const anyUnenrolled = all.some((st) => !courses.some((c) => enrolledIn.get(c.id).has(st.id)));
 
@@ -36,8 +40,10 @@ export default function renderStudents(root, ctx) {
     if (S.year === 'none' && y) return false;
     if (S.year !== 'all' && S.year !== 'none' && y !== S.year) return false;
     if (S.search) {
-      const q = S.search.toLowerCase();
-      if (![st.name, st.studentNo, st.programme, st.email].some((v) => String(v || '').toLowerCase().includes(q))) return false;
+      /* trMatches folds Turkish case and accents both ways, so "melis" finds
+         MELİS and "gunes" finds GÜNEŞ. A plain toLowerCase() did neither:
+         'MELİS'.toLowerCase() is 'i' followed by a combining dot. */
+      if (![st.name, st.studentNo, st.programme, st.email].some((v) => trMatches(v, S.search))) return false;
     }
     return true;
   };
@@ -88,7 +94,10 @@ export default function renderStudents(root, ctx) {
         )
       : null,
 
-    years.length || anyUnset
+    /* One bucket is not a filter. With every student in "no year set" the row
+       is three controls that cannot change what is shown — pure clutter on the
+       screen a busy person opens most often. */
+    years.length
       ? el('div', { class: 'legend' },
           el('span', { class: 'legend-label', text: 'Year' }),
           filterBtn('year', 'all', 'All years'),
@@ -125,7 +134,7 @@ function groupedView(shown, s, root, ctx) {
     const inLevel = shown.filter((x) => x.level === lvl.id);
     if (!inLevel.length) return;
     const years = [...new Set(inLevel.map((x) => String(x.year || '').trim()))]
-      .sort((a, b) => (a === '' ? 1 : b === '' ? -1 : b.localeCompare(a)));
+      .sort((a, b) => (a === '' ? 1 : b === '' ? -1 : trCompare(b, a)));
     years.forEach((y) => {
       groups.push({
         level: lvl,
@@ -138,11 +147,32 @@ function groupedView(shown, s, root, ctx) {
   return el('div', {}, groups.map((g) => el('div', { class: 'card' },
     el('div', { class: 'row', style: 'margin-bottom:10px' },
       chip(g.level.label, g.level.id === 'undergraduate' ? 'ug' : g.level.id === 'masters' ? 'ma' : 'phd'),
-      chip(g.year || 'no year set', g.year ? 'accent' : ''),
+      g.year ? chip(g.year, 'accent') : null,
       el('span', { class: 'hint', text: `${g.students.length} student${g.students.length === 1 ? '' : 's'}` })
     ),
     rosterTable(g.students, s, root, ctx, { compact: true })
   )));
+}
+
+/*
+ * Read back a name edited in the "SURNAME, Given" form the table shows. A
+ * comma is taken as the separator the display used; without one the whole
+ * string is treated as a plain name and split on the last space, as it always
+ * was.
+ */
+function parseEditedName(value) {
+  const raw = String(value || '').trim();
+  if (raw.includes(',')) {
+    const [last, ...rest] = raw.split(',');
+    const first = rest.join(',').trim();
+    return {
+      firstName: titleCase(first),
+      lastName: last.trim(),
+      name: [titleCase(first), last.trim()].filter(Boolean).join(' ')
+    };
+  }
+  const { first, last } = splitName(raw);
+  return { firstName: first, lastName: last, name: raw };
 }
 
 function rosterTable(list, s, root, ctx, { compact = false } = {}) {
@@ -150,13 +180,31 @@ function rosterTable(list, s, root, ctx, { compact = false } = {}) {
      only worth a column where some record actually carries one — otherwise it
      is an empty column on every roster that was typed in by hand. */
   const anyClassYear = s.students.some((st) => String(st.classYear || '').trim());
+  /* Same rule for Year and Programme. A registry export fills in neither, so
+     on a real roster these were two columns of em-dashes a hundred rows deep.
+     They come back the moment one record carries a value. */
+  const anyYear = s.students.some((st) => String(st.year || '').trim());
+  const anyProgramme = s.students.some((st) => String(st.programme || '').trim());
   const headers = ['Name', 'No.', ...(compact ? [] : ['Level']),
     ...(anyClassYear ? [{ label: 'Class', num: true }] : []),
-    'Year', 'Programme', { label: 'Courses', num: true }, { label: 'Theses', num: true }, ''];
-  return table(headers, [...list].sort((a, b) => a.name.localeCompare(b.name)).map((st) => [
+    ...(anyYear ? ['Year'] : []), ...(anyProgramme ? ['Programme'] : []),
+    { label: 'Courses', num: true }, { label: 'Theses', num: true }, ''];
+  /*
+   * Sorted by SURNAME, in Turkish collation. Both halves of that matter: a
+   * roster sorted on the given name scatters KESER and KESKİN across the
+   * list, and the default collator files ÇELİK before CEREN and İNCE before
+   * IŞIK, so a supervisor scanning for a family name does not find it where
+   * the alphabet says it should be.
+   */
+  return table(headers, [...list].sort(compareBySurname).map((st) => [
     el('td', {}, el('input', {
-      value: st.name, style: 'border:0;background:none;padding:2px 0;font-weight:600',
-      onChange: (e) => updateStudent(st.id, { name: e.target.value.trim() })
+      value: listName(st),
+      title: st.name,
+      style: 'border:0;background:none;padding:2px 0;font-weight:600;width:100%',
+      /* Edited as it is displayed — "KESER, Melis" — and split back on the
+         comma so a correction updates the surname rather than the whole
+         string. Typing a plain name still works. */
+      onChange: (e) => updateStudent(st.id, parseEditedName(e.target.value))
     })),
     el('td', {}, el('input', {
       value: st.studentNo || '', placeholder: '—', style: 'border:0;background:none;padding:2px 0;width:100px',
@@ -167,14 +215,14 @@ function rosterTable(list, s, root, ctx, { compact = false } = {}) {
       value: st.classYear || '', placeholder: '—', style: 'border:0;background:none;padding:2px 0;width:44px;text-align:right',
       onChange: (e) => updateStudent(st.id, { classYear: e.target.value.trim() })
     }))] : []),
-    el('td', {}, el('input', {
+    ...(anyYear ? [el('td', {}, el('input', {
       value: st.year || '', placeholder: '—', style: 'border:0;background:none;padding:2px 0;width:64px',
       onChange: (e) => updateStudent(st.id, { year: e.target.value.trim() })
-    })),
-    el('td', {}, el('input', {
+    }))] : []),
+    ...(anyProgramme ? [el('td', {}, el('input', {
       value: st.programme || '', placeholder: '—', style: 'border:0;background:none;padding:2px 0',
       onChange: (e) => updateStudent(st.id, { programme: e.target.value.trim() })
-    })),
+    }))] : []),
     el('td', { class: 'num', text: int(s.courses.filter((c) => c.enrolled.includes(st.id)).length) }),
     el('td', { class: 'num', text: int(s.theses.filter((t) => t.studentId === st.id).length) }),
     el('td', {}, el('button', {

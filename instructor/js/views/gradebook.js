@@ -1,5 +1,6 @@
-import { el, mount, chip, num, int, emptyState, toast } from '../ui.js';
-import { getState, LEVEL_LABEL, setScore } from '../store.js';
+import { el, mount, chip, num, int, emptyState, toast, otherYearsNotice } from '../ui.js';
+import { compareBySurname, listName } from '../turkish.js';
+import { getState, LEVEL_LABEL, setScore , activeCourses, setActiveYear } from '../store.js';
 import { courseTotal, describe, toLetter, rank } from '../stats.js';
 import { exportTableCsv } from '../export/workbook.js';
 import { gradebookRows } from '../export/workbook.js';
@@ -8,7 +9,10 @@ let selectedId = null;
 
 export default function renderGradebook(root, ctx) {
   const s = getState();
-  if (!s.courses.some((c) => c.id === selectedId)) selectedId = s.courses[0] ? s.courses[0].id : null;
+    /* Choose from this year's live courses; last year's are archived out of the
+     way, not deleted, and are still reachable from the Courses tab. */
+  const courses = activeCourses();
+  if (!courses.some((c) => c.id === selectedId)) selectedId = courses[0] ? courses[0].id : null;
   const course = s.courses.find((c) => c.id === selectedId);
 
   mount(root,
@@ -18,16 +22,17 @@ export default function renderGradebook(root, ctx) {
         el('p', { text: 'Type marks straight into the grid. Totals, letters and ranks update as you go, and blanks are treated as not-yet-marked rather than zero.' })
       ),
       el('div', { class: 'spacer' }),
-      s.courses.length ? el('select', {
+      courses.length ? el('select', {
         style: 'width:auto;min-width:230px',
         onChange: (e) => { selectedId = e.target.value; renderGradebook(root, ctx); }
-      }, s.courses.map((c) => el('option', { value: c.id, selected: c.id === selectedId, text: `${c.code ? `${c.code} — ` : ''}${c.title} (${LEVEL_LABEL[c.level]})` }))) : null,
+      }, courses.map((c) => el('option', { value: c.id, selected: c.id === selectedId, text: `${c.code ? `${c.code} — ` : ''}${c.title} (${LEVEL_LABEL[c.level]})` }))) : null,
       course ? el('button', { text: 'Export this sheet', onClick: () => {
         exportTableCsv(course.code || course.title, gradebookRows(getState(), course));
         toast('CSV downloaded.', 'good');
       } }) : null
     ),
-    !s.courses.length
+    otherYearsNotice(s, (y) => { setActiveYear(y); selectedId = null; renderGradebook(root, ctx); }),
+    !courses.length
       ? emptyState('No courses yet', 'Create a course and enrol students, then come back here to enter marks.',
           el('button', { class: 'primary', text: 'Go to Courses', onClick: () => ctx.go('courses') }))
       : !course.enrolled.length
@@ -42,7 +47,7 @@ function grid(course, s, root, ctx) {
   const students = course.enrolled
     .map((id) => s.students.find((x) => x.id === id))
     .filter(Boolean)
-    .sort((a, b) => a.name.localeCompare(b.name));
+    .sort(compareBySurname);
 
   const rows = students.map((st) => {
     const scores = (s.scores[course.id] || {})[st.id] || {};
@@ -71,7 +76,7 @@ function grid(course, s, root, ctx) {
   const body = el('tbody', {}, rows.map((r, i) => {
     const letter = toLetter(r.total.absolute, s.settings.letterScheme);
     const tr = el('tr', {},
-      el('td', { style: 'font-weight:600', text: r.st.name }),
+      el('td', { style: 'font-weight:600', title: r.st.name, text: listName(r.st) }),
       el('td', { text: r.st.studentNo || '—' }),
       comps.map((c) => el('td', { class: 'num' }, el('input', {
         class: `grade-input${Number.isFinite(r.scores[c.id]) ? ' filled' : ''}`,

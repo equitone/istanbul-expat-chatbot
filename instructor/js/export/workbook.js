@@ -7,6 +7,7 @@
  * (no formulas) so the file opens identically in Excel, Numbers and LibreOffice.
  */
 import { getState, LEVELS, LEVEL_LABEL, loadThesisDocument } from '../store.js';
+import { compareBySurname, listName } from '../turkish.js';
 import { courseTotal, classSummary, describe, correlation, toLetter, rank } from '../stats.js';
 import { loadScript, downloadBlob, downloadText } from '../io/files.js';
 
@@ -142,7 +143,7 @@ export function gradebookRows(state, course) {
   const enrolled = course.enrolled
     .map((id) => state.students.find((s) => s.id === id))
     .filter(Boolean)
-    .sort((a, b) => a.name.localeCompare(b.name));
+    .sort(compareBySurname);
 
   const computed = enrolled.map((st) => {
     const scores = (state.scores[course.id] || {})[st.id] || {};

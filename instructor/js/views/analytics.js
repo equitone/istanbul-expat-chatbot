@@ -1,5 +1,5 @@
-import { el, mount, stat, table, chip, barChart, num, int, pct, emptyState, meter } from '../ui.js';
-import { getState, LEVELS, LEVEL_LABEL } from '../store.js';
+import { el, mount, stat, table, chip, barChart, num, int, pct, emptyState, meter, otherYearsNotice } from '../ui.js';
+import { getState, LEVELS, LEVEL_LABEL , activeCourses, setActiveYear } from '../store.js';
 import { courseTotal, classSummary, describe, correlation, toLetter } from '../stats.js';
 import { buildSimpleReport, openPrintable, downloadReport } from '../export/report.js';
 import { toast } from '../ui.js';
@@ -8,7 +8,10 @@ let selectedId = null;
 
 export default function renderAnalytics(root, ctx) {
   const s = getState();
-  if (!s.courses.some((c) => c.id === selectedId)) selectedId = s.courses[0] ? s.courses[0].id : null;
+    /* Choose from this year's live courses; last year's are archived out of the
+     way, not deleted, and are still reachable from the Courses tab. */
+  const courses = activeCourses();
+  if (!courses.some((c) => c.id === selectedId)) selectedId = courses[0] ? courses[0].id : null;
   const course = s.courses.find((c) => c.id === selectedId);
 
   mount(root,
@@ -18,13 +21,14 @@ export default function renderAnalytics(root, ctx) {
         el('p', { text: 'End-of-term statistics for one course, and a comparison across the three levels.' })
       ),
       el('div', { class: 'spacer' }),
-      s.courses.length ? el('select', {
+      courses.length ? el('select', {
         style: 'width:auto;min-width:230px',
         onChange: (e) => { selectedId = e.target.value; renderAnalytics(root, ctx); }
-      }, s.courses.map((c) => el('option', { value: c.id, selected: c.id === selectedId, text: `${c.code ? `${c.code} — ` : ''}${c.title}` }))) : null,
+      }, courses.map((c) => el('option', { value: c.id, selected: c.id === selectedId, text: `${c.code ? `${c.code} — ` : ''}${c.title}` }))) : null,
       course ? el('button', { class: 'primary', text: 'Print report', onClick: () => printAnalytics(course, s) }) : null
     ),
-    !s.courses.length
+    otherYearsNotice(s, (y) => { setActiveYear(y); selectedId = null; renderAnalytics(root, ctx); }),
+    !courses.length
       ? emptyState('No courses yet', 'Statistics appear once a course has enrolled students with marks.',
           el('button', { class: 'primary', text: 'Go to Courses', onClick: () => ctx.go('courses') }))
       : el('div', {}, courseAnalytics(course, s), levelComparison(s))

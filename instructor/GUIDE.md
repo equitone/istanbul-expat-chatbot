@@ -401,3 +401,50 @@ before using it on student work.
 | My grades are gone | Almost always a different port or a different browser. Try the other browser first, then restore from your latest backup. |
 | A Word file will not open | Save it as `.docx`, not the old `.doc`. Or copy the text and paste it in. |
 | A PDF gives almost no text | It is a scan — a picture of pages, with no text in it. It needs OCR first. |
+
+## Academic years
+
+Everything is scoped to one academic year, chosen at the top of the **Courses**
+tab. Courses from other years are still here — the Gradebook and Analytics say
+so and offer to switch — they are simply out of the way.
+
+At the end of a year, **Archive all of 2026-2027** takes that year's courses out
+of the working views in one click. Archiving is never a deletion: students,
+marks and thesis reviews are kept exactly as they are, and any course comes
+back with **Bring back into this year**.
+
+Importing an old gradebook? Set its academic year in the import form and it is
+filed there, rather than piling into the current year with everything else.
+
+## How a course is marked
+
+A new course asks how it is assessed, and suggests a scheme from the level:
+
+| Scheme | For |
+|---|---|
+| Standard | Vize and Final with participation — the usual undergraduate shape |
+| With assignments | Coursework through the term alongside the exams |
+| Seminar | Carried by participation and presentations |
+| Exams only | No participation mark |
+| Thesis / project | One long piece of work, for a graduate course |
+| Empty | Add your own |
+
+Every weight is editable afterwards, and while a course has no marks recorded
+you can swap it to a different scheme wholesale. Mazeret and Bütünleme are
+attached as replacements wherever an exam exists, so they carry no weight of
+their own and the better mark counts.
+
+## Turkish names
+
+Rosters are sorted by **surname** in Turkish alphabetical order, so C comes
+before Ç, O before Ö and S before Ş. Names arrive from the registry shouted in
+capitals and are shown in normal case; the registry's own spelling is kept and
+is what exports carry.
+
+Search folds Turkish letters both ways, so typing `coskun` finds COŞKUN and
+`gundogdu` finds GÜNDOĞDU without reaching for a Turkish keyboard.
+
+One known limit: a surname like YILDIRIM is displayed as "Yildirim" rather than
+"Yıldırım". Nothing in the capital spelling says whether an I is dotted, and
+only a dictionary of Turkish names would settle it. Correct it in place if you
+want to — the table is editable.

@@ -1,6 +1,6 @@
 import { el, mount, stat, int, num, pct, relTime, emptyState, table, chip, toast } from '../ui.js';
 import {
-  getState, LEVELS, LEVEL_LABEL, addTask, toggleTask, removeTask
+  getState, LEVELS, LEVEL_LABEL, addTask, toggleTask, removeTask, activeCourses
 } from '../store.js';
 import { courseTotal, classSummary } from '../stats.js';
 import { DAYS, weekPlan, weekStart, addDays, toIso, sameDay, describeMeeting } from '../schedule.js';
@@ -20,6 +20,7 @@ export default function renderDashboard(root, { go }) {
     scaleMax: s.settings.scaleMax, passMark: s.settings.passMark, scheme: s.settings.letterScheme
   });
 
+  const live = activeCourses();
   const empty = !s.students.length && !s.courses.length;
 
   mount(root,
@@ -48,7 +49,8 @@ export default function renderDashboard(root, { go }) {
       : el('div', {},
           el('div', { class: 'grid cols-4', style: 'margin-bottom:16px' },
             stat('Students', int(s.students.length), LEVELS.map((l) => `${l.short} ${s.students.filter((x) => x.level === l.id).length}`).join(' · ')),
-            stat('Courses', int(s.courses.length), `${s.courses.filter((c) => c.enrolled.length).length} with enrolment`),
+            stat('Courses', int(live.length),
+              `${live.filter((c) => c.enrolled.length).length} with enrolment${s.courses.length > live.length ? ` · ${s.courses.length - live.length} archived` : ''}`),
             stat('Marks recorded', int(marks.length), `${summary.ungraded || 0} still open`, 'accent'),
             stat('Theses reviewed', int(s.theses.length), s.theses.length ? `last ${relTime(s.theses[s.theses.length - 1].savedAt)}` : 'none yet')
           ),
@@ -70,7 +72,7 @@ export default function renderDashboard(root, { go }) {
               el('p', { text: 'Where the three cohorts sit relative to each other.' }),
               table(['Level', { label: 'Students', num: true }, { label: 'Courses', num: true }, { label: 'Mean', num: true }, { label: 'Pass', num: true }],
                 LEVELS.map((lvl) => {
-                  const courses = s.courses.filter((c) => c.level === lvl.id);
+                  const courses = live.filter((c) => c.level === lvl.id);
                   const lm = [];
                   courses.forEach((c) => c.enrolled.forEach((id) => {
                     const t = courseTotal((s.scores[c.id] || {})[id], c.components).absolute;
@@ -155,7 +157,7 @@ function backupReminder(s, go) {
  * to bring to it, so those are what the card shows.
  */
 function plannerCard(s, root, go) {
-  const scheduled = s.courses.filter((c) => (c.schedule || []).length);
+  const scheduled = activeCourses().filter((c) => (c.schedule || []).length);
   const monday = addDays(weekStart(new Date()), weekOffset * 7);
   const rerender = () => renderDashboard(root, { go });
 
@@ -167,7 +169,7 @@ function plannerCard(s, root, go) {
    * out that it should. A feature that hides until it is already configured
    * cannot be configured.
    */
-  if (!s.courses.length) {
+  if (!activeCourses().length) {
     return el('div', { class: 'card' },
       el('h2', { text: 'Weekly planner' }),
       el('p', { class: 'hint', text: 'Your teaching week appears here — each class, which meeting of the course it is, and a to-do list for that session. It needs a course first.' }),

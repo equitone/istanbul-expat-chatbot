@@ -28,6 +28,9 @@ function blankState() {
       instructor: '',
       institution: '',
       defaultTerm: currentTerm(),
+      /* The year the workbench is showing. Courses from other years are still
+         here and still exportable; they are simply out of the way. */
+      activeYear: currentAcademicYear(),
       /* Nothing may leave this computer. Default on: a privacy control that
          has to be found and switched on has already failed. netguard.js
          enforces it at the network layer; this is only the switch. */
@@ -94,9 +97,76 @@ function migrate(s) {
     c.schedule ||= [];
     c.startDate ||= '';
     c.weeks ||= 14;
+    /*
+     * Courses saved before archiving existed carry no year. Derive it from the
+     * term they do have ("Fall 2026" → 2026-2027, "Spring 2026" → 2025-2026),
+     * so an existing gradebook lands in the right year instead of all of it
+     * piling into the current one and being archived together by mistake.
+     */
+    if (!c.academicYear) c.academicYear = academicYearFromTerm(c.term) || currentAcademicYear();
+    c.archived = Boolean(c.archived);
   });
+  s.settings.activeYear ||= currentAcademicYear();
+  /* Names saved before they were kept apart. Left blank rather than guessed:
+     splitName() in turkish.js is the fallback and it is honest about being a
+     guess, whereas a wrong lastName written into the record would persist. */
+  s.students.forEach((st) => { st.firstName ??= ''; st.lastName ??= ''; });
   return s;
 }
+
+/*
+ * The Turkish academic year runs from autumn to summer, so a year is a pair:
+ * "2026-2027" covers Fall 2026 and Spring 2027. September is the boundary.
+ */
+export function currentAcademicYear(d = new Date()) {
+  const y = d.getFullYear();
+  return d.getMonth() >= 8 ? `${y}-${y + 1}` : `${y - 1}-${y}`;
+}
+
+export function academicYearFromTerm(term) {
+  const m = String(term || '').match(/(\d{4})/);
+  if (!m) return '';
+  const y = Number(m[1]);
+  return /spring|summer|bahar|yaz/i.test(term) ? `${y - 1}-${y}` : `${y}-${y + 1}`;
+}
+
+/** Every academic year that has a course in it, newest first. */
+export function academicYears() {
+  const set = new Set(state.courses.map((c) => c.academicYear).filter(Boolean));
+  set.add(state.settings.activeYear);
+  return [...set].sort().reverse();
+}
+
+/*
+ * Archiving is a flag, never a deletion. An archived course keeps its
+ * students, marks and theses exactly as they are — it stops appearing in the
+ * gradebook, the planner and the course pickers, and can be brought back.
+ * Nothing about a past year is destroyed by tidying it away.
+ */
+export function setCourseArchived(courseId, archived) {
+  update((s) => {
+    const c = s.courses.find((x) => x.id === courseId);
+    if (c) c.archived = Boolean(archived);
+  }, { type: 'courses' });
+}
+
+export function archiveYear(year) {
+  let n = 0;
+  update((s) => {
+    s.courses.forEach((c) => {
+      if (c.academicYear === year && !c.archived) { c.archived = true; n++; }
+    });
+  }, { type: 'courses' });
+  return n;
+}
+
+export function setActiveYear(year) {
+  update((s) => { s.settings.activeYear = String(year || '').trim(); }, { type: 'settings' });
+}
+
+/** Courses the instructor is actually teaching now — the default everywhere. */
+export const activeCourses = () =>
+  state.courses.filter((c) => !c.archived && c.academicYear === state.settings.activeYear);
 
 let saveTimer = null;
 export function persist({ immediate = false } = {}) {
@@ -144,6 +214,11 @@ export function addStudent(data) {
   const student = {
     id: uid('stu'),
     name: (data.name || '').trim(),
+    /* Kept apart where the source knew them apart: guessing which token of a
+       joined name is the surname is unreliable across the Turkish, Arabic and
+       Persian names on one roster. Blank means "derive it from name". */
+    firstName: (data.firstName || '').trim(),
+    lastName: (data.lastName || '').trim(),
     studentNo: (data.studentNo || '').trim(),
     level: data.level || 'undergraduate',
     email: (data.email || '').trim(),
@@ -183,8 +258,17 @@ export function addCourse(data) {
     code: (data.code || '').trim(),
     level: data.level || 'undergraduate',
     term: (data.term || state.settings.defaultTerm || '').trim(),
+    /* The academic year a course belongs to ("2026–2027"). Archiving works on
+       this, so a course without one would be invisible to it — hence the
+       fallback rather than an empty string. */
+    academicYear: (data.academicYear || state.settings.activeYear || currentAcademicYear()).trim(),
+    archived: Boolean(data.archived),
     credits: Number(data.credits) || 0,
-    components: resolveReplaces((data.components || defaultComponents()).map((c) => ({ id: uid('cmp'), ...c }))),
+    components: resolveReplaces(
+      (data.components || schemeById(data.scheme || defaultSchemeFor(data.level || 'undergraduate')).components())
+        .map((c) => ({ id: uid('cmp'), ...c }))
+    ),
+    scheme: data.scheme || defaultSchemeFor(data.level || 'undergraduate'),
     schedule: data.schedule || [],
     startDate: data.startDate || '',
     weeks: Number(data.weeks) || 14,
@@ -208,6 +292,93 @@ export function addCourse(data) {
  * `replaces` names the component by its position here; addCourse turns it
  * into the generated id, since ids do not exist yet at this point.
  */
+/*
+ * Assessment schemes, because one shape does not fit a department.
+ *
+ * The same instructor runs a first-year survey marked on two exams, a
+ * seminar carried by weekly participation, a course with assignments through
+ * the term, and a PhD course that is one long piece of work. Making him
+ * delete and retype the same five rows every time is the sort of small
+ * repeated tax that makes a tool not worth opening.
+ *
+ * Every scheme keeps Mazeret and Bütünleme where an exam exists, because
+ * those are university regulation rather than a preference. Weights are a
+ * starting point and every one of them is editable afterwards.
+ */
+export const SCHEMES = [
+  {
+    id: 'standard',
+    label: 'Standard',
+    note: 'Vize and Final, with participation. The usual undergraduate shape.',
+    components: () => [
+      { name: 'Class participation', weight: 20, maxScore: 100 },
+      { name: 'Vize', weight: 20, maxScore: 100 },
+      { name: 'Mazeret', weight: 0, maxScore: 100, replaces: 'Vize' },
+      { name: 'Final', weight: 60, maxScore: 100 },
+      { name: 'Bütünleme', weight: 0, maxScore: 100, replaces: 'Final' }
+    ]
+  },
+  {
+    id: 'assignments',
+    label: 'With assignments',
+    note: 'Coursework through the term alongside the exams.',
+    components: () => [
+      { name: 'Class participation', weight: 10, maxScore: 100 },
+      { name: 'Assignment 1', weight: 15, maxScore: 100 },
+      { name: 'Assignment 2', weight: 15, maxScore: 100 },
+      { name: 'Vize', weight: 20, maxScore: 100 },
+      { name: 'Mazeret', weight: 0, maxScore: 100, replaces: 'Vize' },
+      { name: 'Final', weight: 40, maxScore: 100 },
+      { name: 'Bütünleme', weight: 0, maxScore: 100, replaces: 'Final' }
+    ]
+  },
+  {
+    id: 'seminar',
+    label: 'Seminar',
+    note: 'Carried by participation and presentations rather than exams.',
+    components: () => [
+      { name: 'Class participation', weight: 30, maxScore: 100 },
+      { name: 'Presentation', weight: 25, maxScore: 100 },
+      { name: 'Term paper', weight: 45, maxScore: 100 }
+    ]
+  },
+  {
+    id: 'exams',
+    label: 'Exams only',
+    note: 'No participation mark. Two papers and their resits.',
+    components: () => [
+      { name: 'Vize', weight: 40, maxScore: 100 },
+      { name: 'Mazeret', weight: 0, maxScore: 100, replaces: 'Vize' },
+      { name: 'Final', weight: 60, maxScore: 100 },
+      { name: 'Bütünleme', weight: 0, maxScore: 100, replaces: 'Final' }
+    ]
+  },
+  {
+    id: 'thesis',
+    label: 'Thesis / project',
+    note: 'For a graduate course assessed on one long piece of work.',
+    components: () => [
+      { name: 'Proposal', weight: 15, maxScore: 100 },
+      { name: 'Progress review', weight: 15, maxScore: 100 },
+      { name: 'Thesis', weight: 55, maxScore: 100 },
+      { name: 'Defence', weight: 15, maxScore: 100 }
+    ]
+  },
+  {
+    id: 'blank',
+    label: 'Empty',
+    note: 'Start with nothing and add your own.',
+    components: () => []
+  }
+];
+
+export const schemeById = (id) => SCHEMES.find((x) => x.id === id) || SCHEMES[0];
+
+/* The scheme a level starts on, so a PhD course does not open on a shape
+   built for a first-year survey. Still just a default; the picker is there. */
+export const defaultSchemeFor = (level) =>
+  (level === 'phd' ? 'thesis' : level === 'masters' ? 'seminar' : 'standard');
+
 /* Turn a `replaces: 'Vize'` written by name into a resitFor holding the id
    that was generated a moment ago. */
 function resolveReplaces(components) {
@@ -217,16 +388,6 @@ function resolveReplaces(components) {
     const target = components.find((x) => x.name === replaces);
     return { ...rest, resitFor: target ? target.id : null };
   });
-}
-
-function defaultComponents() {
-  return [
-    { name: 'Class participation', weight: 20, maxScore: 100 },
-    { name: 'Vize', weight: 20, maxScore: 100 },
-    { name: 'Mazeret', weight: 0, maxScore: 100, replaces: 'Vize' },
-    { name: 'Final', weight: 60, maxScore: 100 },
-    { name: 'Bütünleme', weight: 0, maxScore: 100, replaces: 'Final' }
-  ];
 }
 
 export function updateCourse(id, patch) {

@@ -182,3 +182,27 @@ export const debounce = (fn, ms = 200) => {
   let t;
   return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
 };
+
+/*
+ * "Where did my course go?" is the predictable cost of scoping everything to
+ * one academic year. When the only courses that exist are filed elsewhere,
+ * say so and offer the jump, rather than showing the same blank slate that
+ * means "you have not created anything yet".
+ */
+/* Takes the state and a callback rather than reaching for the store: ui.js is
+   DOM helpers, and giving it app knowledge is how a helper file becomes a
+   second copy of the application. */
+export function otherYearsNotice(s, onJump) {
+  const elsewhere = s.courses.filter((c) => c.academicYear !== s.settings.activeYear || c.archived);
+  if (!elsewhere.length) return null;
+  const years = [...new Set(elsewhere.map((c) => c.academicYear))].sort().reverse();
+  return el('div', { class: 'banner info' },
+    el('strong', { text: `${elsewhere.length} course(s) are filed under another year or archived.` }),
+    el('div', { style: 'margin-top:6px' },
+      `Showing ${s.settings.activeYear}. Also here: ${years.join(', ')}.`),
+    el('div', { class: 'row', style: 'margin-top:8px' },
+      years.filter((y) => y !== s.settings.activeYear).map((y) => el('button', {
+        class: 'sm', text: `Switch to ${y}`, onClick: () => onJump(y)
+      })))
+  );
+}

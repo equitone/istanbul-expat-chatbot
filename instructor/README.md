@@ -275,6 +275,7 @@ cannot see, and the same table is built into the Settings tab.
 | Check | Basis | Limit |
 |---|---|---|
 | Spelling, grammar, punctuation | Rules, offline | Heuristic, tuned for precision. Misses cases rather than inventing them. |
+| Turkish name handling | Intl, offline | Sorted by surname in Turkish collation; search folds Ç Ğ İ Ö Ş Ü. Cannot tell YILDIRIM from YILDIRIM-with-dotless-ı. |
 | Level of thinking (Bloom's) | Word lists, offline | Matches wording, not thought. A student who signposts reads higher than one who works silently. English and Turkish cues. |
 | Claims & support | Rules, offline | Measures support, not truth. Counts only, no composite score. |
 | Citation style (APA 7 / MLA 9) | Rules, offline | Checks form, not existence. |
