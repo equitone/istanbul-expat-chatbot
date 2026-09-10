@@ -1,7 +1,7 @@
 import { el, mount, stat, int, num, pct, relTime, emptyState, table, chip, toast } from '../ui.js';
 import {
   getState, LEVELS, LEVEL_LABEL, addTask, toggleTask, removeTask, activeCourses, updateCourse,
-  SEMESTER_LABEL, termLabel
+  SEMESTER_LABEL, termLabel, periodLabel
 } from '../store.js';
 import { courseTotal, classSummary } from '../stats.js';
 import { DAYS, weekPlan, weekStart, addDays, toIso, sameDay, describeMeeting } from '../schedule.js';
@@ -226,7 +226,8 @@ async function printSchedule(s) {
       instructor: s.settings.instructor,
       institution: s.settings.institution,
       year: s.settings.activeYear,
-      semester: SEMESTER_LABEL[s.settings.activeSemester] || ''
+      semester: SEMESTER_LABEL[s.settings.activeSemester] || '',
+      period: periodLabel(s.settings.activeYear, s.settings.activeSemester)
     }));
   } catch (err) {
     toast(err.message, 'error');
@@ -304,7 +305,10 @@ function plannerCard(s, root, go) {
        added without hunting for the toggle. It stays open until closed. */
     showSchedule = true;
     return el('div', { class: 'card' },
-      el('h2', { text: 'Weekly planner' }),
+      el('div', { class: 'row', style: 'align-items:baseline;gap:8px' },
+        el('h2', { style: 'margin:0', text: 'Weekly planner' }),
+        chip(periodLabel(s.settings.activeYear, s.settings.activeSemester))
+      ),
       el('p', { class: 'hint', text: 'Tick the days each course meets and your week appears below. Time, room and the first week’s date are optional — add them whenever.' }),
       el('div', {}, activeCourses().map((c) => scheduleRow(c, rerender)))
     );
@@ -321,6 +325,9 @@ function plannerCard(s, root, go) {
   return el('div', { class: 'card' },
     el('div', { class: 'row', style: 'align-items:center;gap:10px;margin-bottom:4px' },
       el('h2', { style: 'margin:0', text: 'Weekly planner' }),
+      /* Which term this week belongs to, spelled out. A planner that shows a
+         week without naming the semester leaves the reader counting. */
+      chip(periodLabel(s.settings.activeYear, s.settings.activeSemester)),
       el('span', { class: 'hint', style: 'margin:0', text: `${label} · ${monday.toLocaleDateString(undefined, { day: 'numeric', month: 'short' })} – ${addDays(monday, 6).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })} · ${meetings.length} class${meetings.length === 1 ? '' : 'es'}${lookingAhead && weekOffset === 0 ? ' · this week is done' : ''}` }),
       el('div', { class: 'spacer' }),
       el('button', { class: 'sm', text: '‹', title: 'Previous week', onClick: () => { weekOffset--; rerender(); } }),

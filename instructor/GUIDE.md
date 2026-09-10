@@ -432,9 +432,17 @@ of the working views in one click. Archiving is never a deletion: students,
 marks and thesis reviews are kept exactly as they are, and any course comes
 back with **Bring back into this year**.
 
-Each course also carries its **semester** — Fall, Spring or Summer — shown
-everywhere the course is named, so "Fall 2026" is never a guess. The year bar
-filters by semester as well, or shows the whole year at once.
+Each course also carries its **semester** — Fall, Spring or Summer. Every
+screen that shows a period is headed with it in words: **Fall 2026 · 2026-2027**
+on the Courses tab, the weekly planner, the Gradebook, Analytics and the
+printed schedule. You never have to work out which half of the year you are
+looking at.
+
+The year list is **not** limited to years that already contain courses, and it
+does not depend on this computer's clock. It runs well past whatever you have
+in both directions and extends as you move, so 2019-2020 is reachable to look
+at an archive and 2031-2032 is reachable to set up before its first course
+exists. The ‹ › arrows step a year at a time and never run out.
 
 Importing an old gradebook? Set its academic year in the import form and it is
 filed there, rather than piling into the current year with everything else.

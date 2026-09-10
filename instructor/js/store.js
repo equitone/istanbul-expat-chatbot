@@ -50,6 +50,16 @@ export function semesterFromTerm(term) {
   return '';
 }
 
+/** "Fall 2026 · 2026-2027" — what every calendar surface should be headed with. */
+export function periodLabel(year, semester) {
+  const sem = SEMESTER_LABEL[semester] || '';
+  if (!year) return sem;
+  if (!sem) return `${year} · whole year`;
+  const first = Number(String(year).split('-')[0]);
+  const cal = semester === 'fall' ? first : first + 1;
+  return `${sem} ${cal} · ${year}`;
+}
+
 /** "Fall 2026" — the human label for a course's place in the calendar. */
 export function termLabel(course) {
   const sem = SEMESTER_LABEL[course.semester] || '';
@@ -174,11 +184,55 @@ export function academicYearFromTerm(term) {
   return /spring|summer|bahar|yaz/i.test(term) ? `${y - 1}-${y}` : `${y}-${y + 1}`;
 }
 
-/** Every academic year that has a course in it, newest first. */
+/*
+ * The years offered in the picker, newest first.
+ *
+ * NOT a list of years that happen to contain courses. That was the earlier
+ * mistake: a year with nothing in it could not be selected, so there was no
+ * way to reach 2019-2020 to look at an archive, or to set up 2031-2032 before
+ * creating its first course — and the only way forward was a button that
+ * stepped one year at a time.
+ *
+ * Instead this is a CONTINUOUS range spanning everything that exists, the year
+ * being viewed, and the year the clock says, with room either side. Because
+ * the viewed year is one of the anchors, walking to the end of the list
+ * extends it on the next render: it cannot run out, in 2030 or in 2130, and it
+ * does not depend on the machine's clock being right.
+ */
+const YEAR_PADDING = 6;
+
 export function academicYears() {
-  const set = new Set(state.courses.map((c) => c.academicYear).filter(Boolean));
-  set.add(state.settings.activeYear);
-  return [...set].sort().reverse();
+  const anchors = [
+    ...state.courses.map((c) => c.academicYear),
+    state.settings.activeYear,
+    currentAcademicYear()
+  ]
+    .map((y) => Number(String(y || '').split('-')[0]))
+    .filter((n) => Number.isFinite(n) && n > 1900 && n < 3000);
+  if (!anchors.length) anchors.push(new Date().getFullYear());
+
+  const lo = Math.min(...anchors) - YEAR_PADDING;
+  const hi = Math.max(...anchors) + YEAR_PADDING;
+  const out = [];
+  for (let y = hi; y >= lo; y--) out.push(`${y}-${y + 1}`);
+  return out;
+}
+
+/** How many courses are filed under a year — so the picker is not a wall of
+    identical empty rows. */
+export function courseCountByYear() {
+  const counts = new Map();
+  state.courses.forEach((c) => counts.set(c.academicYear, (counts.get(c.academicYear) || 0) + 1));
+  return counts;
+}
+
+/** Move the viewed year by whole years, in either direction, without limit. */
+export function stepYear(delta) {
+  const start = Number(String(state.settings.activeYear || '').split('-')[0]);
+  const base = Number.isFinite(start) ? start : new Date().getFullYear();
+  const next = base + Number(delta || 0);
+  setActiveYear(`${next}-${next + 1}`);
+  return `${next}-${next + 1}`;
 }
 
 /*

@@ -1,6 +1,6 @@
 import { el, mount, chip, num, int, emptyState, toast, otherYearsNotice } from '../ui.js';
 import { compareBySurname, listName } from '../turkish.js';
-import { getState, LEVEL_LABEL, setScore , activeCourses, setActiveYear, termLabel } from '../store.js';
+import { getState, LEVEL_LABEL, setScore , activeCourses, setActiveYear, termLabel, periodLabel } from '../store.js';
 import { courseTotal, describe, toLetter, rank } from '../stats.js';
 import { exportTableCsv } from '../export/workbook.js';
 import { gradebookRows } from '../export/workbook.js';
@@ -22,6 +22,7 @@ export default function renderGradebook(root, ctx) {
         el('p', { text: 'Type marks straight into the grid. Totals, letters and ranks update as you go, and blanks are treated as not-yet-marked rather than zero.' })
       ),
       el('div', { class: 'spacer' }),
+      chip(periodLabel(s.settings.activeYear, s.settings.activeSemester)),
       courses.length ? el('select', {
         style: 'width:auto;min-width:230px',
         onChange: (e) => { selectedId = e.target.value; renderGradebook(root, ctx); }

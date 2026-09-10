@@ -3,7 +3,8 @@ import { DAYS, nextMeeting, describeMeeting, toIso } from '../schedule.js';
 import {
   getState, LEVELS, LEVEL_LABEL, addCourse, updateCourse, removeCourse,
   addComponent, removeComponent, setEnrolment, SCHEMES, schemeById, defaultSchemeFor,
-  academicYears, setActiveYear, setActiveSemester, setCourseArchived, archiveYear, currentAcademicYear,
+  academicYears, courseCountByYear, stepYear, periodLabel,
+  setActiveYear, setActiveSemester, setCourseArchived, archiveYear, currentAcademicYear,
   SEMESTERS, SEMESTER_LABEL, termLabel
 } from '../store.js';
 import { compare as trCompare } from '../turkish.js';
@@ -16,7 +17,12 @@ let showArchived = false;
 export default function renderCourses(root, ctx) {
   const s = getState();
   const year = s.settings.activeYear;
-  const inYear = s.courses.filter((c) => c.academicYear === year);
+  /* Scoped to the semester as well, so the list matches the heading above it
+     and matches what the planner and gradebook are showing. "Whole year"
+     widens it back out. A course with no semester recorded is never hidden. */
+  const sem = s.settings.activeSemester;
+  const inYear = s.courses.filter((c) =>
+    c.academicYear === year && (!sem || !c.semester || c.semester === sem));
   const listed = (showArchived ? inYear : inYear.filter((c) => !c.archived))
     .sort((a, b) => Number(a.archived) - Number(b.archived) || trCompare(a.code || a.title, b.code || b.title));
   if (!listed.some((c) => c.id === selectedId)) selectedId = listed[0] ? listed[0].id : null;
@@ -69,38 +75,55 @@ export default function renderCourses(root, ctx) {
  */
 function yearBar(s, year, inYear, archivedCount, root, ctx) {
   const years = academicYears();
+  const counts = courseCountByYear();
   const live = inYear.filter((c) => !c.archived).length;
+  const jump = (fn) => { fn(); selectedId = null; renderCourses(root, ctx); };
+
   return el('div', { class: 'card', style: 'margin-bottom:14px' },
-    el('div', { class: 'row', style: 'align-items:center;flex-wrap:wrap' },
-      el('span', { class: 'label', text: 'ACADEMIC YEAR' }),
+    /*
+     * The heading names the period in words, because "2026-2027" alone never
+     * says which half of the year is on screen. Everything below is scoped to
+     * exactly what this line says.
+     */
+    el('div', { class: 'row', style: 'align-items:baseline;gap:10px;margin-bottom:10px' },
+      el('h2', { style: 'margin:0', text: periodLabel(year, s.settings.activeSemester) }),
+      el('span', { class: 'hint', style: 'margin:0', text: `${live} running${archivedCount ? ` · ${archivedCount} archived` : ''}` })
+    ),
+
+    el('div', { class: 'row', style: 'align-items:center;flex-wrap:wrap;gap:8px' },
+      el('span', { class: 'label', text: 'YEAR' }),
+      el('button', { class: 'sm', text: '‹', title: 'Previous academic year', onClick: () => jump(() => stepYear(-1)) }),
       el('select', {
-        onChange: (e) => { setActiveYear(e.target.value); selectedId = null; renderCourses(root, ctx); }
-      }, years.map((y) => el('option', { value: y, selected: y === year, text: y }))),
+        /* Selects are width:100% by default, which inside a flex row takes the
+           whole line and pushes the next-year arrow onto a second one. */
+        style: 'width:auto;min-width:190px;flex:0 0 auto',
+        onChange: (e) => jump(() => setActiveYear(e.target.value))
+      }, years.map((y) => {
+        const n = counts.get(y) || 0;
+        return el('option', { value: y, selected: y === year, text: n ? `${y} — ${n} course${n === 1 ? '' : 's'}` : y });
+      })),
+      el('button', { class: 'sm', text: '›', title: 'Next academic year', onClick: () => jump(() => stepYear(1)) }),
+      year !== currentAcademicYear()
+        ? el('button', { class: 'sm', text: `Back to ${currentAcademicYear()}`, onClick: () => jump(() => setActiveYear(currentAcademicYear())) })
+        : null,
+
+      el('span', { class: 'label', style: 'margin-left:8px', text: 'SEMESTER' }),
       el('div', { class: 'row tight' },
-        el('button', {
-          class: !s.settings.activeSemester ? 'primary sm' : 'sm',
-          text: 'Whole year',
-          onClick: () => { setActiveSemester(''); selectedId = null; renderCourses(root, ctx); }
-        }),
         SEMESTERS.map((sem) => el('button', {
           class: s.settings.activeSemester === sem.id ? 'primary sm' : 'sm',
+          'aria-pressed': String(s.settings.activeSemester === sem.id),
           text: sem.label,
-          onClick: () => { setActiveSemester(sem.id); selectedId = null; renderCourses(root, ctx); }
-        }))
+          onClick: () => jump(() => setActiveSemester(sem.id))
+        })),
+        el('button', {
+          class: !s.settings.activeSemester ? 'primary sm' : 'sm',
+          'aria-pressed': String(!s.settings.activeSemester),
+          text: 'Whole year',
+          onClick: () => jump(() => setActiveSemester(''))
+        })
       ),
-      el('button', {
-        class: 'sm',
-        text: 'Start next year',
-        title: 'Switch to the following academic year. Nothing is moved or deleted.',
-        onClick: () => {
-          const next = String(Number(year.split('-')[0]) + 1);
-          setActiveYear(`${next}-${Number(next) + 1}`);
-          selectedId = null;
-          renderCourses(root, ctx);
-        }
-      }),
+
       el('div', { class: 'spacer' }),
-      el('span', { class: 'hint', text: `${live} running${archivedCount ? ` · ${archivedCount} archived` : ''}` }),
       archivedCount ? el('button', {
         class: showArchived ? 'primary sm' : 'sm',
         text: showArchived ? 'Hide archived' : `Show archived (${archivedCount})`,
@@ -108,7 +131,7 @@ function yearBar(s, year, inYear, archivedCount, root, ctx) {
       }) : null,
       live ? el('button', {
         class: 'sm',
-        text: `Archive all of ${year}`,
+        text: `Archive ${year}`,
         onClick: async () => {
           const ok = await confirmDialog(
             `Archive ${live} course(s) from ${year}?`,
@@ -118,29 +141,12 @@ function yearBar(s, year, inYear, archivedCount, root, ctx) {
           if (!ok) return;
           const n = archiveYear(year);
           toast(`${n} course(s) archived. Nothing was deleted.`, 'good');
-          selectedId = null;
-          renderCourses(root, ctx);
+          jump(() => {});
         }
       }) : null
-    )
+    ),
+    el('p', { class: 'hint', style: 'margin:8px 0 0', text: 'The year list runs well past whatever you have, in both directions, and extends as you move — it is not limited to years that already contain courses, and it does not depend on this computer’s clock.' })
   );
-}
-
-/*
- * addComponent() generates ids one at a time, so a scheme's `replaces: 'Vize'`
- * cannot be resolved while the components are being added. Link them once they
- * all exist, by the names the scheme used.
- */
-function relinkReplacements(courseId, def) {
-  const course = getState().courses.find((c) => c.id === courseId);
-  if (!course) return;
-  def.components().forEach((spec) => {
-    if (!spec.replaces) return;
-    const self = course.components.find((c) => c.name === spec.name);
-    const target = course.components.find((c) => c.name === spec.replaces);
-    if (self && target) { self.resitFor = target.id; self.weight = 0; }
-  });
-  updateCourse(courseId, { components: course.components });
 }
 
 function courseDetail(course, s, root, ctx) {

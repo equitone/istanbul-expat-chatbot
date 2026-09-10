@@ -25,7 +25,7 @@ function hourRows(courses) {
   return [...times].sort();
 }
 
-export function buildScheduleSheet({ courses, instructor = '', institution = '', year = '', semester = '', weeksAhead = 4 }) {
+export function buildScheduleSheet({ courses, instructor = '', institution = '', year = '', semester = '', period = '', weeksAhead = 4 }) {
   const teaching = courses.filter((c) => (c.schedule || []).length);
   const rows = hourRows(teaching);
   const days = DAYS.slice(0, 6).filter((d) => teaching.some((c) => (c.schedule || []).some((sl) => Number(sl.day) === d.id)));
@@ -114,7 +114,7 @@ export function buildScheduleSheet({ courses, instructor = '', institution = '',
   @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
 </style></head><body>
   <h1>Teaching schedule</h1>
-  <p class="sub">${esc([semester ? `${semester} semester` : '', year].filter(Boolean).join(' · ')) || '&nbsp;'}</p>
+  <p class="sub">${esc(period || [semester ? `${semester} semester` : '', year].filter(Boolean).join(' · ')) || '&nbsp;'}</p>
   ${instructor || institution ? `<p class="sub">${esc([instructor, institution].filter(Boolean).join(' · '))}</p>` : ''}
   <p class="sub">${teaching.length} course${teaching.length === 1 ? '' : 's'} · ${load} class${load === 1 ? '' : 'es'} a week</p>
   ${grid}

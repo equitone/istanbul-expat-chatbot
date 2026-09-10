@@ -1,5 +1,5 @@
 import { el, mount, stat, table, chip, barChart, num, int, pct, emptyState, meter, otherYearsNotice } from '../ui.js';
-import { getState, LEVELS, LEVEL_LABEL , activeCourses, setActiveYear, termLabel } from '../store.js';
+import { getState, LEVELS, LEVEL_LABEL , activeCourses, setActiveYear, termLabel, periodLabel } from '../store.js';
 import { courseTotal, classSummary, describe, correlation, toLetter } from '../stats.js';
 import { buildSimpleReport, openPrintable, downloadReport } from '../export/report.js';
 import { toast } from '../ui.js';
@@ -21,6 +21,7 @@ export default function renderAnalytics(root, ctx) {
         el('p', { text: 'End-of-term statistics for one course, and a comparison across the three levels.' })
       ),
       el('div', { class: 'spacer' }),
+      chip(periodLabel(s.settings.activeYear, s.settings.activeSemester)),
       courses.length ? el('select', {
         style: 'width:auto;min-width:230px',
         onChange: (e) => { selectedId = e.target.value; renderAnalytics(root, ctx); }
