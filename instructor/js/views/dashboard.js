@@ -1,6 +1,7 @@
 import { el, mount, stat, int, num, pct, relTime, emptyState, table, chip, toast } from '../ui.js';
 import {
-  getState, LEVELS, LEVEL_LABEL, addTask, toggleTask, removeTask, activeCourses
+  getState, LEVELS, LEVEL_LABEL, addTask, toggleTask, removeTask, activeCourses, updateCourse,
+  SEMESTER_LABEL, termLabel
 } from '../store.js';
 import { courseTotal, classSummary } from '../stats.js';
 import { DAYS, weekPlan, weekStart, addDays, toIso, sameDay, describeMeeting } from '../schedule.js';
@@ -8,6 +9,7 @@ import { DAYS, weekPlan, weekStart, addDays, toIso, sameDay, describeMeeting } f
 /* Which week the planner is showing, as an offset from the current one. It
    lives outside the render so paging back and forth survives a re-render. */
 let weekOffset = 0;
+let showSchedule = false;
 
 export default function renderDashboard(root, { go }) {
   const s = getState();
@@ -147,6 +149,90 @@ function backupReminder(s, go) {
 
 /* ------------------------------------------------------------- planner */
 
+
+/*
+ * One course's meeting days, editable in place. Deliberately day-first: a day
+ * is the only field the planner actually needs, and demanding a room and a
+ * term start date before showing anything is what kept this card empty.
+ */
+function scheduleRow(course, rerender) {
+  const slots = course.schedule || [];
+  const setSlots = (next) => { updateCourse(course.id, { schedule: next }); rerender(); };
+
+  return el('div', { class: 'sched-row' },
+    el('div', { class: 'sched-name' },
+      el('strong', { text: course.code || course.title }),
+      el('small', { text: `${LEVEL_LABEL[course.level]}${course.code ? ` · ${course.title}` : ''}` })
+    ),
+    el('div', { class: 'row tight', style: 'flex-wrap:wrap' },
+      DAYS.slice(0, 6).map((d) => {
+        const on = slots.some((sl) => Number(sl.day) === d.id);
+        return el('button', {
+          class: on ? 'primary sm' : 'sm',
+          'aria-pressed': String(on),
+          text: d.short,
+          onClick: () => setSlots(on
+            ? slots.filter((sl) => Number(sl.day) !== d.id)
+            : [...slots, { day: d.id, time: '', room: '' }].sort((a, b) => ((a.day + 6) % 7) - ((b.day + 6) % 7)))
+        });
+      })
+    ),
+    slots.length
+      ? el('div', { class: 'row tight', style: 'flex-wrap:wrap;align-items:center' },
+          slots.map((sl, i) => el('span', { class: 'row tight', style: 'align-items:center' },
+            el('span', { class: 'hint', style: 'margin:0', text: DAYS.find((d) => d.id === Number(sl.day)).short }),
+            el('input', {
+              type: 'time', value: sl.time || '', style: 'width:98px',
+              onChange: (e) => updateCourse(course.id, { schedule: slots.map((x, k) => (k === i ? { ...x, time: e.target.value } : x)) })
+            }),
+            el('input', {
+              value: sl.room || '', placeholder: 'room', style: 'width:76px',
+              onChange: (e) => updateCourse(course.id, { schedule: slots.map((x, k) => (k === i ? { ...x, room: e.target.value } : x)) })
+            })
+          )),
+          el('span', { class: 'hint', style: 'margin:0', text: 'first week' }),
+          el('input', {
+            type: 'date', value: course.startDate || '', style: 'width:140px',
+            title: 'Set this and each class is numbered — Session 6 of 14.',
+            onChange: (e) => { updateCourse(course.id, { startDate: e.target.value }); rerender(); }
+          }),
+          !course.startDate ? el('span', { class: 'hint', style: 'margin:0', text: '— set it to number the sessions' }) : null
+        )
+      : null
+  );
+}
+
+/*
+ * "What have you got on?" — asked out loud by a colleague or a head of
+ * department. Answering from the screen means turning a laptop round; this
+ * prints the answer on one page. No student appears on it: it is a timetable,
+ * not a record.
+ */
+async function printSchedule(s) {
+  const teaching = activeCourses().filter((c) => (c.schedule || []).length);
+  if (!teaching.length) {
+    toast('Set the days a course meets first — there is no timetable to print yet.', 'error');
+    return;
+  }
+  try {
+    const [{ buildScheduleSheet }, { openPrintable }] = await Promise.all([
+      import('../export/schedule-sheet.js'),
+      import('../export/report.js')
+    ]);
+    openPrintable(buildScheduleSheet({
+      /* levelLabel is passed in rather than imported into the sheet, so the
+         printable stays a pure function of what it is handed. */
+      courses: teaching.map((c) => ({ ...c, levelLabel: LEVEL_LABEL[c.level] || '' })),
+      instructor: s.settings.instructor,
+      institution: s.settings.institution,
+      year: s.settings.activeYear,
+      semester: SEMESTER_LABEL[s.settings.activeSemester] || ''
+    }));
+  } catch (err) {
+    toast(err.message, 'error');
+  }
+}
+
 /*
  * The week at a glance: what is taught, when, which meeting of the course it
  * is, and what has to be done before it.
@@ -157,9 +243,31 @@ function backupReminder(s, go) {
  * to bring to it, so those are what the card shows.
  */
 function plannerCard(s, root, go) {
+  /* Off by default once the week is laid out: the point of the card is the
+     week, not its settings. */
   const scheduled = activeCourses().filter((c) => (c.schedule || []).length);
-  const monday = addDays(weekStart(new Date()), weekOffset * 7);
   const rerender = () => renderDashboard(root, { go });
+
+  /*
+   * "Upcoming" week, not "current" week.
+   *
+   * On a Friday afternoon every class in the current week has already
+   * happened, and a planner showing them is a record rather than a plan. So
+   * when nothing is left in this week, the card opens on the next one — which
+   * is what was asked for and what is actually useful at the end of a week.
+   * The arrows still reach every week in either direction.
+   */
+  const thisMonday = weekStart(new Date());
+  let base = thisMonday;
+  if (weekOffset === 0 && scheduled.length) {
+    const now = new Date();
+    const remaining = weekPlan(scheduled, thisMonday)
+      .filter((m) => m.withinTerm && !sameDay(m.date, now) && m.date > now);
+    const anyToday = weekPlan(scheduled, thisMonday).some((m) => m.withinTerm && sameDay(m.date, now));
+    if (!remaining.length && !anyToday) base = addDays(thisMonday, 7);
+  }
+  const monday = addDays(base, weekOffset * 7);
+  const lookingAhead = base > thisMonday;
 
   /*
    * Always rendered, even with nothing to show.
@@ -180,30 +288,61 @@ function plannerCard(s, root, go) {
     );
   }
 
+  /*
+   * Set the timetable HERE, not in another tab.
+   *
+   * This used to be a paragraph telling the instructor to open Courses, find
+   * the course, scroll to "When it meets" and fill in a form — six or seven
+   * interactions in a different part of the app before the feature he asked
+   * for existed at all. Nobody does that. The planner is empty exactly when
+   * the days are missing, so the days are asked for exactly there: tick a day
+   * and the week draws itself immediately.
+   */
   if (!scheduled.length) {
+    /* Sticky: ticking the first day flips this card into its laid-out form,
+       and if the setup rows collapsed at that moment a second day could not be
+       added without hunting for the toggle. It stays open until closed. */
+    showSchedule = true;
     return el('div', { class: 'card' },
       el('h2', { text: 'Weekly planner' }),
-      el('p', { class: 'hint', text: 'You have a course but it has no days set, so there is nothing to lay out yet. Open it, fill in “When it meets” — the days, the time, the room and the date the first week begins — and your week appears here with a to-do list under each class.' }),
-      el('button', { class: 'primary', text: 'Set a course timetable', onClick: () => go('courses') })
+      el('p', { class: 'hint', text: 'Tick the days each course meets and your week appears below. Time, room and the first week’s date are optional — add them whenever.' }),
+      el('div', {}, activeCourses().map((c) => scheduleRow(c, rerender)))
     );
   }
 
   const meetings = weekPlan(scheduled, monday).filter((m) => m.withinTerm);
   const today = new Date();
-  const label = weekOffset === 0 ? 'This week'
-    : weekOffset === 1 ? 'Next week'
-    : weekOffset === -1 ? 'Last week'
+  const weeksFromNow = Math.round((monday - thisMonday) / (7 * 86400000));
+  const label = weeksFromNow === 0 ? 'This week'
+    : weeksFromNow === 1 ? 'Next week'
+    : weeksFromNow === -1 ? 'Last week'
     : `Week of ${monday.toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}`;
 
   return el('div', { class: 'card' },
     el('div', { class: 'row', style: 'align-items:center;gap:10px;margin-bottom:4px' },
       el('h2', { style: 'margin:0', text: 'Weekly planner' }),
-      el('span', { class: 'hint', style: 'margin:0', text: `${label} · ${monday.toLocaleDateString(undefined, { day: 'numeric', month: 'short' })} – ${addDays(monday, 6).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })} · ${meetings.length} class${meetings.length === 1 ? '' : 'es'}` }),
+      el('span', { class: 'hint', style: 'margin:0', text: `${label} · ${monday.toLocaleDateString(undefined, { day: 'numeric', month: 'short' })} – ${addDays(monday, 6).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })} · ${meetings.length} class${meetings.length === 1 ? '' : 'es'}${lookingAhead && weekOffset === 0 ? ' · this week is done' : ''}` }),
       el('div', { class: 'spacer' }),
       el('button', { class: 'sm', text: '‹', title: 'Previous week', onClick: () => { weekOffset--; rerender(); } }),
-      weekOffset !== 0 ? el('button', { class: 'sm', text: 'Today', onClick: () => { weekOffset = 0; rerender(); } }) : null,
-      el('button', { class: 'sm', text: '›', title: 'Next week', onClick: () => { weekOffset++; rerender(); } })
+      weeksFromNow !== 0 ? el('button', { class: 'sm', text: 'Today', onClick: () => { weekOffset = -Math.round((base - thisMonday) / (7 * 86400000)); rerender(); } }) : null,
+      el('button', { class: 'sm', text: '›', title: 'Next week', onClick: () => { weekOffset++; rerender(); } }),
+      el('button', {
+        class: showSchedule ? 'primary sm' : 'sm',
+        text: 'Days',
+        title: 'Change which days each course meets',
+        onClick: () => { showSchedule = !showSchedule; rerender(); }
+      }),
+      el('button', {
+        class: 'sm',
+        text: 'Print schedule',
+        title: 'A one-page timetable to hand to someone who asks what you are teaching',
+        onClick: () => printSchedule(s)
+      })
     ),
+
+    showSchedule
+      ? el('div', { style: 'margin-bottom:12px' }, activeCourses().map((c) => scheduleRow(c, rerender)))
+      : null,
 
     meetings.length
       ? el('div', { class: 'planner' },
@@ -249,6 +388,7 @@ function classCard(m, s, rerender) {
     c.code ? el('div', { class: 'hint', style: 'margin:0', text: c.title }) : null,
     el('div', { class: 'row', style: 'gap:4px;margin:4px 0 6px;flex-wrap:wrap' },
       chip(LEVEL_LABEL[c.level] || c.level, c.level === 'undergraduate' ? 'ug' : c.level === 'masters' ? 'ma' : 'phd'),
+      chip(termLabel(c)),
       sub ? chip(sub) : null,
       open ? chip(`${open} to do`, 'medium') : tasks.length ? chip('all done', 'good') : null
     ),

@@ -117,17 +117,64 @@ export function titleCase(s) {
  * that arrived as one string.
  */
 export function splitName(full) {
-  const parts = String(full ?? '').trim().split(/\s+/).filter(Boolean);
+  const raw = String(full ?? '').trim();
+  /*
+   * "KESER, Melis" is surname-first and must not be read as given names
+   * ending in a comma. Rosters are pasted in this form constantly, and an
+   * earlier build of this app wrote it into the stored name itself, so the
+   * comma has to be honoured rather than tokenised away.
+   */
+  if (raw.includes(',')) {
+    const [last, ...rest] = raw.split(',');
+    const first = rest.join(',').trim();
+    if (last.trim()) return { first, last: last.trim() };
+  }
+  const parts = raw.split(/\s+/).filter(Boolean);
   if (!parts.length) return { first: '', last: '' };
   if (parts.length === 1) return { first: parts[0], last: '' };
   return { first: parts.slice(0, -1).join(' '), last: parts[parts.length - 1] };
 }
 
-/** Surname first, for a list someone reads down looking for a family name. */
+/*
+ * The two halves of a name, for a table that shows them in separate columns.
+ *
+ * NEVER returns half a person. If the record carries the halves apart, they
+ * are used; otherwise they are derived from the full string; and if that
+ * derivation yields nothing usable, the whole stored name is returned as the
+ * surname rather than silently dropping the part that did not parse. A roster
+ * that hides a given name is worse than one that sorts imperfectly.
+ */
+export function nameParts(person) {
+  const whole = String(person.name || '').trim();
+  /* A stored "SURNAME, First" is authoritative about which half is which,
+     whatever the separate fields happen to say. */
+  if (whole.includes(',')) {
+    const g = splitName(whole);
+    if (g.last) return { first: g.first, last: g.last, whole };
+  }
+  let last = String(person.lastName || '').trim();
+  let first = String(person.firstName || '').trim();
+  if (!last && !first && whole) {
+    const g = splitName(whole);
+    /* A single token is a surname, not a given name: "AKBAROVA" must not end
+       up in both columns. */
+    if (g.last) { first = g.first; last = g.last; } else { first = ''; last = g.first; }
+  }
+  if (!last && !first) return { first: '', last: whole, whole };
+  /* One half present and the other empty, with a full name that says
+     otherwise — trust the full name. */
+  if ((!last || !first) && whole && whole !== last && whole !== first) {
+    const guess = splitName(whole);
+    if (guess.first && guess.last) return { first: guess.first, last: guess.last, whole };
+  }
+  if (!last) return { first: '', last: first || whole, whole };
+  return { first, last, whole };
+}
+
+/** Surname first, for one-line contexts: reports, exports, a gradebook row. */
 export function listName(person) {
-  const last = person.lastName || splitName(person.name).last;
-  const first = person.firstName || splitName(person.name).first;
-  if (!last) return titleCase(first || person.name || '');
+  const { first, last } = nameParts(person);
+  if (!first) return trUpper(last);
   return `${trUpper(last)}, ${titleCase(first)}`;
 }
 

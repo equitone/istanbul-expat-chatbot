@@ -22,8 +22,16 @@ export function el(tag, props = {}, ...children) {
 export const $ = (sel, root = document) => root.querySelector(sel);
 export const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
 
+/*
+ * Emptying a node while a change event is still unwinding used to throw
+ * "The node to be removed is no longer a child of this node": committing an
+ * inline edit blurs the input, the blur fires change, change writes to the
+ * store, the store re-renders the view, and the tree the browser is midway
+ * through is torn out underneath it. replaceChildren() empties the node in one
+ * operation instead of walking a list that is being mutated.
+ */
 export function clear(node) {
-  while (node.firstChild) node.removeChild(node.firstChild);
+  node.replaceChildren();
   return node;
 }
 

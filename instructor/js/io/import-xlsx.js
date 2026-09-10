@@ -12,7 +12,7 @@
  */
 import { loadScript } from './files.js';
 import { nameKey } from '../turkish.js';
-import { uid, getState, update } from '../store.js';
+import { uid, getState, update, semesterFromTerm, currentSemester } from '../store.js';
 
 /*
  * Header matching is done on a folded form of the text, so one hint covers
@@ -452,7 +452,9 @@ export function buildPlan(layout, mapping, meta, existingStudents) {
       level: meta.level,
       term: meta.term,
       year: meta.year,
-      academicYear: meta.academicYear || ''
+      academicYear: meta.academicYear || '',
+      semester: meta.semester || semesterFromTerm(meta.term) || '',
+      schedule: meta.schedule || []
     },
     components: componentDefs,
     students,
@@ -614,7 +616,12 @@ export function applyPlan(plan) {
       /* Filed under an academic year from the start, so importing three years
          of old gradebooks does not pile them all into the current one. */
       academicYear: plan.course.academicYear || getState().settings.activeYear,
+      /* Set here as well as in addCourse(): this function builds its course
+         object directly, so anything addCourse() fills in has to be filled in
+         again or the course is invisible to the views that filter on it. */
+      semester: plan.course.semester || semesterFromTerm(plan.course.term) || getState().settings.activeSemester || currentSemester(),
       archived: false,
+      schedule: plan.course.schedule || [],
       credits: 0,
       components: plan.components.map((c) => ({
         id: c.id, name: c.name, weight: c.weight, maxScore: c.maxScore,

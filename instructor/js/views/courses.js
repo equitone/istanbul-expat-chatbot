@@ -3,7 +3,8 @@ import { DAYS, nextMeeting, describeMeeting, toIso } from '../schedule.js';
 import {
   getState, LEVELS, LEVEL_LABEL, addCourse, updateCourse, removeCourse,
   addComponent, removeComponent, setEnrolment, SCHEMES, schemeById, defaultSchemeFor,
-  academicYears, setActiveYear, setCourseArchived, archiveYear, currentAcademicYear
+  academicYears, setActiveYear, setActiveSemester, setCourseArchived, archiveYear, currentAcademicYear,
+  SEMESTERS, SEMESTER_LABEL, termLabel
 } from '../store.js';
 import { compare as trCompare } from '../turkish.js';
 
@@ -51,7 +52,7 @@ export default function renderCourses(root, ctx) {
               onClick: () => { selectedId = c.id; renderCourses(root, ctx); }
             },
               el('div', { style: 'font-weight:600' }, c.code || c.title, c.archived ? ' · archived' : ''),
-              el('div', { style: 'font-size:11px;opacity:.75', text: `${LEVEL_LABEL[c.level]} · ${c.term} · ${c.enrolled.length} enrolled` })
+              el('div', { style: 'font-size:11px;opacity:.75', text: `${LEVEL_LABEL[c.level]} · ${termLabel(c)} · ${c.enrolled.length} enrolled` })
             ))
           ),
           course ? courseDetail(course, s, root, ctx) : el('div')
@@ -75,6 +76,18 @@ function yearBar(s, year, inYear, archivedCount, root, ctx) {
       el('select', {
         onChange: (e) => { setActiveYear(e.target.value); selectedId = null; renderCourses(root, ctx); }
       }, years.map((y) => el('option', { value: y, selected: y === year, text: y }))),
+      el('div', { class: 'row tight' },
+        el('button', {
+          class: !s.settings.activeSemester ? 'primary sm' : 'sm',
+          text: 'Whole year',
+          onClick: () => { setActiveSemester(''); selectedId = null; renderCourses(root, ctx); }
+        }),
+        SEMESTERS.map((sem) => el('button', {
+          class: s.settings.activeSemester === sem.id ? 'primary sm' : 'sm',
+          text: sem.label,
+          onClick: () => { setActiveSemester(sem.id); selectedId = null; renderCourses(root, ctx); }
+        }))
+      ),
       el('button', {
         class: 'sm',
         text: 'Start next year',
@@ -145,7 +158,10 @@ function courseDetail(course, s, root, ctx) {
       el('div', { class: 'grid cols-3' },
         field('Title', el('input', { value: course.title, onChange: (e) => updateCourse(course.id, { title: e.target.value }) })),
         field('Code', el('input', { value: course.code, onChange: (e) => updateCourse(course.id, { code: e.target.value }) })),
-        field('Term', el('input', { value: course.term, onChange: (e) => updateCourse(course.id, { term: e.target.value }) })),
+        field('Semester', el('select', {
+          onChange: (e) => { updateCourse(course.id, { semester: e.target.value }); renderCourses(root, ctx); }
+        }, SEMESTERS.map((x) => el('option', { value: x.id, selected: x.id === course.semester, text: x.label }))),
+          `Shown everywhere as “${termLabel(course)}”.`),
         field('Academic year', el('input', {
           value: course.academicYear || '', placeholder: currentAcademicYear(),
           onChange: (e) => { updateCourse(course.id, { academicYear: e.target.value.trim() }); renderCourses(root, ctx); }
@@ -325,7 +341,8 @@ function newCourseDialog(root, ctx) {
         name: 'level',
         onChange: (e) => { level = e.target.value; scheme = defaultSchemeFor(level); paint(); }
       }, LEVELS.map((l) => el('option', { value: l.id, text: l.label })))),
-      field('Term', el('input', { name: 'term', value: s.settings.defaultTerm })),
+      field('Semester', el('select', { name: 'semester' },
+        SEMESTERS.map((x) => el('option', { value: x.id, selected: x.id === (s.settings.activeSemester || 'fall'), text: x.label })))),
       field('Academic year', el('input', { name: 'academicYear', value: s.settings.activeYear }),
         'Courses are filed and archived by this.')
     ),

@@ -21,6 +21,45 @@ export const LEVELS = [
 
 export const LEVEL_LABEL = Object.fromEntries(LEVELS.map((l) => [l.id, l.label]));
 
+/*
+ * Semesters. "Fall 2026" was free text typed into a box, so nothing could
+ * group by it, sort by it or say which half of the year a course belongs to.
+ * A course now carries the semester as a value, and the year bar shows it.
+ */
+export const SEMESTERS = [
+  { id: 'fall', label: 'Fall', short: 'Fall' },
+  { id: 'spring', label: 'Spring', short: 'Spring' },
+  { id: 'summer', label: 'Summer', short: 'Summer' }
+];
+export const SEMESTER_LABEL = Object.fromEntries(SEMESTERS.map((x) => [x.id, x.label]));
+
+/** Which semester a date falls in: Turkish terms run Sep-Jan and Feb-Jun. */
+export function currentSemester(d = new Date()) {
+  const m = d.getMonth();
+  if (m >= 8 || m === 0) return 'fall';
+  if (m >= 6) return 'summer';
+  return 'spring';
+}
+
+/** Read a semester out of whatever was typed into the old free-text term. */
+export function semesterFromTerm(term) {
+  const t = String(term || '').toLocaleLowerCase('tr');
+  if (/spring|bahar/.test(t)) return 'spring';
+  if (/summer|yaz/.test(t)) return 'summer';
+  if (/fall|autumn|guz|güz/.test(t)) return 'fall';
+  return '';
+}
+
+/** "Fall 2026" — the human label for a course's place in the calendar. */
+export function termLabel(course) {
+  const sem = SEMESTER_LABEL[course.semester] || '';
+  const year = String(course.academicYear || '').split('-')[0];
+  if (!sem) return course.term || '';
+  /* Spring and summer of 2026-2027 fall in the SECOND calendar year. */
+  const cal = course.semester === 'fall' ? year : String(Number(year) + 1);
+  return `${sem} ${cal}`;
+}
+
 function blankState() {
   return {
     version: 1,
@@ -31,6 +70,7 @@ function blankState() {
       /* The year the workbench is showing. Courses from other years are still
          here and still exportable; they are simply out of the way. */
       activeYear: currentAcademicYear(),
+      activeSemester: currentSemester(),
       /* Nothing may leave this computer. Default on: a privacy control that
          has to be found and switched on has already failed. netguard.js
          enforces it at the network layer; this is only the switch. */
@@ -104,9 +144,13 @@ function migrate(s) {
      * piling into the current one and being archived together by mistake.
      */
     if (!c.academicYear) c.academicYear = academicYearFromTerm(c.term) || currentAcademicYear();
+    /* Derived from the term text that was already typed, so an existing course
+       lands in the right half of the year instead of all of them in Fall. */
+    if (!c.semester) c.semester = semesterFromTerm(c.term) || currentSemester();
     c.archived = Boolean(c.archived);
   });
   s.settings.activeYear ||= currentAcademicYear();
+  s.settings.activeSemester ||= currentSemester();
   /* Names saved before they were kept apart. Left blank rather than guessed:
      splitName() in turkish.js is the fallback and it is honest about being a
      guess, whereas a wrong lastName written into the record would persist. */
@@ -164,9 +208,19 @@ export function setActiveYear(year) {
   update((s) => { s.settings.activeYear = String(year || '').trim(); }, { type: 'settings' });
 }
 
+export function setActiveSemester(sem) {
+  update((s) => { s.settings.activeSemester = sem || ''; }, { type: 'settings' });
+}
+
 /** Courses the instructor is actually teaching now — the default everywhere. */
 export const activeCourses = () =>
-  state.courses.filter((c) => !c.archived && c.academicYear === state.settings.activeYear);
+  state.courses.filter((c) =>
+    !c.archived &&
+    c.academicYear === state.settings.activeYear &&
+    /* A course with no semester recorded matches any semester rather than
+       none. Filtering a course off every screen because a field is missing is
+       how data appears to have been lost when it has not. */
+    (!state.settings.activeSemester || !c.semester || c.semester === state.settings.activeSemester));
 
 let saveTimer = null;
 export function persist({ immediate = false } = {}) {
@@ -193,8 +247,31 @@ export function subscribe(fn) {
   return () => listeners.delete(fn);
 }
 
+/*
+ * Emitted on the next frame, never inside the event that caused the change.
+ *
+ * Committing an inline edit blurs the input, blur fires change, change calls
+ * update(), and a synchronous emit re-rendered the whole view while the
+ * browser was still unwinding that event — tearing out the node it was
+ * working on and throwing "The node to be removed is no longer a child of
+ * this node". Deferring also coalesces a burst of updates into one render,
+ * which matters on a hundred-row roster.
+ *
+ * Anything that needs the new state immediately reads getState(), which is
+ * already up to date; only the redraw waits.
+ */
+let pending = null;
 export function emit(event = {}) {
-  listeners.forEach((fn) => fn(event, state));
+  if (pending) { pending.events.push(event); return; }
+  pending = { events: [event] };
+  const flush = () => {
+    const { events } = pending;
+    pending = null;
+    const merged = events.length === 1 ? events[0] : { type: 'batch', events };
+    listeners.forEach((fn) => fn(merged, state));
+  };
+  if (typeof requestAnimationFrame === 'function') requestAnimationFrame(flush);
+  else setTimeout(flush, 0);
 }
 
 function notify(payload) {
@@ -262,6 +339,7 @@ export function addCourse(data) {
        this, so a course without one would be invisible to it — hence the
        fallback rather than an empty string. */
     academicYear: (data.academicYear || state.settings.activeYear || currentAcademicYear()).trim(),
+    semester: data.semester || semesterFromTerm(data.term) || state.settings.activeSemester || currentSemester(),
     archived: Boolean(data.archived),
     credits: Number(data.credits) || 0,
     components: resolveReplaces(

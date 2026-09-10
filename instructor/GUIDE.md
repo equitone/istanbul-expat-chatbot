@@ -402,6 +402,25 @@ before using it on student work.
 | A Word file will not open | Save it as `.docx`, not the old `.doc`. Or copy the text and paste it in. |
 | A PDF gives almost no text | It is a scan — a picture of pages, with no text in it. It needs OCR first. |
 
+## The weekly planner
+
+The **Overview** tab opens on your teaching week: each class in its day, which
+meeting of the course it is, the room, and a to-do list under each one.
+
+Set it up in the planner itself — tick the days a course meets and the week
+draws immediately. Time, room and the date the first week begins are optional;
+fill them in when you have them. The **Days** button reopens the setup later.
+The import form asks for the days too, so a course imported from a spreadsheet
+arrives already on the timetable.
+
+Once every class in the current week has passed, the card moves on to next
+week by itself, because on a Friday afternoon this week is a record rather
+than a plan. The arrows reach any week in either direction.
+
+**Print schedule** produces a one-page timetable — a real grid, days across
+and hours down, plus the next four weeks session by session. It is for the
+colleague who asks what you have on. No student appears on it.
+
 ## Academic years
 
 Everything is scoped to one academic year, chosen at the top of the **Courses**
@@ -412,6 +431,10 @@ At the end of a year, **Archive all of 2026-2027** takes that year's courses out
 of the working views in one click. Archiving is never a deletion: students,
 marks and thesis reviews are kept exactly as they are, and any course comes
 back with **Bring back into this year**.
+
+Each course also carries its **semester** — Fall, Spring or Summer — shown
+everywhere the course is named, so "Fall 2026" is never a guess. The year bar
+filters by semester as well, or shows the whole year at once.
 
 Importing an old gradebook? Set its academic year in the import form and it is
 filed there, rather than piling into the current year with everything else.
@@ -435,6 +458,10 @@ attached as replacements wherever an exam exists, so they carry no weight of
 their own and the better mark counts.
 
 ## Turkish names
+
+Surname and given name are **two separate columns**, both always shown and
+each edited on its own, so no part of a name can be hidden by a bad guess
+about where one ends and the other begins.
 
 Rosters are sorted by **surname** in Turkish alphabetical order, so C comes
 before Ç, O before Ö and S before Ş. Names arrive from the registry shouted in

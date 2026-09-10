@@ -1,5 +1,5 @@
 import { el, mount, stat, table, chip, barChart, num, int, pct, emptyState, meter, otherYearsNotice } from '../ui.js';
-import { getState, LEVELS, LEVEL_LABEL , activeCourses, setActiveYear } from '../store.js';
+import { getState, LEVELS, LEVEL_LABEL , activeCourses, setActiveYear, termLabel } from '../store.js';
 import { courseTotal, classSummary, describe, correlation, toLetter } from '../stats.js';
 import { buildSimpleReport, openPrintable, downloadReport } from '../export/report.js';
 import { toast } from '../ui.js';
@@ -24,7 +24,7 @@ export default function renderAnalytics(root, ctx) {
       courses.length ? el('select', {
         style: 'width:auto;min-width:230px',
         onChange: (e) => { selectedId = e.target.value; renderAnalytics(root, ctx); }
-      }, courses.map((c) => el('option', { value: c.id, selected: c.id === selectedId, text: `${c.code ? `${c.code} — ` : ''}${c.title}` }))) : null,
+      }, courses.map((c) => el('option', { value: c.id, selected: c.id === selectedId, text: `${c.code ? `${c.code} — ` : ''}${c.title} · ${termLabel(c)}` }))) : null,
       course ? el('button', { class: 'primary', text: 'Print report', onClick: () => printAnalytics(course, s) }) : null
     ),
     otherYearsNotice(s, (y) => { setActiveYear(y); selectedId = null; renderAnalytics(root, ctx); }),

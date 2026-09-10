@@ -7,7 +7,7 @@
  */
 import { el, mount, table, chip, field, toast, confirmDialog, int, emptyState } from '../ui.js';
 import { getState, LEVELS, LEVEL_LABEL, addStudent, updateStudent, removeStudent , activeCourses } from '../store.js';
-import { matches as trMatches, compare as trCompare, compareBySurname, listName, splitName, titleCase } from '../turkish.js';
+import { matches as trMatches, compare as trCompare, compareBySurname, nameParts, splitName, titleCase, trUpper } from '../turkish.js';
 
 const S = { level: 'all', year: 'all', course: 'all', search: '', grouped: true };
 
@@ -154,27 +154,6 @@ function groupedView(shown, s, root, ctx) {
   )));
 }
 
-/*
- * Read back a name edited in the "SURNAME, Given" form the table shows. A
- * comma is taken as the separator the display used; without one the whole
- * string is treated as a plain name and split on the last space, as it always
- * was.
- */
-function parseEditedName(value) {
-  const raw = String(value || '').trim();
-  if (raw.includes(',')) {
-    const [last, ...rest] = raw.split(',');
-    const first = rest.join(',').trim();
-    return {
-      firstName: titleCase(first),
-      lastName: last.trim(),
-      name: [titleCase(first), last.trim()].filter(Boolean).join(' ')
-    };
-  }
-  const { first, last } = splitName(raw);
-  return { firstName: first, lastName: last, name: raw };
-}
-
 function rosterTable(list, s, root, ctx, { compact = false } = {}) {
   /* Year of study comes in from university exports ("Snf": 2, 3, 4) and is
      only worth a column where some record actually carries one — otherwise it
@@ -185,7 +164,12 @@ function rosterTable(list, s, root, ctx, { compact = false } = {}) {
      They come back the moment one record carries a value. */
   const anyYear = s.students.some((st) => String(st.year || '').trim());
   const anyProgramme = s.students.some((st) => String(st.programme || '').trim());
-  const headers = ['Name', 'No.', ...(compact ? [] : ['Level']),
+  /* Surname and given name as two columns rather than one "SURNAME, Given"
+     string. The joined form depended on the split being right, so a record
+     whose halves were not clean showed half a person and the other half
+     vanished off the screen. Two columns cannot hide anything: whatever is
+     stored is visible, and each half is edited on its own. */
+  const headers = ['Surname', 'First name', 'No.', ...(compact ? [] : ['Level']),
     ...(anyClassYear ? [{ label: 'Class', num: true }] : []),
     ...(anyYear ? ['Year'] : []), ...(anyProgramme ? ['Programme'] : []),
     { label: 'Courses', num: true }, { label: 'Theses', num: true }, ''];
@@ -196,15 +180,30 @@ function rosterTable(list, s, root, ctx, { compact = false } = {}) {
    * IŞIK, so a supervisor scanning for a family name does not find it where
    * the alphabet says it should be.
    */
-  return table(headers, [...list].sort(compareBySurname).map((st) => [
+  return table(headers, [...list].sort(compareBySurname).map((st) => {
+    const parts = nameParts(st);
+    /* Writing one half back always rewrites `name` from both, so the full
+       string and the two halves can never drift apart. */
+    const write = (patch) => {
+      const next = { ...parts, ...patch };
+      updateStudent(st.id, {
+        firstName: next.first,
+        lastName: next.last,
+        name: [next.first, next.last].filter(Boolean).join(' ')
+      });
+    };
+    return [
     el('td', {}, el('input', {
-      value: listName(st),
+      value: trUpper(parts.last),
       title: st.name,
       style: 'border:0;background:none;padding:2px 0;font-weight:600;width:100%',
-      /* Edited as it is displayed — "KESER, Melis" — and split back on the
-         comma so a correction updates the surname rather than the whole
-         string. Typing a plain name still works. */
-      onChange: (e) => updateStudent(st.id, parseEditedName(e.target.value))
+      onChange: (e) => write({ last: e.target.value.trim() })
+    })),
+    el('td', {}, el('input', {
+      value: titleCase(parts.first),
+      placeholder: '—',
+      style: 'border:0;background:none;padding:2px 0;width:100%',
+      onChange: (e) => write({ first: e.target.value.trim() })
     })),
     el('td', {}, el('input', {
       value: st.studentNo || '', placeholder: '—', style: 'border:0;background:none;padding:2px 0;width:100px',
@@ -234,7 +233,8 @@ function rosterTable(list, s, root, ctx, { compact = false } = {}) {
         }
       }
     }))
-  ]));
+  ];
+  }));
 }
 
 function addForm() {

@@ -1,6 +1,6 @@
 import { el, mount, chip, num, int, emptyState, toast, otherYearsNotice } from '../ui.js';
 import { compareBySurname, listName } from '../turkish.js';
-import { getState, LEVEL_LABEL, setScore , activeCourses, setActiveYear } from '../store.js';
+import { getState, LEVEL_LABEL, setScore , activeCourses, setActiveYear, termLabel } from '../store.js';
 import { courseTotal, describe, toLetter, rank } from '../stats.js';
 import { exportTableCsv } from '../export/workbook.js';
 import { gradebookRows } from '../export/workbook.js';
@@ -25,7 +25,7 @@ export default function renderGradebook(root, ctx) {
       courses.length ? el('select', {
         style: 'width:auto;min-width:230px',
         onChange: (e) => { selectedId = e.target.value; renderGradebook(root, ctx); }
-      }, courses.map((c) => el('option', { value: c.id, selected: c.id === selectedId, text: `${c.code ? `${c.code} — ` : ''}${c.title} (${LEVEL_LABEL[c.level]})` }))) : null,
+      }, courses.map((c) => el('option', { value: c.id, selected: c.id === selectedId, text: `${c.code ? `${c.code} — ` : ''}${c.title} — ${LEVEL_LABEL[c.level]} · ${termLabel(c)}` }))) : null,
       course ? el('button', { text: 'Export this sheet', onClick: () => {
         exportTableCsv(course.code || course.title, gradebookRows(getState(), course));
         toast('CSV downloaded.', 'good');
