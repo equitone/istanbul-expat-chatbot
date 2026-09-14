@@ -429,6 +429,23 @@ than a plan. The arrows reach any week in either direction.
 and hours down, plus the next four weeks session by session. It is for the
 colleague who asks what you have on. No student appears on it.
 
+## Grammar checking
+
+Nothing to install. The built-in rules cover two things: academic register —
+comma splices, "these result", "the criteria is" — and the mistakes made by
+Turkish speakers writing English, which is what this department marks.
+
+That second set covers plural marking after a number or a quantifier, verbs
+given a preposition they do not take ("discuss about"), mass nouns pluralised
+("informations", "researches"), "despite of", "to -ing" after verbs that take
+the plain form, doubled comparatives, and a pronoun repeated inside a relative
+clause. Every finding names the fault and offers the fix.
+
+LanguageTool is still there as an optional second opinion, folded away in
+Settings. It is a fine general checker but it needs Java, a downloaded server
+and a terminal window left open, so the app does not depend on it and nothing
+is missing without it.
+
 ## Academic years
 
 Everything is scoped to one academic year, chosen at the top of the **Courses**

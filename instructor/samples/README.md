@@ -7,7 +7,7 @@ Files to try the workbench on before you use real student work.
 | `thesis-v1.txt` | A short chapter with deliberate faults: over-stressed claims, a circular paragraph, agreement errors, a comma splice, a fragment, a topic jump, and a reference that is never cited. Expect an Overloaded stress score. |
 | `thesis-v2.txt` | A revision of `v1`. One paragraph rewritten, one deleted, a conclusion added. Use both in **Compare drafts**. |
 | `other-student.txt` | A different student's chapter that shares one paragraph verbatim with `thesis-v1.txt`. Save both under **Thesis review**, then run **Originality → Run comparison** to see the shared passage found. |
-| `grammar-test.txt` | Sixteen numbered sentences, each with one planted fault. The table below says what each should produce, so you can verify the engine rather than guess. |
+| `grammar-test.txt` | Twenty-two numbered sentences, each with one planted fault — sixteen academic, six written the way a Turkish speaker writes English. The table below says what each should produce, so you can verify the engine rather than guess. |
 | `ai-flavoured.txt` | Written to trip every AI-writing indicator. Compare its score with `thesis-v1.txt`, which is human-written and scores low. This is the fastest way to see how noisy the signal is, and why it is labelled an indicator rather than a verdict. |
 | `cohort/` (6 files) | A cohort for **Batch triage**: five different chapters that legitimately share a declaration and a bibliography, plus one file submitted twice under two names and one paragraph lifted between two others. Exactly two findings should surface. |
 
@@ -61,3 +61,28 @@ To see only what a grammar checker should show, switch off Spelling,
 Argument and Style: you get the 11 grammar findings and nothing else.
 
 If you get roughly these numbers, the analysis engine is installed correctly.
+
+
+## Learner-English rules
+
+Sentences 17-22 carry the faults this department's students actually make.
+They are checked by `js/analysis/learner-english.js`, which runs alongside the
+built-in academic rules and needs nothing installed.
+
+| Rule | Fires on | Why |
+|---|---|---|
+| `uncountable-plural` | "informations", "researches", "evidences" | Countable in Turkish, mass nouns in English |
+| `number-singular-noun` | "three archive" | Turkish does not pluralise after a number |
+| `quantifier-singular-noun` | "several critic" | Same, after many / several / few / various |
+| `extra-preposition` | "discuss about", "emphasise on" | Turkish marks the object with a case ending |
+| `despite-of` | "despite of" | It is "despite" or "in spite of" |
+| `to-plus-gerund` | "aims to improving" | These verbs take the plain form |
+| `double-comparative` | "more better" | One comparative, not two |
+| `resumptive-pronoun` | "which I read it" | Grammatical in Turkish, not in English |
+| `according-to-me` | "according to me" | "According to" introduces someone else |
+
+Held to **precision over recall**, like the rest of the engine: on a fixture of
+17 faulty sentences it catches all 17, and on 41 correct sentences written to
+trip it — "a university", "an hour", "an MA", "three hundred pages", "a
+three-day conference", "look forward to reading", "the literatures of the
+Balkans" — it raises nothing at all.

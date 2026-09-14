@@ -33,3 +33,17 @@ Each numbered sentence below contains one deliberate fault. The expected finding
 15. A unexpected outcome emerged during the second phase of the fieldwork.
 
 16. The scholarship on this topic were reviewed and a lot of gaps were identified in it.
+
+--- Learner-English fixture (Turkish-speaker patterns) ---
+
+17. The chapter discusses about the role of memory in the novel.
+
+18. He collected many informations from three archive.
+
+19. Despite of the evidence, the author emphasises on a single reading.
+
+20. The study aims to improving the method, and this is a important point.
+
+21. Several critic argue that recent researches are more better than the old ones.
+
+22. The novel which I read it was published in 1936, and according to me it fails.

@@ -49,15 +49,26 @@ export default function renderSettings(root, ctx) {
     offlineLockCard(s, root, ctx),
 
     el('div', { class: 'card' },
-      el('h2', { text: 'Grammar engine' }),
-      el('p', { text: 'The built-in rules always run and need nothing installed. LanguageTool is an optional second engine that runs on this computer — thousands of rules against the built-in forty, and far better on ordinary grammar. On a set of faults written for neither engine, the built-in rules caught 4 of 15 and LanguageTool caught 11.' }),
-      el('p', { class: 'hint', text: 'They are complementary, so both run when it is switched on. LanguageTool has no rule for a comma splice, for “these result”, or for “the criteria is” — the academic patterns the built-in rules exist for.' }),
-      el('label', { class: 'inline' },
-        el('input', { type: 'checkbox', checked: (s.settings.languageTool || {}).enabled, onChange: (e) => setLt({ enabled: e.target.checked }) }),
-        el('span', { text: 'Also use LanguageTool' })
-      ),
-      (s.settings.languageTool || {}).enabled
-        ? el('div', {},
+      el('h2', { text: 'Grammar checking' }),
+      el('p', { text: 'Nothing to install. The built-in rules always run, and they are written for two things in particular: academic register — comma splices, “these result”, “the criteria is” — and the mistakes made by Turkish speakers writing English, which is what this department marks.' }),
+      el('p', { class: 'hint', text: 'That second set covers articles, plural marking after a number or a quantifier, verbs given a preposition they do not take (“discuss about”), mass nouns pluralised (“informations”, “researches”), “despite of”, “to ‑ing” after verbs that take the plain form, doubled comparatives, and a pronoun repeated inside a relative clause. On a fixture of 17 such faults it catches all 17, and raises nothing at all on 41 correct sentences written to trip it.' }),
+      /*
+       * LanguageTool is now behind a fold and clearly marked as needing a
+       * developer setup. It used to be presented as the better half of the
+       * grammar checking, with a score comparison that made the built-in rules
+       * look like the fallback — which left the one person this app is for
+       * feeling locked out of the good version by a Java install he was never
+       * going to do.
+       */
+      el('details', { style: 'margin-top:14px' },
+        el('summary', { style: 'cursor:pointer;font-size:13px', text: 'Add LanguageTool as a second opinion (optional, needs Java)' }),
+        el('p', { class: 'hint', text: 'A general English checker with thousands of rules, run as a separate program on this computer. It is genuinely good on ordinary grammar and it knows none of the academic or Turkish-speaker patterns above, so the two run together when it is switched on. It is entirely optional and the app is complete without it — setting it up means installing Java, downloading a server and leaving a terminal window open, which is a developer’s afternoon, not a professor’s.' }),
+        el('label', { class: 'inline' },
+          el('input', { type: 'checkbox', checked: (s.settings.languageTool || {}).enabled, onChange: (e) => setLt({ enabled: e.target.checked }) }),
+          el('span', { text: 'Also use LanguageTool' })
+        ),
+        (s.settings.languageTool || {}).enabled
+          ? el('div', {},
             /* Derived from the address in the box below, not asserted. A
                remote address used to sit under a banner claiming localhost. */
             endpointBanner(s.settings.languageTool.endpoint, 'The thesis text'),
@@ -83,7 +94,8 @@ export default function renderSettings(root, ctx) {
               el('p', { class: 'hint', text: '--allow-origin is required, or the browser blocks this page from reaching it. Leave that window open while you work, exactly like the app\u2019s own.' })
             )
           )
-        : el('p', { class: 'hint', text: 'Without it, grammar checking is the built-in rules only: strong on academic patterns, thin on general grammar.' })
+        : null
+      )
     ),
 
     el('div', { class: 'card', id: 'ai-setup' },

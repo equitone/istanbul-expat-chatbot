@@ -6,6 +6,7 @@
 import { buildDocument } from './text.js';
 import { analyseMechanics } from './mechanics.js';
 import { analyseGrammar } from './grammar.js';
+import { analyseLearnerEnglish } from './learner-english.js';
 import { analyseArgument } from './argument.js';
 import { analyseBloom } from './bloom.js';
 import { analyseOverview } from './overview.js';
@@ -35,6 +36,9 @@ export function analyseThesis(rawText, { citationStyle = 'apa7' } = {}) {
 
   const mechanics = analyseMechanics(doc);
   const grammar = analyseGrammar(doc);
+  /* Same category as the built-in grammar rules, so they land in one list and
+     one legend colour rather than asking the reader to learn a new bucket. */
+  const learner = analyseLearnerEnglish(doc);
   const argument = analyseArgument(doc);
   const bloom = analyseBloom(doc);
   const overview = analyseOverview(doc, argument);
@@ -43,6 +47,7 @@ export function analyseThesis(rawText, { citationStyle = 'apa7' } = {}) {
   const merged = dedupe([
     ...mechanics.issues,
     ...grammar.issues,
+    ...learner.issues,
     ...argument.issues,
     ...bloom.issues,
     ...overview.issues,
