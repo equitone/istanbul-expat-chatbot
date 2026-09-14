@@ -148,3 +148,54 @@ export const describeMeeting = (m) => {
   if (m.room) bits.push(m.room);
   return bits.join(' · ');
 };
+
+/* ------------------------------------------------------------ month view */
+
+/** First day of the month `date` falls in, at local midnight. */
+export function monthStart(date = new Date()) {
+  const d = new Date(date.getFullYear(), date.getMonth(), 1);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+/** Add whole months without the day-of-month drifting (31 Jan + 1 ≠ 3 Mar). */
+export function addMonths(date, n) {
+  return new Date(date.getFullYear(), date.getMonth() + n, 1);
+}
+
+/*
+ * Every meeting in a calendar month, laid out as the weeks a calendar draws:
+ * whole Monday-to-Sunday rows, including the leading and trailing days that
+ * belong to the neighbouring months. Those days are marked `outside` so the
+ * grid can grey them without losing a class that falls on the 1st or the 31st.
+ */
+export function monthPlan(courses, monthFirst) {
+  const first = monthStart(monthFirst);
+  const gridStart = weekStart(first);
+  const weeks = [];
+  let cursor = gridStart;
+  /* Six rows covers every possible month layout; stop as soon as the month is
+     behind us so a short month does not print an empty trailing week. */
+  for (let w = 0; w < 6; w++) {
+    const days = [];
+    for (let i = 0; i < 7; i++) {
+      const date = addDays(cursor, i);
+      days.push({
+        date,
+        iso: toIso(date),
+        outside: date.getMonth() !== first.getMonth(),
+        meetings: weekPlan(courses, cursor).filter((m) => m.iso === toIso(date))
+      });
+    }
+    weeks.push(days);
+    cursor = addDays(cursor, 7);
+    if (cursor.getMonth() !== first.getMonth() && cursor > first) break;
+  }
+  return weeks;
+}
+
+/** Every meeting on one day, in time order. */
+export function dayPlan(courses, date) {
+  const iso = toIso(date);
+  return weekPlan(courses, weekStart(date)).filter((m) => m.iso === iso);
+}

@@ -402,10 +402,18 @@ before using it on student work.
 | A Word file will not open | Save it as `.docx`, not the old `.doc`. Or copy the text and paste it in. |
 | A PDF gives almost no text | It is a scan — a picture of pages, with no text in it. It needs OCR first. |
 
-## The weekly planner
+## The planner
 
-The **Overview** tab opens on your teaching week: each class in its day, which
-meeting of the course it is, the room, and a to-do list under each one.
+The **Overview** tab opens on your teaching, in whichever grain you want:
+
+- **Day** — one day in full, in order, with the to-do list for each class.
+  The view for the morning of a teaching day.
+- **Week** — each class in its day, which meeting of the course it is, the
+  room, and a to-do list under each one.
+- **Month** — the shape of the term. Which weeks are heavy, where the gaps
+  are, and a dot on any day with something still to do. Click a day to open it.
+
+The ‹ › arrows step by whatever the current grain is — a day, a week, a month.
 
 Set it up in the planner itself — tick the days a course meets and the week
 draws immediately. Time, room and the date the first week begins are optional;

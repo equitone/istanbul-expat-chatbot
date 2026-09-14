@@ -36,10 +36,15 @@ export function clear(node) {
 }
 
 export function mount(node, ...children) {
-  clear(node);
-  children.flat(3).filter(Boolean).forEach((c) => node.append(c instanceof Node ? c : document.createTextNode(String(c))));
+  /* One swap rather than clear-then-append-each: the node is never left empty
+     part-way through, which is the state a re-render must not be observed in.
+     Scroll position is not touched here — see the note on the search box in
+     students.js for the one place it actually moved. */
+  node.replaceChildren(...children.flat(3).filter(Boolean)
+    .map((c) => (c instanceof Node ? c : document.createTextNode(String(c)))));
   return node;
 }
+
 
 /* ------------------------------------------------------------ formatting */
 

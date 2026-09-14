@@ -616,3 +616,28 @@ details.howto code {
 .sched-name { min-width: 170px; display: flex; flex-direction: column; line-height: 1.3; }
 .sched-name small { color: var(--text-dim); font-size: 11px; }
 .sched-row input[type=time], .sched-row input[type=date], .sched-row input { padding: 3px 6px; font-size: 12px; }
+
+/* ------------------------------------------------------------ month view */
+/* The shape of a term at a glance. Compact on purpose: a month of full class
+   cards neither fits nor gets read, so each day carries its number, up to
+   three course codes, and a dot when something is still to do. */
+.month { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+.month-head { font-size: 10px; text-transform: uppercase; letter-spacing: .05em; color: var(--text-dim); text-align: center; padding: 2px 0 4px; }
+.month-cell {
+  min-height: 74px; border: 1px solid var(--border); border-radius: var(--radius-sm);
+  padding: 4px 5px; background: var(--surface); cursor: pointer; overflow: hidden;
+}
+.month-cell:hover { border-color: var(--accent); }
+.month-cell.outside { opacity: .38; }
+.month-cell.has { background: var(--surface-2); }
+.month-cell.today { border-color: var(--accent); background: var(--accent-soft); }
+.month-cell .n { font-size: 11px; font-weight: 600; color: var(--text-dim); display: flex; align-items: center; gap: 4px; }
+.month-cell.today .n { color: var(--accent); }
+.month-cell .dot { width: 5px; height: 5px; border-radius: 50%; background: var(--medium); display: inline-block; }
+.month-cell .ev {
+  font-size: 10px; font-weight: 600; margin-top: 2px; padding: 1px 3px; border-radius: 3px;
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.month-cell .more { font-size: 9px; color: var(--text-dim); margin-top: 1px; }
+@media (max-width: 720px) { .month-cell { min-height: 56px; } .month-cell .ev { font-size: 9px; } }

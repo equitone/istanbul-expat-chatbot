@@ -74,7 +74,17 @@ export default function renderStudents(root, ctx) {
           /* Re-focus and restore the caret: the view is rebuilt on each
              keystroke and would otherwise drop focus after one letter. */
           const next = root.querySelector('input[placeholder^="Search"]');
-          if (next && box) { next.focus(); next.setSelectionRange(next.value.length, next.value.length); }
+          /*
+           * preventScroll matters here. The view is rebuilt on every keystroke
+           * and this puts the cursor back in the box, but the search box sits
+           * at the top of the page — so a plain focus() scrolled the whole
+           * page up to it. Reading a roster at row 60 and typing one letter
+           * threw you back to the top.
+           */
+          if (next && box) {
+            next.focus({ preventScroll: true });
+            next.setSelectionRange(next.value.length, next.value.length);
+          }
         }
       })
     ),

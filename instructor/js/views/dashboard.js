@@ -4,11 +4,17 @@ import {
   SEMESTER_LABEL, termLabel, periodLabel
 } from '../store.js';
 import { courseTotal, classSummary } from '../stats.js';
-import { DAYS, weekPlan, weekStart, addDays, toIso, sameDay, describeMeeting } from '../schedule.js';
+import { DAYS, weekPlan, weekStart, addDays, toIso, sameDay, describeMeeting, dayPlan, monthPlan, monthStart, addMonths } from '../schedule.js';
 
 /* Which week the planner is showing, as an offset from the current one. It
    lives outside the render so paging back and forth survives a re-render. */
-let weekOffset = 0;
+/*
+ * The planner's position and grain. The offset counts whole units of whatever
+ * the mode is — days, weeks or months — so the arrows mean the obvious thing
+ * in each view and switching mode lands on the period containing today.
+ */
+let plannerMode = 'week';
+let plannerOffset = 0;
 let showSchedule = false;
 
 export default function renderDashboard(root, { go }) {
@@ -260,14 +266,14 @@ function plannerCard(s, root, go) {
    */
   const thisMonday = weekStart(new Date());
   let base = thisMonday;
-  if (weekOffset === 0 && scheduled.length) {
+  if (plannerMode === 'week' && plannerOffset === 0 && scheduled.length) {
     const now = new Date();
     const remaining = weekPlan(scheduled, thisMonday)
       .filter((m) => m.withinTerm && !sameDay(m.date, now) && m.date > now);
     const anyToday = weekPlan(scheduled, thisMonday).some((m) => m.withinTerm && sameDay(m.date, now));
     if (!remaining.length && !anyToday) base = addDays(thisMonday, 7);
   }
-  const monday = addDays(base, weekOffset * 7);
+  const monday = addDays(base, plannerOffset * 7);
   const lookingAhead = base > thisMonday;
 
   /*
@@ -314,25 +320,28 @@ function plannerCard(s, root, go) {
     );
   }
 
-  const meetings = weekPlan(scheduled, monday).filter((m) => m.withinTerm);
   const today = new Date();
-  const weeksFromNow = Math.round((monday - thisMonday) / (7 * 86400000));
-  const label = weeksFromNow === 0 ? 'This week'
-    : weeksFromNow === 1 ? 'Next week'
-    : weeksFromNow === -1 ? 'Last week'
-    : `Week of ${monday.toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}`;
 
   return el('div', { class: 'card' },
-    el('div', { class: 'row', style: 'align-items:center;gap:10px;margin-bottom:4px' },
-      el('h2', { style: 'margin:0', text: 'Weekly planner' }),
-      /* Which term this week belongs to, spelled out. A planner that shows a
-         week without naming the semester leaves the reader counting. */
+    el('div', { class: 'row', style: 'align-items:center;gap:10px;margin-bottom:10px' },
+      el('h2', { style: 'margin:0', text: 'Planner' }),
       chip(periodLabel(s.settings.activeYear, s.settings.activeSemester)),
-      el('span', { class: 'hint', style: 'margin:0', text: `${label} · ${monday.toLocaleDateString(undefined, { day: 'numeric', month: 'short' })} – ${addDays(monday, 6).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })} · ${meetings.length} class${meetings.length === 1 ? '' : 'es'}${lookingAhead && weekOffset === 0 ? ' · this week is done' : ''}` }),
+      el('div', { class: 'row tight' },
+        [['day', 'Day'], ['week', 'Week'], ['month', 'Month']].map(([id, label]) => el('button', {
+          class: plannerMode === id ? 'primary sm' : 'sm',
+          'aria-pressed': String(plannerMode === id),
+          text: label,
+          /* Changing grain returns to the period containing today rather than
+             translating an offset that means something different in each mode. */
+          onClick: () => { plannerMode = id; plannerOffset = 0; rerender(); }
+        }))
+      ),
       el('div', { class: 'spacer' }),
-      el('button', { class: 'sm', text: '‹', title: 'Previous week', onClick: () => { weekOffset--; rerender(); } }),
-      weeksFromNow !== 0 ? el('button', { class: 'sm', text: 'Today', onClick: () => { weekOffset = -Math.round((base - thisMonday) / (7 * 86400000)); rerender(); } }) : null,
-      el('button', { class: 'sm', text: '›', title: 'Next week', onClick: () => { weekOffset++; rerender(); } }),
+      el('button', { class: 'sm', text: '‹', title: 'Back', onClick: () => { plannerOffset--; rerender(); } }),
+      plannerOffset !== 0 || lookingAhead
+        ? el('button', { class: 'sm', text: 'Today', onClick: () => { plannerOffset = 0; rerender(); } })
+        : null,
+      el('button', { class: 'sm', text: '›', title: 'Forward', onClick: () => { plannerOffset++; rerender(); } }),
       el('button', {
         class: showSchedule ? 'primary sm' : 'sm',
         text: 'Days',
@@ -351,6 +360,50 @@ function plannerCard(s, root, go) {
       ? el('div', { style: 'margin-bottom:12px' }, activeCourses().map((c) => scheduleRow(c, rerender)))
       : null,
 
+    plannerMode === 'day' ? dayView(scheduled, s, today, rerender)
+      : plannerMode === 'month' ? monthView(scheduled, s, today, rerender)
+      : weekView(scheduled, s, monday, today, lookingAhead, rerender)
+  );
+}
+
+/* ------------------------------------------------------------- day view */
+/*
+ * One day, in full. This is the view for the morning of a teaching day: what
+ * is on, in what order, and what has to be in the bag for each one.
+ */
+function dayView(scheduled, s, today, rerender) {
+  const date = addDays(today, plannerOffset);
+  const meetings = dayPlan(scheduled, date).filter((m) => m.withinTerm);
+  const heading = date.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' });
+
+  return el('div', {},
+    el('div', { class: 'row', style: 'align-items:baseline;gap:8px;margin-bottom:8px' },
+      el('strong', { text: heading }),
+      sameDay(date, today) ? chip('today', 'accent') : null,
+      el('span', { class: 'hint', style: 'margin:0', text: `${meetings.length} class${meetings.length === 1 ? '' : 'es'}` })
+    ),
+    meetings.length
+      ? el('div', { class: 'planner' }, el('div', { class: 'planner-day', style: 'flex:1' },
+          meetings.map((m) => classCard(m, s, rerender))))
+      : el('p', { class: 'hint', text: 'Nothing scheduled on this day.' })
+  );
+}
+
+/* ------------------------------------------------------------ week view */
+function weekView(scheduled, s, monday, today, lookingAhead, rerender) {
+  const meetings = weekPlan(scheduled, monday).filter((m) => m.withinTerm);
+  const thisMonday = weekStart(today);
+  const weeksFromNow = Math.round((monday - thisMonday) / (7 * 86400000));
+  const label = weeksFromNow === 0 ? 'This week'
+    : weeksFromNow === 1 ? 'Next week'
+    : weeksFromNow === -1 ? 'Last week'
+    : `Week of ${monday.toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}`;
+
+  return el('div', {},
+    el('div', { class: 'row', style: 'align-items:baseline;gap:8px;margin-bottom:8px' },
+      el('strong', { text: label }),
+      el('span', { class: 'hint', style: 'margin:0', text: `${monday.toLocaleDateString(undefined, { day: 'numeric', month: 'short' })} – ${addDays(monday, 6).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })} · ${meetings.length} class${meetings.length === 1 ? '' : 'es'}${lookingAhead && plannerOffset === 0 ? ' · this week is done' : ''}` })
+    ),
     meetings.length
       ? el('div', { class: 'planner' },
           DAYS.filter((d) => meetings.some((m) => m.day === d.id)).map((d) => {
@@ -366,9 +419,54 @@ function plannerCard(s, root, go) {
             );
           })
         )
-      : el('p', { class: 'hint', text: weekOffset === 0
+      : el('p', { class: 'hint', text: plannerOffset === 0
           ? 'No classes this week — either the term has not started or it has finished. Use › to look ahead.'
           : 'No classes in this week.' })
+  );
+}
+
+/* ----------------------------------------------------------- month view */
+/*
+ * The shape of the term rather than the detail of a day: which weeks are
+ * heavy, where the gaps are, when a holiday leaves a hole. Deliberately
+ * compact — a month of full class cards would not fit and would not be read.
+ * Clicking a day opens it in the day view.
+ */
+function monthView(scheduled, s, today, rerender) {
+  const first = addMonths(monthStart(today), plannerOffset);
+  const weeks = monthPlan(scheduled, first);
+  const total = weeks.flat().filter((d) => !d.outside).reduce((n, d) => n + d.meetings.filter((m) => m.withinTerm).length, 0);
+
+  return el('div', {},
+    el('div', { class: 'row', style: 'align-items:baseline;gap:8px;margin-bottom:8px' },
+      el('strong', { text: first.toLocaleDateString(undefined, { month: 'long', year: 'numeric' }) }),
+      el('span', { class: 'hint', style: 'margin:0', text: `${total} class${total === 1 ? '' : 'es'} this month` })
+    ),
+    el('div', { class: 'month' },
+      DAYS.map((d) => el('div', { class: 'month-head', text: d.short })),
+      weeks.flat().map((cell) => {
+        const meetings = cell.meetings.filter((m) => m.withinTerm);
+        const isToday = sameDay(cell.date, today);
+        const open = s.tasks.filter((t) => !t.done && t.date === cell.iso).length;
+        return el('div', {
+          class: `month-cell${cell.outside ? ' outside' : ''}${isToday ? ' today' : ''}${meetings.length ? ' has' : ''}`,
+          title: meetings.length ? meetings.map((m) => describeMeeting(m) || m.course.title).join('\n') : '',
+          onClick: () => {
+            /* Jump into the day, counted from today so the day view's own
+               offset arithmetic still holds. */
+            plannerMode = 'day';
+            plannerOffset = Math.round((new Date(cell.date.getFullYear(), cell.date.getMonth(), cell.date.getDate())
+              - new Date(today.getFullYear(), today.getMonth(), today.getDate())) / 86400000);
+            rerender();
+          }
+        },
+          el('div', { class: 'n' }, String(cell.date.getDate()), open ? el('span', { class: 'dot', title: `${open} to do` }) : null),
+          meetings.slice(0, 3).map((m) => el('div', { class: 'ev', text: m.course.code || m.course.title })),
+          meetings.length > 3 ? el('div', { class: 'more', text: `+${meetings.length - 3}` }) : null
+        );
+      })
+    ),
+    el('p', { class: 'hint', text: 'Click a day to open it. A dot marks a day with something still to do.' })
   );
 }
 
