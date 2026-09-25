@@ -429,6 +429,37 @@ than a plan. The arrows reach any week in either direction.
 and hours down, plus the next four weeks session by session. It is for the
 colleague who asks what you have on. No student appears on it.
 
+## Finding the gaps
+
+**Research → Find the gaps.** Give it a topic or a thesis statement. The
+catalogue is searched, every work that comes back is placed on four axes —
+theoretical framework, period, method, region — and the crossings where two
+well-populated areas never meet are **counted**. Those are the holes.
+
+The counting happens whether or not you have a model. A model only turns a
+counted hole into a question you could put to a student, and says whether it
+looks like an opportunity, something harder than it appears, or a crossing
+that does not make sense.
+
+That split is deliberate. Asked directly, a model will write five fluent
+research gaps and cite work that does not exist, and a supervisor cannot tell
+those from real ones. So the model is never asked what the gaps are. It is
+given holes that were counted from real records, told it may not mention any
+work it was not given, and its answer is checked against the retrieved set
+before you see it. Suggestions citing a work that was not there are discarded
+and the tab tells you how many — a model that invents a citation is worth
+knowing about.
+
+Every result carries its own coverage: how many works, how many had abstracts,
+what years. **Nothing here ever says "nobody has done this"** — only "nothing
+in these N works does". OpenAlex indexes journal articles far better than
+monographs and covers Turkish-language scholarship very unevenly, which for
+this department is the caveat that matters: a hole here may be full of work
+published in Istanbul.
+
+This tab needs the network, so it is switched off while the workbench is
+locked to the computer.
+
 ## Grammar checking
 
 Nothing to install. The built-in rules cover two things: academic register —

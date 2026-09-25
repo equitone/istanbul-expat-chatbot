@@ -232,7 +232,7 @@ export async function reviewThesis(text, settings, { signal } = {}) {
   };
 }
 
-async function callAnthropic(userPrompt, ai, signal) {
+async function callAnthropic(userPrompt, ai, signal, system = SYSTEM_PROMPT) {
   const res = await fetch(ANTHROPIC_URL, {
     method: 'POST',
     signal,
@@ -247,7 +247,7 @@ async function callAnthropic(userPrompt, ai, signal) {
     body: JSON.stringify({
       model: ai.model || DEFAULT_MODEL,
       max_tokens: 16000,
-      system: SYSTEM_PROMPT,
+      system,
       thinking: { type: 'adaptive' },
       output_config: { effort: 'high' },
       messages: [{ role: 'user', content: userPrompt }]
@@ -271,7 +271,7 @@ async function callAnthropic(userPrompt, ai, signal) {
 }
 
 /* OpenAI-compatible chat completions — Ollama, LM Studio, llama.cpp, vLLM. */
-async function callLocal(userPrompt, ai, signal) {
+async function callLocal(userPrompt, ai, signal, system = SYSTEM_PROMPT) {
   const base = String(ai.endpoint || '').replace(/\/+$/, '');
   const url = /\/chat\/completions$/.test(base) ? base : `${base}/chat/completions`;
   const res = await fetch(url, {
@@ -284,7 +284,7 @@ async function callLocal(userPrompt, ai, signal) {
     body: JSON.stringify({
       model: ai.model || 'llama3.1:8b',
       messages: [
-        { role: 'system', content: SYSTEM_PROMPT },
+        { role: 'system', content: system },
         { role: 'user', content: userPrompt }
       ],
       stream: false
@@ -314,24 +314,33 @@ async function describeHttpError(res) {
 }
 
 /* Models sometimes wrap JSON in prose or a code fence; recover the object. */
-function parseJson(raw) {
+/*
+ * Pull an object out of a model reply, which may be bare JSON, fenced, or
+ * wrapped in chat. Returns whatever was in it — shaping belongs to the caller,
+ * because this is used by more than one task now and the thesis-review shape
+ * was silently discarding every other field.
+ */
+function parseObject(raw) {
   const attempts = [raw];
   const fence = raw.match(/```(?:json)?\s*([\s\S]*?)```/);
   if (fence) attempts.push(fence[1]);
   const braces = raw.slice(raw.indexOf('{'), raw.lastIndexOf('}') + 1);
   if (braces) attempts.push(braces);
-
   for (const candidate of attempts) {
-    try {
-      const obj = JSON.parse(candidate);
-      return {
-        summary: String(obj.summary || ''),
-        strengths: Array.isArray(obj.strengths) ? obj.strengths.map(String) : [],
-        findings: Array.isArray(obj.findings) ? obj.findings : []
-      };
-    } catch { /* try the next candidate */ }
+    try { return JSON.parse(candidate); } catch { /* try the next candidate */ }
   }
-  return { summary: raw.slice(0, 800), strengths: [], findings: [], unparsed: true };
+  return null;
+}
+
+/* The thesis-review shape specifically. */
+function parseJson(raw) {
+  const obj = parseObject(raw);
+  if (!obj) return { summary: raw.slice(0, 800), strengths: [], findings: [], unparsed: true };
+  return {
+    summary: String(obj.summary || ''),
+    strengths: Array.isArray(obj.strengths) ? obj.strengths.map(String) : [],
+    findings: Array.isArray(obj.findings) ? obj.findings : []
+  };
 }
 
 /*
@@ -383,4 +392,24 @@ function locate(text, quote) {
   } catch {
     return null;
   }
+}
+
+
+/*
+ * Run one prompt through whichever provider is configured, with a system
+ * prompt of the caller's choosing.
+ *
+ * Exported so the gap finder can reuse this transport rather than copy it:
+ * the endpoint handling, the abort signal, the JSON extraction and the error
+ * messages are all things that took work to get right once.
+ */
+export async function runPrompt(userPrompt, settings, { signal, system } = {}) {
+  const ai = settings.ai || {};
+  if (!isConfigured(settings)) throw new Error('AI review is not configured. Enable it in Settings first.');
+  const raw = ai.provider === 'local'
+    ? await callLocal(userPrompt, ai, signal, system || SYSTEM_PROMPT)
+    : await callAnthropic(userPrompt, ai, signal, system || SYSTEM_PROMPT);
+  const obj = parseObject(raw);
+  if (!obj) throw new Error('The model did not return JSON. Its reply began: ' + String(raw).slice(0, 120));
+  return obj;
 }

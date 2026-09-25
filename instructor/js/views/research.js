@@ -11,12 +11,13 @@
  * deposited with a DOI, and the model answers in prose rather than records.
  */
 import {
-  el, mount, chip, toast, int, num, banner, field, emptyState, stat
+  el, mount, chip, toast, int, num, banner, field, emptyState, stat, table
 } from '../ui.js';
 import { getState } from '../store.js';
 import { searchOpenAlex, searchCrossref, formatReference, setContactEmail, findPriorWork } from '../analysis/verify.js';
 import { assessTopic } from '../analysis/topic.js';
-import { reviewThesis, isConfigured as aiReady } from '../analysis/ai.js';
+import { coverageMap, findHoles, findThin, buildGapPrompt, validateGaps, AXES } from '../analysis/gaps.js';
+import { reviewThesis, runPrompt, isConfigured, isConfigured as aiReady } from '../analysis/ai.js';
 import { focusAiSetup } from './settings.js';
 import { downloadText } from '../io/files.js';
 
@@ -28,6 +29,8 @@ const S = {
   results: { papers: null, doi: null },
   topic: '',
   assessment: null,
+  gapTopic: '',
+  gapResult: null,
   busy: null,
   chat: [],
   chatDraft: '',
@@ -37,6 +40,7 @@ const S = {
 
 const TABS = [
   { id: 'assess', label: 'Is this topic worth it?', hint: 'Put a thesis statement in and see who is already standing on that ground — and where the room is' },
+  { id: 'gaps', label: 'Find the gaps', hint: 'Cross-tabulates what came back and shows where two live areas never meet. The crossings are counted; a model, if you have one, turns them into questions.' },
   { id: 'papers', label: 'Papers & books', hint: 'OpenAlex — 250M works, including monographs and chapters' },
   { id: 'doi', label: 'Journal articles', hint: 'Crossref — publisher-deposited records with a DOI' },
   { id: 'ask', label: 'Ask a question', hint: 'Ask in your own words. Answers come from the catalogues; add a model in Settings and it will write prose as well.' },
@@ -70,6 +74,7 @@ export default function renderResearch(root, ctx) {
 
     locked() ? lockedPanel(ctx)
       : S.tab === 'assess' ? assessPanel(root, ctx)
+      : S.tab === 'gaps' ? gapsPanel(root, ctx)
       : S.tab === 'ask' ? askPanel(root, ctx)
       : S.tab === 'list' ? savedPanel(root, ctx)
       : searchPanel(root, ctx)
@@ -409,6 +414,193 @@ async function askModel(prompt, settings) {
 }
 
 /* ------------------------------------------------------------ saved list */
+
+
+/* ------------------------------------------------------------ gap finder */
+
+const KIND = {
+  opportunity: { label: 'Opportunity', tone: 'good' },
+  harder: { label: 'Harder than it looks', tone: 'medium' },
+  'category-error': { label: 'Probably a category error', tone: '' }
+};
+
+/*
+ * The counted crossings render whether or not a model is configured. That is
+ * the whole design: the finding is arithmetic over retrieved records, and the
+ * model only puts it into words. Without one the supervisor still sees where
+ * the literature is thin; with one he gets the question to put to a student.
+ */
+function gapsPanel(root, ctx) {
+  const s = getState();
+  const r = S.gapResult;
+
+  return el('div', {},
+    el('div', { class: 'card' },
+      el('h2', { text: 'Where is this literature thin?' }),
+      el('p', { text: 'Give a topic or a thesis statement. The catalogue is searched, every work that comes back is placed on four axes — framework, period, method, region — and the crossings where two well-populated areas never meet are counted. Those are the holes.' }),
+      el('textarea', {
+        id: 'gap-topic',
+        rows: 3,
+        placeholder: 'e.g. modernist fiction and empire — or a full thesis statement',
+        value: S.gapTopic,
+        onChange: (e) => { S.gapTopic = e.target.value; }
+      }),
+      el('div', { class: 'row', style: 'margin-top:10px' },
+        el('button', {
+          id: 'gap-run',
+          class: 'primary',
+          disabled: Boolean(S.busy),
+          text: 'Find the gaps',
+          onClick: () => runGaps(root, ctx)
+        }),
+        isConfigured(s.settings)
+          ? chip('a model will read the crossings', 'accent')
+          : el('span', { class: 'hint', style: 'margin:0' }, 'No model configured — you will get the counted crossings without the write-up. ',
+              el('a', { href: '#settings', onClick: (e) => { e.preventDefault(); focusAiSetup(ctx); }, text: 'Add one' })),
+        S.busy ? el('span', { class: 'hint' }, el('span', { class: 'spinner' }), ` ${S.busy}`) : null
+      )
+    ),
+    r ? gapResults(r, root, ctx) : null
+  );
+}
+
+function gapResults(r, root, ctx) {
+  const c = r.map.coverage;
+  return el('div', {},
+    /* The coverage figures come first, deliberately. Every claim below is
+       "in these N works", and the reader needs N before the claims. */
+    el('div', { class: 'card' },
+      el('h2', { text: 'What this is based on' }),
+      el('div', { class: 'grid cols-4' },
+        stat('Works retrieved', int(c.works), r.total > c.works ? `of ${int(r.total)} matching` : 'all matches'),
+        stat('With an abstract', int(c.withAbstract), c.withAbstract < c.works * 0.6 ? 'thin — placement is less reliable' : '', c.withAbstract < c.works * 0.6 ? 'medium' : ''),
+        stat('Placed on an axis', int(c.works - c.unplaced), c.unplaced ? `${int(c.unplaced)} carried no marker` : 'all of them'),
+        stat('Years', c.earliest ? `${c.earliest}–${c.latest}` : '—', '')
+      ),
+      banner('warn', `Everything below means “nothing in these ${c.works} works”, never “nobody has done this”. OpenAlex indexes journal articles far better than monographs and covers Turkish-language scholarship very unevenly — for this department that is the caveat that matters, because a hole here may be full of work published in Istanbul and not indexed.`)
+    ),
+
+    /* The AI write-up, when there is one. */
+    r.gaps && r.gaps.length
+      ? el('div', { class: 'card' },
+          el('h2', { text: 'Questions these holes imply' }),
+          r.note ? el('p', { class: 'hint', text: r.note }) : null,
+          r.dropped
+            ? banner('warn', `${r.dropped} suggestion(s) were discarded before you saw them: they cited a work that was not in the retrieved set, or had no question in them. A model that invents a citation is worth knowing about — read the rest of this with that in mind.`)
+            : null,
+          r.gaps.map((g) => el('div', { class: 'finding', style: `border-left-color:var(--${g.kind === 'opportunity' ? 'good' : g.kind === 'harder' ? 'medium' : 'border-strong'})` },
+            el('div', { class: 'top' },
+              chip((KIND[g.kind] || KIND.opportunity).label, (KIND[g.kind] || KIND.opportunity).tone),
+              g.scale ? el('span', { class: 'rule', text: g.scale }) : null
+            ),
+            el('div', { class: 'msg', style: 'font-weight:600', text: g.question }),
+            g.why ? el('div', { class: 'hint', text: g.why }) : null,
+            g.needs ? el('div', { class: 'fix', text: `Would need: ${g.needs}` }) : null,
+            g.caveat ? el('div', { class: 'hint', style: 'font-style:italic', text: g.caveat }) : null,
+            g.works.length
+              ? el('div', { style: 'margin-top:6px' },
+                  el('div', { class: 'hint', style: 'margin:0 0 3px', text: 'Would have to engage:' }),
+                  el('div', { class: 'row tight', style: 'flex-wrap:wrap' },
+                    g.works.map((w) => chip(`${clip(w.title, 60)} (${w.year || 'n.d.'})`))))
+              : null
+          ))
+        )
+      : null,
+
+    /* The counted crossings themselves — the part that does not need a model. */
+    el('div', { class: 'grid cols-2' },
+      el('div', { class: 'card' },
+        el('h2', { text: 'Empty crossings' }),
+        el('p', { class: 'hint', text: 'Both sides well represented in what came back, nothing on both. Counted, not suggested.' }),
+        r.holes.length
+          ? table(['Crossing', { label: 'One side', num: true }, { label: 'The other', num: true }],
+              r.holes.slice(0, 12).map((h) => [
+                el('td', { class: 'wrap' },
+                  el('strong', { text: `${h.labels[0]} × ${h.labels[1]}` }),
+                  el('div', { class: 'hint', style: 'margin:0', text: `${h.axisLabels[0]} × ${h.axisLabels[1]}` })),
+                el('td', { class: 'num', text: int(h.counts[0]) }),
+                el('td', { class: 'num', text: int(h.counts[1]) })
+              ]))
+          : el('p', { class: 'hint', text: 'No crossing had both sides populated enough to mean anything. Usually the search was too narrow — try broader terms and look again.' })
+      ),
+      el('div', { class: 'card' },
+        el('h2', { text: 'Barely occupied' }),
+        el('p', { class: 'hint', text: 'One or two works on the crossing. Often better than an empty one — somebody thought it worth doing, and there is something to argue with.' }),
+        r.thin.length
+          ? el('div', {}, r.thin.slice(0, 6).map((t) => el('div', { class: 'finding' },
+              el('div', { class: 'top' }, chip(`${t.cell} work${t.cell === 1 ? '' : 's'}`, 'accent')),
+              el('div', { class: 'msg', text: `${t.labels[0]} × ${t.labels[1]}` }),
+              el('div', { class: 'hint', text: t.works.map((w) => `${w.title} (${w.year || 'n.d.'})`).join(' · ') })
+            )))
+          : el('p', { class: 'hint', text: 'Nothing sitting on exactly one or two works.' })
+      )
+    ),
+
+    el('div', { class: 'card' },
+      el('h2', { text: 'How the retrieved set is distributed' }),
+      el('p', { class: 'hint', text: 'The margins the crossings are computed from. If an axis looks wrong here, the holes built on it are wrong too — this is the working, shown so you can reject it.' }),
+      AXES.map((a) => {
+        const m = r.map.marginals[a.id];
+        if (!m.length) return null;
+        return el('div', { style: 'margin-bottom:10px' },
+          el('div', { class: 'label', text: a.label }),
+          el('div', { class: 'row tight', style: 'flex-wrap:wrap;margin-top:3px' },
+            m.map((x) => chip(`${x.label} · ${x.count}`, x.count >= 3 ? 'accent' : '')))
+        );
+      })
+    )
+  );
+}
+
+async function runGaps(root, ctx) {
+  const topic = String(S.gapTopic || '').trim();
+  if (topic.length < 4) { toast('Give a topic or a thesis statement first.', 'error'); return; }
+  const s = getState();
+
+  S.busy = 'Searching the catalogue…';
+  S.gapResult = null;
+  renderResearch(root, ctx);
+  try {
+    /* A wider net than the other tabs: the whole method is cross-tabulation,
+       and 12 records cannot populate two margins. */
+    const found = await searchOpenAlex(topic, { perPage: 50 });
+    const works = found.works || [];
+    if (works.length < 8) {
+      S.busy = null;
+      S.gapResult = null;
+      renderResearch(root, ctx);
+      toast(`Only ${works.length} work(s) came back — too few to cross-tabulate. Try broader terms.`, 'error');
+      return;
+    }
+
+    const map = coverageMap(works);
+    const holes = findHoles(map);
+    const thin = findThin(map);
+    const result = { map, holes, thin, works, total: found.total, gaps: [], dropped: 0, note: '' };
+
+    /* Show the counted part immediately; the model is the slow half and the
+       supervisor should not wait on it to see the arithmetic. */
+    S.gapResult = result;
+    if (!isConfigured(s.settings) || !holes.length) {
+      S.busy = null;
+      renderResearch(root, ctx);
+      return;
+    }
+
+    S.busy = 'Reading the crossings…';
+    renderResearch(root, ctx);
+    const prompt = buildGapPrompt({ statement: topic.length > 120 ? topic : '', query: topic, map, holes, thin, works });
+    const parsed = await runPrompt(prompt, s.settings, {
+      system: 'You are a careful research librarian working for a literature supervisor. You never mention a work you were not given. You answer in JSON only.'
+    });
+    const checked = validateGaps(parsed, works);
+    S.gapResult = { ...result, ...checked };
+  } catch (err) {
+    toast(err.message, 'error');
+  }
+  S.busy = null;
+  renderResearch(root, ctx);
+}
 
 function savedPanel(root, ctx) {
   if (!S.saved.length) {
