@@ -654,126 +654,258 @@ body.is-offline .offline input { accent-color: var(--paper); }
 
 /* ========================================================== the two doors
  *
- * The entrance. Nine tabs in a row asked which of nine things you felt
- * like; two cards ask which half of the day this is, which is a question
- * with an answer.
+ * The entrance, and the one screen in this app allowed to perform.
  *
- * Built to be legible before it is handsome: each door says its name, what
- * it is for, and what is behind it, so the choice is made from words. The
- * colour and the hover are there to make it pleasant to click, not to carry
- * the meaning.
+ * Everywhere else the job is reading: long findings, dense lists, an hour at
+ * a time, and motion there is a cost. Here the job is one decision taken in
+ * two seconds, so the screen can afford to be an event. Full height, two
+ * panels, type big enough to read from across the desk.
+ *
+ * WHAT MOVES, AND WHY EACH ONE.
+ *
+ *   On arrival   the panels rise and the words follow in sequence, so the
+ *                eye is led across the choice rather than dropped into a
+ *                finished page and left to search it.
+ *   On hover     the panel you are over grows and fills with its colour
+ *                from the bottom, and the other recedes. The choice is
+ *                previewed before it is made, which is the whole of what an
+ *                entrance is for.
+ *   On the way   the arrow slides out. A small thing, and the one people
+ *                actually notice.
+ *
+ * All of it is CSS. No library, nothing fetched, so it works with the
+ * offline switch on and from a file opened in the Finder.
+ *
+ * AND WHAT IT MUST NOT COST.
+ *
+ * Nothing here carries meaning that is not also in the words. Every door is
+ * a real button, labelled and keyboard-reachable, usable at the first paint
+ * before a frame has run. prefers-reduced-motion turns the whole thing off
+ * rather than softening it, because a person who has asked for no motion
+ * has asked for no motion. Under 720px the panels stack and the growth is
+ * dropped: hover does not exist on a phone, and a panel that resizes under
+ * a thumb is a panel you mis-tap.
  */
-.foyer { padding: 0; }
-.foyer-inner {
-  max-width: 900px;
-  margin: 0 auto;
-  padding: clamp(32px, 9vh, 96px) 16px 64px;
-}
-.foyer-title {
-  font-family: var(--serif);
-  font-size: clamp(30px, 5.4vw, 46px);
-  line-height: 1.12;
-  letter-spacing: -0.015em;
-  margin: 0 0 14px;
-}
-.foyer-sub {
-  font-size: 16px;
-  line-height: 1.6;
-  color: var(--ink-soft);
-  max-width: 56ch;
-  margin: 0 0 clamp(26px, 5vh, 44px);
-}
 
-.doors { display: grid; grid-template-columns: repeat(2, 1fr); gap: 18px; }
-@media (max-width: 720px) { .doors { grid-template-columns: 1fr; } }
+.foyer { padding: 0; }
+.foyer.active { display: flex; flex-direction: column; }
+
+.stage {
+  display: flex;
+  gap: 0;
+  /* The header is sticky and about fifty tall; the rest is the entrance. */
+  min-height: calc(100dvh - 50px);
+}
 
 .door {
+  --door-hue: var(--ink);
   position: relative;
+  flex: 1 1 0;
+  display: block;
+  text-align: left;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  border-left: 1px solid var(--rule);
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--sans);
+  white-space: normal;
+  cursor: pointer;
+  overflow: hidden;
+  isolation: isolate;
+  transition: flex-grow 620ms cubic-bezier(0.22, 0.85, 0.2, 1);
+}
+.door:first-child { border-left: 0; }
+.door-write { --door-hue: #2e4fa8; }
+.door-check { --door-hue: #b4651a; }
+
+/* The colour, wiping up from the floor. A pseudo-element rather than a
+   background transition, because a background cannot be wiped. */
+.door-fill {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: var(--door-hue);
+  transform: scaleY(0);
+  transform-origin: 50% 100%;
+  transition: transform 520ms cubic-bezier(0.22, 0.85, 0.2, 1);
+}
+
+.door-body {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 10px;
-  text-align: left;
-  padding: 26px 24px 22px;
-  border: 1.5px solid var(--rule);
-  border-radius: 6px;
-  background: var(--paper);
-  color: var(--ink);
-  cursor: pointer;
-  font-family: var(--sans);
-  overflow: hidden;
-  /* A button does not wrap its text the way a div does, which is how the
-     blurb ran off the side of the card and was clipped. */
-  white-space: normal;
-  transition: border-color 140ms ease, transform 140ms ease, box-shadow 140ms ease;
+  gap: 14px;
+  height: 100%;
+  box-sizing: border-box;
+  padding: clamp(28px, 7vh, 72px) clamp(22px, 3.4vw, 56px);
 }
-/* The band of colour is the only decoration, and it grows on hover rather
-   than the card moving far: a card that leaps is a card you misclick. */
-.door::before {
-  content: '';
-  position: absolute;
-  inset: 0 auto 0 0;
-  width: 5px;
-  background: var(--door-hue);
-  transition: width 140ms ease;
-}
-.door:hover, .door:focus-visible {
-  border-color: var(--door-hue);
-  transform: translateY(-2px);
-  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.07);
-  outline: none;
-}
-.door:hover::before, .door:focus-visible::before { width: 9px; }
-.door:active { transform: translateY(0); }
+.door-body > * { max-width: 100%; }
 
-.door-write { --door-hue: #3f5fb0; }
-.door-check { --door-hue: #b4651a; }
+.door-num {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.22em;
+  color: var(--ink-faint);
+  transition: color 300ms ease;
+}
 
 .door-title {
+  display: block;
   font-family: var(--serif);
-  font-size: 27px;
-  line-height: 1.1;
-  letter-spacing: -0.01em;
+  font-size: clamp(46px, 8.4vw, 104px);
+  line-height: 0.96;
+  letter-spacing: -0.03em;
+  margin: 2px 0 2px;
 }
-/* A flex column with align-items:flex-start lets a child keep its content
-   width, so the blurb ran past the card and was clipped by overflow:hidden.
-   Every child is told to take the full width and wrap. */
-.door > * { max-width: 100%; align-self: stretch; white-space: normal; }
-.door-blurb { font-size: 14.5px; line-height: 1.55; color: var(--ink-soft); }
-.door-list {
-  margin: 2px 0 0;
-  padding: 0;
-  list-style: none;
-  font-size: 13px;
-  color: var(--ink-faint);
-  line-height: 1.85;
-}
-.door-list li::before { content: '\00b7\00a0\00a0'; color: var(--door-hue); }
-.door-go {
-  margin-top: auto;
-  padding-top: 14px;
-  font-size: 13px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  color: var(--door-hue);
-}
-.foyer-foot {
-  margin: clamp(26px, 5vh, 40px) 0 0;
-  font-size: 13px;
-  color: var(--ink-faint);
-  max-width: 60ch;
+.door-title .w { display: inline-block; }
+
+.door-blurb {
+  display: block;
+  font-size: clamp(14px, 1.15vw, 16px);
+  line-height: 1.6;
+  color: var(--ink-soft);
+  max-width: 42ch;
+  transition: color 300ms ease;
 }
 
-/* In the foyer the tab row is empty, so the header should not look broken. */
+.door-list {
+  margin: 4px 0 0;
+  padding: 0;
+  list-style: none;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  letter-spacing: 0.04em;
+  line-height: 2.1;
+  color: var(--ink-faint);
+  transition: color 300ms ease;
+}
+.door-list li { display: flex; gap: 12px; }
+.door-list li::before {
+  content: '';
+  width: 14px;
+  height: 1px;
+  margin-top: 12px;
+  background: currentColor;
+  flex: none;
+  opacity: 0.6;
+}
+
+.door-go {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-top: auto;
+  padding-top: 22px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--door-hue);
+  transition: color 300ms ease;
+}
+.go-arrow {
+  display: inline-block;
+  transition: transform 320ms cubic-bezier(0.22, 0.85, 0.2, 1);
+}
+
+/* ---- hovered: this one grows and fills, the other gives way ---- */
+@media (hover: hover) and (min-width: 721px) {
+  .stage:hover .door { flex-grow: 0.84; }
+  .stage:hover .door:hover, .stage .door:focus-visible { flex-grow: 1.32; }
+  .stage:hover .door:not(:hover) .door-body { opacity: 0.44; }
+  .door-body { transition: opacity 420ms ease; }
+}
+.door:hover .door-fill, .door:focus-visible .door-fill { transform: scaleY(1); }
+.door:hover, .door:focus-visible { color: var(--paper); outline: none; }
+.door:hover .door-num, .door:focus-visible .door-num,
+.door:hover .door-blurb, .door:focus-visible .door-blurb,
+.door:hover .door-list, .door:focus-visible .door-list {
+  color: rgba(255, 255, 255, 0.78);
+}
+.door:hover .door-go, .door:focus-visible .door-go { color: var(--paper); }
+.door:hover .go-arrow, .door:focus-visible .go-arrow { transform: translateX(10px); }
+.door:focus-visible { box-shadow: inset 0 0 0 3px var(--paper), inset 0 0 0 6px var(--door-hue); }
+
+.foyer-foot {
+  margin: 0;
+  padding: 18px clamp(22px, 3.4vw, 56px) 30px;
+  font-size: 12.5px;
+  line-height: 1.7;
+  color: var(--ink-faint);
+  max-width: 78ch;
+  border-top: 1px solid var(--rule);
+}
+
+/* ---- arrival ---- */
+@keyframes door-rise {
+  from { transform: translateY(26px); opacity: 0; }
+  to   { transform: none; opacity: 1; }
+}
+@keyframes door-wipe {
+  from { transform: scaleY(0); }
+  to   { transform: scaleY(1); }
+}
+.foyer.active .door {
+  animation: door-wipe 620ms cubic-bezier(0.22, 0.85, 0.2, 1) backwards;
+  animation-delay: calc(var(--n) * 110ms);
+  transform-origin: 50% 0;
+}
+.foyer.active .door-num,
+.foyer.active .door-title .w,
+.foyer.active .door-blurb,
+.foyer.active .door-list li,
+.foyer.active .door-go {
+  animation: door-rise 620ms cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
+}
+.foyer.active .door-num   { animation-delay: calc(var(--n) * 110ms + 210ms); }
+.foyer.active .door-title .w {
+  animation-delay: calc(var(--n) * 110ms + 270ms + var(--i) * 70ms);
+}
+.foyer.active .door-blurb { animation-delay: calc(var(--n) * 110ms + 400ms); }
+.foyer.active .door-list li {
+  animation-delay: calc(var(--n) * 110ms + 470ms + var(--i) * 55ms);
+}
+.foyer.active .door-go    { animation-delay: calc(var(--n) * 110ms + 700ms); }
+
+/* ---- narrow: stacked, and no growing under a thumb ---- */
+@media (max-width: 720px) {
+  .stage { flex-direction: column; min-height: 0; }
+  .door { border-left: 0; border-top: 1px solid var(--rule); flex: none; }
+  .door:first-child { border-top: 0; }
+  .door-title { font-size: clamp(40px, 13vw, 64px); }
+  .door-body { gap: 11px; padding: 30px 18px 26px; }
+  .door-go { margin-top: 16px; padding-top: 0; }
+}
+
+/* ---- asked for no motion: then none, not less ---- */
+@media (prefers-reduced-motion: reduce) {
+  .door, .door-fill, .door-body, .go-arrow,
+  .door-num, .door-blurb, .door-list, .door-go { transition: none; }
+  .foyer.active .door,
+  .foyer.active .door-num,
+  .foyer.active .door-title .w,
+  .foyer.active .door-blurb,
+  .foyer.active .door-list li,
+  .foyer.active .door-go { animation: none; }
+  .stage:hover .door, .stage:hover .door:hover { flex-grow: 1; }
+  .stage:hover .door:not(:hover) .door-body { opacity: 1; }
+}
+
+/* In the foyer the tab row is empty, so the header must not look broken. */
 body:not(.has-door) header.bar .tabs { display: none; }
+body:not(.has-door) main { padding: 0; }
 .wordmark { cursor: pointer; }
 .wordmark:hover { opacity: 0.72; }
 
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) .door-write { --door-hue: #7f9ce0; }
+  :root:not([data-theme="light"]) .door-write { --door-hue: #5f82e0; }
   :root:not([data-theme="light"]) .door-check { --door-hue: #e0924a; }
   :root:not([data-theme="light"]) .door:hover,
-  :root:not([data-theme="light"]) .door:focus-visible {
-    box-shadow: 0 10px 26px rgba(0, 0, 0, 0.45);
-  }
+  :root:not([data-theme="light"]) .door:focus-visible { color: #14140f; }
+  :root:not([data-theme="light"]) .door:hover .door-num,
+  :root:not([data-theme="light"]) .door:hover .door-blurb,
+  :root:not([data-theme="light"]) .door:hover .door-list { color: rgba(0, 0, 0, 0.66); }
+  :root:not([data-theme="light"]) .door:hover .door-go { color: #14140f; }
 }

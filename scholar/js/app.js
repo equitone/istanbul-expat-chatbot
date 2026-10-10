@@ -228,22 +228,45 @@ function showFoyer() {
   window.scrollTo(0, 0);
 }
 
+/*
+ * The entrance, drawn.
+ *
+ * The animation is all CSS: this only supplies the structure it needs. Two
+ * of those are worth saying out loud.
+ *
+ * The title is split into words, each in its own span carrying an index,
+ * because a staggered reveal needs something per word to delay and CSS
+ * cannot find a word inside a text node.
+ *
+ * Nothing here depends on the motion. Every door is a real button with its
+ * name, its description and its contents in the markup, so the page is
+ * usable at the first paint, before any animation has run, with a keyboard,
+ * and with motion turned off — which the stylesheet honours. An entrance
+ * you cannot get through until it has finished performing is not an
+ * entrance.
+ */
+const words = (text) => text.split(' ').map((w, i) =>
+  el('span', { class: 'w', style: `--i:${i}`, text: w }));
+
 function drawFoyer() {
   mount(foyer,
-    el('div', { class: 'foyer-inner' },
-      el('h1', { class: 'foyer-title', text: 'What are you doing today?' }),
-      el('p', { class: 'foyer-sub', text: 'Two ways in. Everything is the same work on the same library; this only decides which half is in front of you. You can swap at any time from the name in the corner.' }),
-      el('div', { class: 'doors' }, DOORS.map((d) => el('button', {
-        class: `door door-${d.id}`, id: `door-${d.id}`,
-        onClick: () => openDoor(d.id, d.land)
-      },
-        el('span', { class: 'door-title', text: d.title }),
+    el('div', { class: 'stage' }, DOORS.map((d, n) => el('button', {
+      class: `door door-${d.id}`, id: `door-${d.id}`,
+      style: `--n:${n}`,
+      onClick: () => openDoor(d.id, d.land)
+    },
+      el('span', { class: 'door-fill', 'aria-hidden': 'true' }),
+      el('span', { class: 'door-body' },
+        el('span', { class: 'door-num', text: String(n + 1).padStart(2, '0') }),
+        el('span', { class: 'door-title' }, words(d.title)),
         el('span', { class: 'door-blurb', text: d.blurb }),
-        el('ul', { class: 'door-list' }, d.doing.map((x) => el('li', { text: x }))),
-        el('span', { class: 'door-go', text: 'Open \u2192' })
-      ))),
-      el('p', { class: 'foyer-foot', text: 'Nothing on either side needs the internet except the catalogue searches, and the switch in the corner stops even those.' })
-    )
+        el('ul', { class: 'door-list' },
+          d.doing.map((x, i) => el('li', { style: `--i:${i}`, text: x }))),
+        el('span', { class: 'door-go' },
+          el('span', { class: 'go-word', text: 'Enter' }),
+          el('span', { class: 'go-arrow', 'aria-hidden': 'true', text: '\u2192' })))
+    ))),
+    el('p', { class: 'foyer-foot', text: 'Same library, same work \u2014 this only decides which half is in front of you. The name in the corner brings you back. Nothing here needs the internet except the catalogue searches, and the switch in the corner stops even those.' })
   );
 }
 
