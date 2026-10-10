@@ -74,9 +74,12 @@ export function analyseMechanics(doc) {
   scan(text, /,\s*(?:and|but|or)\s*,/gi, (m) =>
     add({ rule: 'stray-comma', severity: 'medium', start: m.index, end: m.index + m[0].length, message: 'Comma on both sides of a conjunction.', suggestion: m[0].replace(/,\s*$/, '') })
   );
-  scan(text, /\s+-\s+/g, (m) =>
-    add({ rule: 'hyphen-as-dash', severity: 'low', start: m.index, end: m.index + m[0].length, message: 'A spaced hyphen is being used as a dash; use an em dash (—) or en dash (–).', suggestion: ' — ' })
-  );
+  /*
+   * The spaced hyphen moved to punctuation.js as well, and not only for the
+   * citation. The message here offered the en dash, which the reference says
+   * does not exist in news, science or academic style — so it was telling
+   * three writers out of four to use a mark their own style does not have.
+   */
 
   /* --------------------------------------------------- unbalanced delimiters */
   balanceCheck(text, '(', ')', 'parenthesis').forEach(add);

@@ -161,7 +161,9 @@ export const CONFUSION_PATTERNS = [
   { id: 'to-too', re: /\b(is|are|was|were|seems|appears)\s+to\s+(broad|narrow|vague|simple|complex|general|weak|strong|small|large|early|late|much|many)\b/gi, message: 'Intensifier “too”, not “to”.', suggest: 'too' },
   { id: 'amount-count', re: /\bamount\s+of\s+(participants|students|studies|articles|papers|cases|respondents|examples|sources|texts|works|people|authors|variables|items|factors)\b/gi, message: 'Countable noun — use “number of”.', suggest: 'number of' },
   { id: 'less-count', re: /\bless\s+(participants|students|studies|articles|papers|cases|respondents|examples|sources|texts|works|people|authors|variables|items|factors|words)\b/gi, message: 'Countable noun — use “fewer”.', suggest: 'fewer' },
-  { id: 'decades-apostrophe', re: /\b(1[89]|20)\d0's\b/g, message: 'Decades take no apostrophe.', suggest: 'e.g. 1990s' },
+  /* The decade apostrophe moved to punctuation.js, which says which chapter
+     settles it. Leaving it here too reported the same apostrophe twice, once
+     with a source and once without. */
   { id: 'comprised-of', re: /\bcomprised\s+of\b/gi, message: '“comprise” already means “consist of”; use “composed of” or “comprises”.', suggest: 'composed of' },
   { id: 'different-than', re: /\bdifferent\s+than\b/gi, message: 'Academic English prefers “different from”.', suggest: 'different from' },
   { id: 'based-of', re: /\bbased\s+of\b/gi, message: '“based on”.', suggest: 'based on' },

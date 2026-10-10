@@ -162,6 +162,18 @@ const RULES = [
     re: /([,;:])(?=[A-Za-zÀ-ɏ])/g
   },
   {
+    id: 'hyphen-as-dash',
+    styles: ALL,
+    chapter: 'ch. 12, Em Dash',
+    severity: 'low',
+    /* The em dash exists in all four styles; the en dash does not, so the
+       suggestion names only the em dash whatever style is set. How much
+       space goes around it is a house decision and is not checked. */
+    message: 'A spaced hyphen is standing in for a dash. The mark for that job is the em dash (\u2014).',
+    fix: () => ' \u2014 ',
+    re: /\s+-\s+/g
+  },
+  {
     id: 'ellipsis-as-two-dots',
     styles: ALL,
     chapter: 'ch. 10, Ellipsis',

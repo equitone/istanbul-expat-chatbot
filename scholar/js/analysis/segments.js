@@ -49,11 +49,14 @@ export const CATEGORY_META = {
  *
  * Anything not named here keeps whatever category its analyser assigned.
  */
+/*
+ * Only rules from the other analysers need naming here. Everything in
+ * punctuation.js sets this category itself, so listing those ids would be a
+ * second place to keep in step — and the five stale names this set still
+ * carried, left behind when their rules moved or went, are what that costs.
+ */
 const PUNCTUATION = new Set([
-  'comma-splice', 'introductory-comma', 'stray-comma',
-  'double-space', 'space-before-punctuation', 'missing-space-after-punctuation',
-  'bracket-spacing', 'repeated-punctuation', 'missing-terminal-punctuation',
-  'hyphen-as-dash', 'year-range-dash', 'decades-apostrophe',
+  'comma-splice', 'stray-comma', 'missing-terminal-punctuation',
   'unbalanced-quote', 'unbalanced-bracket', 'mixed-quote-style'
 ]);
 

@@ -65,7 +65,8 @@ export const POSITIVE = [
   ['lead-past', 'This has lead to considerable confusion.'],
   ['amount-count', 'The amount of participants who withdrew was high.'],
   ['less-count', 'There were less participants than expected.'],
-  ['decades-apostrophe', 'The debate began in the 1990\'s.'],
+  /* The decade apostrophe is tested in punctuation.mjs now, against the
+     chapter that settles it. */
   ['comprised-of', 'The corpus is comprised of 240 reviews.'],
   ['different-than', 'This reading is different than the standard one.'],
   ['discuss-about', 'The chapter discusses about the reception of the work.'],

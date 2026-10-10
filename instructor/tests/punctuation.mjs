@@ -8,6 +8,8 @@
  */
 import { buildDocument } from '../js/analysis/text.js';
 import { analysePunctuation, rulesForStyle, STYLES } from '../js/analysis/punctuation.js';
+import { analyseMechanics } from '../js/analysis/mechanics.js';
+import { analyseGrammar } from '../js/analysis/grammar.js';
 
 let pass = 0; const fails = [];
 const ok = (label, cond) => { if (cond) pass += 1; else fails.push(label); };
@@ -59,6 +61,43 @@ ok('missing space after a comma flagged', has('The result was clear,though conte
 ok('a decimal is not a missing space', !has('The figure was 3,5 per cent in 1994.', 'missing-space-after-punctuation'));
 ok('two dots flagged as a broken ellipsis', has('He paused.. then went on.', 'ellipsis-as-two-dots'));
 ok('a real ellipsis is left alone', !has('He paused … then went on.', 'ellipsis-as-two-dots'));
+
+/* ---- the spaced hyphen, in every style (ch. 12) ---- */
+const spacedHyphen = 'The thesis - which is long - argues this.';
+ok('spaced hyphen flagged in every style',
+  STYLES.every((st) => has(spacedHyphen, 'hyphen-as-dash', st.id)));
+ok('the suggestion is an em dash, never an en dash, because three styles lack it',
+  run(spacedHyphen, 'mla').filter((i) => i.rule === 'hyphen-as-dash')
+    .every((i) => i.suggestion.includes('\u2014') && !i.suggestion.includes('\u2013')
+      && !i.message.includes('\u2013')));
+ok('a real em dash is left alone', !has('The thesis — which is long — argues this.', 'hyphen-as-dash'));
+ok('a hyphenated compound is left alone', !has('A well-known reading of the novel.', 'hyphen-as-dash'));
+
+/*
+ * ---- nothing is reported twice ----
+ *
+ * The real test, and the one that caught this: the Grammar tab shows every
+ * analyser's findings in one list, so a rule left behind in mechanics.js
+ * after its sourced replacement landed in here produced two findings for one
+ * apostrophe — one carrying a chapter and one carrying nothing. Checking
+ * punctuation.js alone would never have seen it.
+ */
+const merged = (text, style = 'mla') => {
+  const d = buildDocument(text);
+  return [...analyseGrammar(d).issues, ...analyseMechanics(d).issues,
+    ...analysePunctuation(d, { style }).issues];
+};
+const spansOf = (text) => merged(text)
+  .filter((i) => i.category === 'punctuation')
+  .map((i) => `${i.start}-${i.end}`);
+const noRepeat = (text) => { const s = spansOf(text); return new Set(s).size === s.length; };
+
+ok('one decade apostrophe gives one finding across all the analysers',
+  noRepeat("The music of the 1990's was loud."));
+ok('one spaced hyphen gives one finding across all the analysers',
+  noRepeat('The thesis - which is long - argues this.'));
+ok('a passage with several marks wrong repeats none of them',
+  noRepeat("He called it “a reality”, and the 1990's - a loud decade - were above (in 3,)."));
 
 /* ---- headings are exempt, as everywhere else ---- */
 ok('nothing fires inside a heading',
