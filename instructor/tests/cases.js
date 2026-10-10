@@ -129,6 +129,12 @@ export const NEGATIVE = [
   'The series is long enough to support a time-series analysis.',
   'The status of the manuscript remains unclear.',
   'Many people were involved in the transcription of the interviews.',
+  /* Irregular plurals: morphology alone reads these as singular. */
+  'Several criteria were applied before a text entered the sample.',
+  'Various phenomena recur across the three novels.',
+  'Three women translated the novel between 1935 and 1952.',
+  'The two species appear in the same chapter.',
+  'Numerous media reported the ban within a week.',
   'These children were tested twice, six months apart.',
   'Much of this research is new and has not yet been replicated.',
   'The corpus consists of 240 reviews, coded by two independent readers.',

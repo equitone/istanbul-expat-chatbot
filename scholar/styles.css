@@ -238,3 +238,32 @@ mark.weak { border-bottom-style: dotted; }
   body { color: #000; background: #fff; }
   .view { display: block !important; }
 }
+
+/* ------------------------------------------------------- nothing is saved
+ *
+ * Inverted rather than coloured. A warning that matters this much has to be
+ * the loudest thing on a black-and-white page, and reversing the ink is the
+ * only move left when there is no red to reach for.
+ */
+.nosave {
+  background: var(--ink);
+  color: var(--paper);
+  padding: 14px 18px;
+  margin: 0;
+  font-family: var(--sans);
+  font-size: 13.5px;
+  line-height: 1.45;
+}
+.nosave strong {
+  display: block;
+  font-size: 15px;
+  letter-spacing: 0.01em;
+  margin-bottom: 4px;
+}
+.nosave p { margin: 3px 0 0; max-width: 78ch; }
+.nosave .why {
+  font-family: var(--mono);
+  font-size: 11px;
+  opacity: 0.6;
+  margin-top: 7px;
+}

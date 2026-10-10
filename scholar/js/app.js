@@ -1,5 +1,5 @@
 import { el, mount, toast } from './ui.js';
-import { getState, subscribe } from './store.js';
+import { getState, subscribe, storageState } from './store.js';
 import { BUILD } from './version.js';
 import { setContactEmail } from './analysis/verify.js';
 import { setContactEmail as setPeopleEmail } from './analysis/people.js';
@@ -19,6 +19,29 @@ const VIEWS = [
   { id: 'write', label: 'Write', render: renderWrite },
   { id: 'settings', label: 'Settings', render: renderSettings }
 ];
+
+/*
+ * Nothing is being saved — say so, loudly and permanently.
+ *
+ * This is the one condition the app cannot work around. A page opened from
+ * the Finder has no origin a browser will store against in Safari, so the
+ * library and the drafts live only as long as the window does. Silence here
+ * costs an afternoon's work, so the warning sits above everything, cannot be
+ * dismissed, and names the two ways out.
+ */
+function drawStorageWarning() {
+  const s = storageState();
+  const existing = document.getElementById('nosave');
+  if (s.ok) { if (existing) existing.remove(); return; }
+  if (existing) return;
+  const note = el('div', { id: 'nosave', class: 'nosave', role: 'alert' },
+    el('strong', { text: 'Nothing you do here is being saved.' }),
+    el('p', { text: 'This browser will not store data for a page opened straight from a folder. Add a source or write a draft and it is gone when the window closes.' }),
+    el('p', { text: 'Either open this same file in Chrome or Firefox, which do store it, or start the served version (start.command, then http://localhost:8130) and work there.' }),
+    el('p', { class: 'why', text: s.reason })
+  );
+  document.body.insertBefore(note, document.getElementById('main'));
+}
 
 const main = document.getElementById('main');
 const tabs = document.getElementById('tabs');
@@ -68,11 +91,12 @@ function syncContact() {
 }
 syncContact();
 
-subscribe(() => { syncContact(); draw(current); });
+subscribe(() => { syncContact(); drawStorageWarning(); draw(current); });
 window.addEventListener('hashchange', () => {
   const id = location.hash.replace('#', '');
   if (id && id !== current && VIEWS.some((v) => v.id === id)) go(id);
 });
 
+drawStorageWarning();
 go(current);
 window.__toast = toast;

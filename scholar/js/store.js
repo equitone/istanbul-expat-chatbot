@@ -7,6 +7,29 @@
  */
 const KEY = 'scholar-desk:v1';
 
+/*
+ * Will this browser keep anything?
+ *
+ * Opened from the Finder rather than from a server, Safari refuses
+ * localStorage outright, and a private window in any browser can refuse it
+ * too. The refusal is invisible exactly where it hurts: the app looks
+ * perfectly well, you add twenty sources and write half an essay, you close
+ * the window, and none of it was ever written. So it is probed once at boot
+ * and said out loud on screen instead of being left in the console.
+ */
+const PROBE = `${KEY}:probe`;
+const storage = (() => {
+  try {
+    localStorage.setItem(PROBE, '1');
+    localStorage.removeItem(PROBE);
+    return { ok: true, reason: '' };
+  } catch (err) {
+    return { ok: false, reason: (err && err.message) || String(err) };
+  }
+})();
+
+export const storageState = () => ({ ...storage });
+
 const blank = () => ({
   version: 1,
   settings: {
@@ -61,8 +84,19 @@ export function update(mutator, { silent = false } = {}) {
   state.updatedAt = new Date().toISOString();
   clearTimeout(timer);
   timer = setTimeout(() => {
-    try { localStorage.setItem(KEY, JSON.stringify(state)); }
-    catch (err) { console.error('Save failed', err); }
+    try {
+      localStorage.setItem(KEY, JSON.stringify(state));
+      if (!storage.ok) { storage.ok = true; storage.reason = ''; emit(); }
+    } catch (err) {
+      /* Quota, or a browser that will not store for this page at all. Either
+         way the work on screen is not saved, which the banner must say. */
+      const reason = (err && err.message) || String(err);
+      if (storage.ok || storage.reason !== reason) {
+        storage.ok = false;
+        storage.reason = reason;
+        emit();
+      }
+    }
   }, 200);
   if (!silent) emit();
 }

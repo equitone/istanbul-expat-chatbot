@@ -80,7 +80,27 @@ const BARE_INFINITIVE_VERBS = [
 /* Quantifiers that require a plural noun after them. */
 const PLURAL_QUANTIFIERS = ['many', 'several', 'few', 'various', 'numerous', 'both', 'these', 'those'];
 
-const singularish = (w) => !/(s|x|z|ch|sh)$/i.test(w) || /(ss|us|is)$/i.test(w);
+/*
+ * Plurals that are not spelled like plurals.
+ *
+ * The test below is morphological: anything not ending in a sibilant reads as
+ * singular. English irregulars defeat that, and the result is the checker
+ * telling a student to write "many peoples" — which destroys its credibility
+ * faster than a missed error does, because the student now has to judge the
+ * tool instead of the sentence.
+ */
+const IRREGULAR_PLURALS = new Set([
+  'people', 'children', 'men', 'women', 'feet', 'teeth', 'mice', 'geese', 'oxen',
+  'criteria', 'phenomena', 'data', 'media', 'strata', 'corpora', 'genera',
+  'alumni', 'fungi', 'stimuli', 'bacteria', 'curricula', 'addenda', 'errata',
+  /* Same in both numbers; a plural "s" would be wrong. */
+  'sheep', 'deer', 'fish', 'series', 'species', 'aircraft', 'offspring'
+]);
+
+const singularish = (w) => {
+  if (IRREGULAR_PLURALS.has(w.toLowerCase())) return false;
+  return !/(s|x|z|ch|sh)$/i.test(w) || /(ss|us|is)$/i.test(w);
+};
 
 /**
  * `doc` is the shared document from text.js. Returns issues in the same shape

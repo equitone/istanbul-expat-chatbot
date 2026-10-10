@@ -12,7 +12,7 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 
-const port = Number(process.argv[2]) || 8099;
+const port = Number(process.argv[2]) || 8130;
 const root = __dirname;
 
 /* Correct types matter: the app is ES modules, and a browser refuses to run

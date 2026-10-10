@@ -4,8 +4,27 @@ A research desk that runs on your own machine. Separate from the Instructor
 Workbench in this repository, and built for the person doing the research
 rather than the person marking it.
 
-Open `index.html`, or run `node serve.js 8130` and go to
-`http://localhost:8130`. No build step, no installer, no account.
+No build step, no installer, no account. Two ways to start it, both the same
+app:
+
+- **Double-click `ScholarDesk.html`.** The whole app in one file, with no
+  server and no runtime. Open it in Chrome or Firefox, not Safari — Safari
+  refuses to store anything for a file opened this way, and the app says so
+  across the top if that happens.
+- **Run the served version**: `./start.sh` (or double-click *Start Scholar
+  Desk.command* on a Mac), then `http://localhost:8130`. Every browser stores
+  data for this, Safari included.
+
+Do not double-click `index.html`. It goes blank. ES modules are refused when
+loaded straight from a folder — the browser treats each file as a separate,
+opaque origin and blocks the import — so the entry point only works behind a
+server. That refusal is the reason `ScholarDesk.html` exists: `bundle.js`
+resolves the module graph itself and writes every module, the stylesheet and
+the entry point into one file with no external request of any kind.
+
+The two ways keep separate libraries, because the browser files them under
+different addresses. Pick one, or move your work across with the export and
+import buttons in Settings.
 
 ## What it does
 
@@ -85,5 +104,11 @@ when they have moved apart.
 
 ## Where your data is
 
-In this browser, for whichever address you open the app on. Clearing site
-data erases it. Export a backup from Settings now and then.
+In this browser, under whichever address you opened the app at —
+`http://localhost:8130` for the served version, the file's own origin for
+`ScholarDesk.html`. Clearing site data erases it. Export a backup from
+Settings now and then.
+
+If the browser will not store at all, every tab still works and nothing is
+kept; the app says this in black across the top rather than leaving it in the
+console, because the cost of finding out later is an afternoon's work.
