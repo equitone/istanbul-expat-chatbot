@@ -105,14 +105,27 @@ function yearSpan(sources) {
 
 function fileForm(root, ctx) {
   const input = el('input', {
-    type: 'file', multiple: true, accept: '.txt,.md,.pdf,.docx',
+    type: 'file', multiple: true, accept: '.txt,.md,.pdf,.docx,.ris,.bib,.bibtex,.txt',
     onChange: async (e) => {
       const files = [...e.target.files];
       if (!files.length) return;
-      const { extractText } = await import('../io/files.js');
       let ok = 0;
+      let refs = 0;
       for (const f of files) {
         try {
+          /*
+           * An export first, a document second.
+           *
+           * A .ris or .bib file is a list of references, not a source to
+           * read, and treating one as a document would put the whole export
+           * into the library as a single garbled "source". The sniff is on
+           * the content rather than the extension, because JSTOR hands out
+           * RIS files named .txt.
+           */
+          const made = await readBibliography(f);
+          if (made !== null) { refs += made; continue; }
+
+          const { extractText } = await import('../io/files.js');
           const { text } = await extractText(f);
           if (!text || text.trim().length < 200) throw new Error('too little text');
           addSource({ title: f.name.replace(/\.[^.]+$/, ''), text, abstract: text.slice(0, 1200) });
@@ -122,13 +135,48 @@ function fileForm(root, ctx) {
         }
       }
       if (ok) toast(`${ok} source(s) added.`);
+      if (refs) toast(`${refs} reference(s) added from the export.`);
       render(root, ctx);
     }
   });
   return el('div', {},
-    el('p', { class: 'note', text: 'PDF, Word, plain text or Markdown. The full text is kept in this browser and never sent anywhere unless you ask a model to read it.' }),
+    el('p', { class: 'note', text: 'PDF, Word, plain text or Markdown for the sources themselves. The full text is kept in this browser and never sent anywhere unless you ask a model to read it.' }),
+    el('p', { class: 'note', text: 'Also RIS and BibTeX. That is the way in from JSTOR, Project MUSE, Scopus and the MLA Bibliography, which cannot be searched from here: export the records you want from those databases and drop the file here, and they join everything else.' }),
     input
   );
+}
+
+/*
+ * Read a reference export, or return null if the file is not one.
+ *
+ * Null rather than an exception, because "this is a PDF" is the ordinary
+ * case and not a failure worth reporting to anyone.
+ */
+async function readBibliography(file) {
+  if (file.size > 8 * 1024 * 1024) return null;
+  let text;
+  try { text = await file.text(); } catch { return null; }
+  const { looksLikeRis, looksLikeBibtex, parseBibliography } = await import('../io/bibliography.js');
+  if (!looksLikeRis(text) && !looksLikeBibtex(text)) return null;
+
+  const { records } = parseBibliography(text);
+  const made = addSources(records.map((r) => ({
+    title: r.title,
+    authors: r.authors,
+    year: r.year ? Number(r.year) : null,
+    venue: r.container || r.publisher,
+    doi: r.doi,
+    url: r.url,
+    abstract: r.abstract,
+    concepts: r.concepts
+  })));
+  /* addSources drops anything already held, so the difference is worth
+     saying: importing the same export twice should be harmless and visibly
+     so, not silently a no-op. */
+  if (made.length < records.length) {
+    toast(`${records.length - made.length} of them were already in the library.`);
+  }
+  return made.length;
 }
 
 function pasteForm(root, ctx) {

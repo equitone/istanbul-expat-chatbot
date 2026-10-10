@@ -4,6 +4,11 @@
  * and the segment list the highlighter renders.
  */
 import { buildDocument } from './text.js';
+/* Defined in segments.js and re-exported below so existing imports from this
+   module keep working. segments.js is shared verbatim with ../scholar. */
+import { SEVERITY_ORDER, CATEGORY_META, buildSegments, dominantIssue } from './segments.js';
+
+export { SEVERITY_ORDER, CATEGORY_META, buildSegments, dominantIssue };
 import { analyseMechanics } from './mechanics.js';
 import { analyseGrammar } from './grammar.js';
 import { analyseLearnerEnglish } from './learner-english.js';
@@ -15,20 +20,9 @@ import { analyseCitations } from './citations.js';
 /* How many instances of one rule to list before collapsing to a count. */
 const PER_RULE_CAP = 150;
 
-export const SEVERITY_ORDER = { high: 0, medium: 1, low: 2 };
 
 /* Colours are CSS variables rather than literals so the legend tints follow
    the light/dark palette instead of staying fixed to one theme. */
-export const CATEGORY_META = {
-  grammar: { label: 'Grammar errors', colour: 'var(--cat-grammar)' },
-  typo: { label: 'Spelling & punctuation', colour: 'var(--cat-typo)' },
-  citation: { label: 'Citation style', colour: 'var(--cat-citation)' },
-  argument: { label: 'Argument support', colour: 'var(--cat-argument)' },
-  bloom: { label: 'Level of thinking', colour: 'var(--cat-bloom)' },
-  structure: { label: 'Structure & sources', colour: 'var(--cat-structure)' },
-  ai: { label: 'AI review', colour: 'var(--cat-ai)' },
-  style: { label: 'Style suggestions', colour: 'var(--cat-style)' }
-};
 
 export function analyseThesis(rawText, { citationStyle = 'apa7' } = {}) {
   const text = normalise(rawText);
@@ -178,41 +172,3 @@ function capPerRule(issues) {
  * Splitting at every boundary is what lets one word carry two findings
  * (a misspelling inside an over-stressed claim) without breaking the markup.
  */
-export function buildSegments(text, issues, { categories, severities } = {}) {
-  const active = issues.filter(
-    (i) => (!categories || categories.has(i.category)) && (!severities || severities.has(i.severity))
-  );
-  if (!active.length) return [{ start: 0, end: text.length, issues: [] }];
-
-  const points = new Set([0, text.length]);
-  active.forEach((i) => {
-    points.add(clamp(i.start, 0, text.length));
-    points.add(clamp(i.end, 0, text.length));
-  });
-  const sorted = [...points].sort((a, b) => a - b);
-
-  const segments = [];
-  for (let k = 0; k < sorted.length - 1; k++) {
-    const start = sorted[k];
-    const end = sorted[k + 1];
-    if (end <= start) continue;
-    const hits = active.filter((i) => i.start <= start && i.end >= end);
-    segments.push({ start, end, issues: hits });
-  }
-  return segments;
-}
-
-/* The category a segment is painted with when several findings overlap:
-   the most severe wins, ties broken by category weight. */
-const CATEGORY_WEIGHT = { argument: 0, grammar: 1, citation: 2, typo: 3, structure: 4, ai: 5, style: 6 };
-
-export function dominantIssue(segmentIssues) {
-  if (!segmentIssues.length) return null;
-  return [...segmentIssues].sort(
-    (a, b) =>
-      SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity] ||
-      CATEGORY_WEIGHT[a.category] - CATEGORY_WEIGHT[b.category]
-  )[0];
-}
-
-const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));

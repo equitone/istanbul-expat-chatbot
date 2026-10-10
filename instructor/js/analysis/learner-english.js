@@ -97,6 +97,9 @@ const IRREGULAR_PLURALS = new Set([
   'sheep', 'deer', 'fish', 'series', 'species', 'aircraft', 'offspring'
 ]);
 
+/* Verbs that end in -s and so defeat a bare "is it plural" test. */
+const VERB_AFTER = /^(is|was|has|does|goes|says|seems|appears|remains|exists|shows|gives|takes|makes|comes|becomes|reveals?|suggests?|argues?|discusses?|contains?|provides?|presents?|describes?|requires?|includes?|involves?|produces?|reflects?|concerns?|offers?|covers?|follows?|supports?|explains?|refers?|relates?|belongs?|consists?|focuses?|differs?|emerges?|serves?|tends?|needs?|lacks?|holds?|leads?|works?|helps?|means?|uses?)$/i;
+
 const singularish = (w) => {
   if (IRREGULAR_PLURALS.has(w.toLowerCase())) return false;
   return !/(s|x|z|ch|sh)$/i.test(w) || /(ss|us|is)$/i.test(w);
@@ -134,9 +137,17 @@ export function analyseLearnerEnglish(doc) {
     if (!singularish(noun)) return;
     if (/^(hundred|thousand|million|billion|dozen|per|percent|pages?|years?|months?|weeks?|days?|hours?|minutes?|times?|and|or|of|the|in|to|from)$/.test(noun)) return;
     if (Object.values(MASS_NOUNS).includes(noun)) return;
-    /* A following noun means this was an adjective: "three main reasons". */
+    /*
+     * A following plural noun means the word was an adjective: "three main
+     * reasons" is correct and must not be flagged.
+     *
+     * The test cannot be "ends in s", because that is also every third-person
+     * verb. "three student was late" and "two book reveals" were both being
+     * waved through by this guard — the commonest error in the cohort,
+     * silently missed whenever a verb happened to follow.
+     */
     const after = body.slice(m.index + m[0].length, m.index + m[0].length + 40).match(/^\s+([a-z]+)/i);
-    if (after && /(s|es)$/i.test(after[1])) return;
+    if (after && /(s|es)$/i.test(after[1]) && !VERB_AFTER.test(after[1])) return;
     add({
       rule: 'number-singular-noun',
       severity: 'medium',

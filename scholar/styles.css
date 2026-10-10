@@ -354,3 +354,82 @@ mark.weak { border-bottom-style: dotted; }
 /* A source switched off: still listed, visibly not in play. */
 td.wrap.muted { opacity: 0.45; }
 td.wrap.muted div { text-decoration: line-through; text-decoration-thickness: 1px; }
+
+/* The subscription databases, as links out. Listed, never faked. */
+.handoff .item .row { align-items: flex-start; gap: 14px; }
+.handoff .item .button.sm { white-space: nowrap; }
+a.button {
+  display: inline-block;
+  font-family: var(--sans);
+  text-decoration: none;
+  border: 1px solid var(--ink);
+  padding: 5px 11px;
+  color: var(--ink);
+  background: var(--paper);
+}
+a.button:hover { background: var(--ink); color: var(--paper); }
+a.button.sm { font-size: 12.5px; padding: 4px 9px; }
+
+/* ------------------------------------------------------ grammar findings
+ *
+ * The one place colour earns its keep in this app. Everywhere else it would
+ * be decoration; here three categories have to be told apart at a glance,
+ * in the text and in the list at once, and weight alone cannot carry that.
+ * Hue only, always with a second signal — a solid underline for a fault, a
+ * dotted one for a suggestion — so it survives printing and colour-blindness.
+ */
+:root {
+  --cat-grammar: #b4651a;
+  --cat-typo:    #a32f3f;
+  --cat-style:   #6a6f78;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --cat-grammar: #e0a44f;
+    --cat-typo:    #f0788c;
+    --cat-style:   #98a0ae;
+  }
+}
+:root[data-theme="dark"] {
+  --cat-grammar: #e0a44f;
+  --cat-typo:    #f0788c;
+  --cat-style:   #98a0ae;
+}
+
+.reader-layout { display: grid; grid-template-columns: 1.25fr 1fr; gap: var(--gap); align-items: start; }
+@media (max-width: 980px) { .reader-layout { grid-template-columns: 1fr; } }
+
+.reader {
+  font-family: var(--serif);
+  font-size: 16px;
+  line-height: 1.75;
+  max-height: 72vh;
+  overflow-y: auto;
+  white-space: normal;
+}
+.reader p { margin: 0 0 13px; }
+.reader mark { background: none; color: inherit; padding: 0 1px; cursor: pointer; }
+.reader mark.cat-grammar { background: color-mix(in srgb, var(--cat-grammar) 20%, transparent); border-bottom: 2px solid var(--cat-grammar); }
+.reader mark.cat-typo    { background: color-mix(in srgb, var(--cat-typo) 20%, transparent);    border-bottom: 2px solid var(--cat-typo); }
+.reader mark.cat-style   { background: color-mix(in srgb, var(--cat-style) 14%, transparent);   border-bottom: 1px dotted var(--cat-style); }
+.reader mark.focus { outline: 2px solid var(--ink); outline-offset: 1px; }
+
+.swatch { width: 9px; height: 9px; border-radius: 50%; display: inline-block; flex: none; }
+.swatch.cat-grammar { background: var(--cat-grammar); }
+.swatch.cat-typo    { background: var(--cat-typo); }
+.swatch.cat-style   { background: var(--cat-style); }
+
+.legend { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.legend-label { font-family: var(--mono); font-size: 11px; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-faint); }
+.legend .swatch-btn { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; padding: 3px 9px; }
+/* Off is hollow and dashed, so the state reads without relying on colour. */
+.legend .swatch-btn[aria-pressed="false"] { opacity: .5; border-style: dashed; }
+.legend .swatch-btn[aria-pressed="false"] .swatch { background: transparent; box-shadow: inset 0 0 0 1px var(--rule-firm); }
+
+.finding { cursor: pointer; border-left: 3px solid transparent; padding-left: 10px; }
+.finding.cat-grammar { border-left-color: var(--cat-grammar); }
+.finding.cat-typo    { border-left-color: var(--cat-typo); }
+.finding.cat-style   { border-left-color: var(--cat-style); }
+.finding:hover { background: var(--paper-sunk); }
+.finding.active { background: var(--paper-mark); outline: 1px solid var(--rule-firm); }
+.finding .head { display: flex; align-items: center; gap: 8px; }

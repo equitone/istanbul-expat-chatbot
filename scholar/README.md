@@ -37,7 +37,11 @@ writing, without deleting anything. Every tab says how large the set it used
 was, so a finding about "the literature" is always a finding about something
 you can point at.
 
-**Find** — catalogue records from OpenAlex and Crossref, shown as they come.
+**Find** — catalogue records from five indexes, shown as they come:
+OpenAlex and Crossref, plus DOAJ for open-access and national journals,
+Semantic Scholar because its index is built differently and misses different
+things, and OpenLibrary for books, which is where literary scholarship
+actually lives and where an article index will tell you a field is empty.
 No summaries, because a summary is where invention gets in. Searching for a
 person is two steps: the name resolves to candidate author records with
 enough detail to tell them apart, and only then are that person's works
@@ -76,11 +80,19 @@ from work the field has had to respond to rather than only from what is on
 your shelf; yours come first and are never crowded out.
 
 **Grammar** — the Instructor Workbench's checker pointed at your own
-writing. Mistakes, typos and style are counted separately, because a style
-suggestion is not an error and burying six real faults under forty
-suggestions is how a checker stops being read. Passive-voice share and mixed
-British/American spelling are reported too. Nothing needs a model;
-LanguageTool is an optional second pass, merged in with duplicates dropped.
+writing, with its text beside its findings. Mistakes, typos and style are
+counted separately and coloured separately, because a style suggestion is not
+an error and burying six real faults under forty suggestions is how a checker
+stops being read. Click anything underlined to find it in the list, or a
+finding to jump back to it in the text. Each category can be switched off.
+Passive-voice share and mixed British/American spelling are reported too, and
+the whole thing saves as a self-contained HTML report that prints to PDF with
+the highlighting intact.
+
+Nothing needs a model, and nothing leaves the computer: the rules run in the
+page. LanguageTool is an optional second pass, and if you point it at a
+server that is not on this machine the Grammar tab says so, in those words,
+above the box you are pasting into.
 
 **Calls** — conferences, journal issues, prizes, grants and fellowships,
 with what is left on the clock. The list you keep is the reliable half.
@@ -94,6 +106,25 @@ There is no API for literature CFPs, and an empty list that silently means
 model anywhere near it. Take them from your library, paste a bibliography, or
 type them. A missing publisher is reported as missing rather than invented,
 and the list copies out with the italics intact.
+
+## JSTOR, Project MUSE, Scopus and the MLA Bibliography
+
+These cannot be searched from here, and the app does not pretend to. They
+publish no interface a web page may call: JSTOR and MUSE have no public
+search API, and Scopus's needs an Elsevier key tied to a subscribing
+institution's network and refuses browser requests by design. The MLA
+International Bibliography is licensed through EBSCO or ProQuest.
+
+So the Find tab builds your search into each one's own URL and opens it in a
+tab, where your university login already applies. Export what you find as RIS
+or BibTeX, drop the file into the Library, and those records join everything
+else: counted in the coverage figures, placed on the gap map if they carry an
+abstract, and checkable because they keep their DOI. The same panel links
+YÖK's thesis centre and DergiPark, which no international index covers
+properly.
+
+Writing a fake Scopus search that silently returned nothing would be worse
+than this in every way, and invisible.
 
 ## Two rules the whole thing is built on
 
@@ -135,9 +166,10 @@ emits the patterns it tells you to remove is not worth having.
 
 ## Shared code
 
-Ten analysis modules are shared verbatim with `../instructor`: `text.js`,
+Twelve modules are shared verbatim with `../instructor`: `text.js`,
 `lexicons.js`, `bloom.js`, `gaps.js`, `argument.js`, `verify.js`,
-`grammar.js`, `mechanics.js`, `learner-english.js`, `languagetool.js`. They are
+`grammar.js`, `mechanics.js`, `learner-english.js`, `languagetool.js`,
+`segments.js`, and `turkish.js` a level up. They are
 pure — no DOM, no store — so a copy works. A copy is also how a counting
 helper drifted out of step earlier in this project and silently dropped a
 category, so `./sync-shared.sh` diffs them and `package.sh` refuses to build

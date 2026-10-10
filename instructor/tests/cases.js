@@ -73,6 +73,13 @@ export const POSITIVE = [
   ['discuss-about', 'The chapter discusses about the reception of the work.'],
   ['research-plural', 'Recent researches have addressed this question.'],
   ['informations', 'The informations were gathered from three archives.'],
+
+  // --- numerals without a plural, the commonest slip in the cohort.
+  //     A verb may follow, and must not be read as the plural noun that
+  //     would make the numeral an adjective ("three main reasons").
+  ['number-singular-noun', 'Three student was late to the seminar.'],
+  ['number-singular-noun', 'A reading of two book reveals the pattern.'],
+  ['number-singular-noun', 'The author cites four source in that chapter.'],
   ['irregardless', 'Irregardless of the outcome, the method holds.'],
 
   // --- spelling ---
@@ -103,6 +110,9 @@ export const NEGATIVE = [
   'The criteria are not met by any of the four cases examined here.',
   'This phenomenon is well documented in the comparative literature.',
   'The data were collected over two years by a team of four researchers.',
+  'Three main reasons are given for the revision.',
+  'The two studies were published within a year of each other.',
+  'Four chapters remain unrevised.',
   'There are many reasons to doubt this conclusion, and the chapter examines three.',
   'These results show a downward trend across the period under discussion.',
   'Several studies confirm the pattern, though none accounts for the outliers.',

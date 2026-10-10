@@ -41,6 +41,7 @@
  * amount of querying invents what was never indexed.
  */
 import { nameKey } from '../turkish.js';
+import { searchExtras } from './catalogues.js';
 
 const AUTHORS = 'https://api.openalex.org/authors';
 const WORKS = 'https://api.openalex.org/works';
@@ -373,22 +374,46 @@ export function profile(works) {
  * question someone asks after an empty result.
  */
 export async function worksMentioningName(name, { signal, perPage = 25 } = {}) {
-  const [oa, cr] = await Promise.allSettled([
+  const [oa, cr, ex] = await Promise.allSettled([
     openalexMentions(name, { signal, perPage }),
-    crossrefByAuthor(name, { signal, rows: perPage })
+    crossrefByAuthor(name, { signal, rows: perPage }),
+    /* The same supplementary indexes the topic search uses. A person whose
+       work is in a national journal or in books is exactly who the big two
+       miss, so this is where they most often turn up. */
+    searchExtras(name, { signal, limit: perPage })
   ]);
-  if (oa.status === 'rejected' && cr.status === 'rejected') throw oa.reason;
+  if (oa.status === 'rejected' && cr.status === 'rejected' && ex.status === 'rejected') throw oa.reason;
 
   const base = oa.status === 'fulfilled' ? oa.value : { total: 0, works: [] };
-  const extra = cr.status === 'fulfilled' ? cr.value : [];
-  const seen = new Set(base.works.map((w) => String(w.doi || w.title).toLowerCase()));
-  const added = extra.filter((w) => !seen.has(String(w.doi || w.title).toLowerCase()));
+  const fromCr = cr.status === 'fulfilled' ? cr.value : [];
+  const fromEx = ex.status === 'fulfilled' ? ex.value : { works: [], status: [] };
 
+  /* A name on the by-line, folded so spelling does not decide it. */
+  const wanted = nameKey(name).split(' ').filter((w) => w.length > 2);
+  const onByline = (authors) => (authors || []).some((a) => {
+    const k = nameKey(a);
+    return wanted.every((part) => k.includes(part));
+  });
+
+  const seen = new Set(base.works.map((w) => String(w.doi || w.title).toLowerCase()));
+  const added = [];
+  for (const w of [...fromCr, ...fromEx.works]) {
+    const key = String(w.doi || w.title || '').toLowerCase();
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    added.push({ ...w, byline: w.byline !== undefined ? w.byline : onByline(w.authors) });
+  }
+
+  const answered = (fromEx.status || []).filter((x) => x.ok && x.count);
   return {
     total: base.total + added.length,
-    fromCrossref: added.length,
-    catalogues: [oa.status === 'fulfilled' ? 'OpenAlex' : '', cr.status === 'fulfilled' ? 'Crossref' : '']
-      .filter(Boolean).join(' and ') || 'neither catalogue',
+    fromCrossref: fromCr.length,
+    fromExtras: fromEx.status || [],
+    catalogues: [
+      oa.status === 'fulfilled' ? 'OpenAlex' : '',
+      cr.status === 'fulfilled' ? 'Crossref' : '',
+      ...answered.map((a) => a.label)
+    ].filter(Boolean).join(', ') || 'no catalogue',
     works: [...base.works, ...added].sort((a, b) => Number(b.byline) - Number(a.byline) || b.citedBy - a.citedBy)
   };
 }

@@ -31,6 +31,8 @@
  * scholarship is thin in both catalogues. A hole found here may be full of
  * books published in Istanbul. Every caller is expected to pass that on.
  */
+import { searchExtras } from './catalogues.js';
+
 const OPENALEX = 'https://api.openalex.org/works';
 const CROSSREF = 'https://api.crossref.org/works';
 
@@ -211,23 +213,62 @@ export async function gatherCorpus(query, opts = {}) {
       crossrefNote = ` Crossref did not answer (${err.message}), so this is OpenAlex alone.`;
     }
   }
+
+  /*
+   * The supplementary catalogues.
+   *
+   * Three to five indexes rather than one, because a single index
+   * manufactures gaps that are really holes in its own coverage. Each is
+   * tried independently and none of them can fail the gather; what answered
+   * is reported, since a catalogue that returned nothing and a catalogue
+   * that was never reached look identical on screen otherwise.
+   */
+  let extras = { works: [], status: [] };
+  if (opts.extras !== false) {
+    if (opts.onProgress) opts.onProgress({ fetched: base.fetched, total: base.total, stage: 'the other catalogues' });
+    extras = await searchExtras(query, { signal: opts.signal, limit: Math.min(100, opts.want || 100) });
+  }
+
   const works = [...base.works, ...extra];
+  /* Merged by DOI first, then by title: the same article reached through
+     three catalogues must count once, or every figure downstream inflates. */
+  const seen = new Set(works.map((w) => String(w.doi || w.title || '').toLowerCase()));
+  for (const w of extras.works) {
+    const key = String(w.doi || w.title || '').toLowerCase();
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    works.push(w);
+  }
+
   const placeable = works.filter((w) => (w.abstract || '').length > 40);
+  const answered = extras.status.filter((x) => x.ok);
+  const refused = extras.status.filter((x) => !x.ok);
+  const books = works.filter((w) => w.type === 'book').length;
   return {
     ...base,
-    catalogue: extra.length ? 'OpenAlex and Crossref' : base.catalogue,
+    catalogue: ['OpenAlex', extra.length ? 'Crossref' : '', ...answered.map((a) => a.label)].filter(Boolean).join(', '),
     works,
     fetched: works.length,
     placeable,
     withAbstract: placeable.length,
     fromCrossref: extra.length,
+    fromExtras: extras.status,
+    books,
     /* Recomputed rather than appended to: the figures in the sentence have to
        be the figures on screen, and base.note was written before Crossref
        added anything. */
     note: `${base.total.toLocaleString()} works match “${base.query}” in OpenAlex; the ${base.fetched} most relevant were examined`
-      + (extra.length ? `, and Crossref added ${extra.length} more it does not hold` : '')
-      + `. ${placeable.length} of the ${works.length} carry enough text to place. `
-      + 'Monographs are indexed far more thinly than articles, and Turkish-language scholarship thinly in both catalogues.'
+      + (extra.length ? `, Crossref added ${extra.length} more` : '')
+      + (answered.length
+        ? `, and ${answered.filter((a) => a.count).map((a) => `${a.label} ${a.count}`).join(', ') || 'the other catalogues nothing new'}`
+        : '')
+      + `. ${works.length} after removing duplicates, ${placeable.length} of them carrying enough text to place`
+      + (books ? `, ${books} of them books, which carry no abstract and so are listed but not placed` : '')
+      + '. '
+      + (refused.length
+        ? `${refused.map((r) => r.label).join(' and ')} did not answer, so anything only they hold is missing here. `
+        : '')
+      + 'JSTOR, Project MUSE, Scopus and the MLA Bibliography cannot be searched from here at all — use the links on the Find tab and bring the results back as a RIS or BibTeX file.'
       + crossrefNote
   };
 }

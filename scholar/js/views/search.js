@@ -14,6 +14,7 @@ import { el, mount, sheet, tag, toast, clip, empty, figure, table } from '../ui.
 import { getState, addSources } from '../store.js';
 import { searchOpenAlex, searchCrossref } from '../analysis/verify.js';
 import { findPeople, worksByAuthor, profile, worksMentioningName } from '../analysis/people.js';
+import { searchExtras, FETCHABLE, HANDOFF } from '../analysis/catalogues.js';
 
 const S = {
   mode: 'works',
@@ -57,7 +58,8 @@ export default function render(root, ctx) {
     ),
 
     errorSheet(root, ctx),
-    S.mode === 'people' ? peopleResults(root, ctx) : workResults(root, ctx)
+    S.mode === 'people' ? peopleResults(root, ctx) : workResults(root, ctx),
+    handoffSheet(root, ctx)
   );
 }
 
@@ -89,6 +91,40 @@ function errorSheet(root, ctx) {
   );
 }
 
+/*
+ * The databases this app cannot read.
+ *
+ * JSTOR, Project MUSE, Scopus and the MLA Bibliography publish no interface
+ * a web page may call: no public API, or one that needs an institutional key
+ * and refuses browser requests. Rather than pretend, the search you typed is
+ * built into each one's own URL and opened in a tab, where your university
+ * login already applies. Export what you find as RIS or BibTeX and the
+ * Library will read the file, at which point those records join everything
+ * else here.
+ *
+ * It is on screen whenever there is a query, not hidden behind a disclosure,
+ * because the advice in the field is to use three to five indexes and a
+ * single-index search is what manufactures false gaps in the first place.
+ */
+function handoffSheet(root, ctx) {
+  const q = S.q.trim();
+  if (q.length < 2) return null;
+  return sheet('Search the subscription databases',
+    el('p', { class: 'note', style: 'margin-bottom:14px', text: 'These cannot be read from here — they publish no interface a web page may call — so each link opens your search in a tab, through your library login. Bring what you find back with Library → from a file: it reads RIS and BibTeX exports.' }),
+    el('div', { class: 'handoff' }, HANDOFF.map((d) => el('div', { class: 'item' },
+      el('div', { class: 'row' },
+        el('div', {},
+          el('div', { class: 'title', style: 'font-size:16px', text: d.label }),
+          el('div', { class: 'body', style: 'font-size:13.5px', text: d.about }),
+          d.note ? el('div', { class: 'note', style: 'margin-top:4px', text: d.note }) : null),
+        el('div', { class: 'spacer' }),
+        el('a', { class: 'button sm', href: d.url(q), target: '_blank', rel: 'noopener',
+          text: d.manual ? 'Open it \u2197' : `Search \u201C${clip(q, 28)}\u201D \u2197` })
+      )))),
+    el('p', { class: 'note', style: 'margin-top:14px', text: 'YÖK\u2019s thesis centre has no linkable search, so that one opens its front page; type the terms there. The others build the query for you, and if a link lands on a front page instead of results, that database has changed its URL format.' })
+  );
+}
+
 /* ----------------------------------------------------------------- works */
 
 function workResults(root, ctx) {
@@ -97,7 +133,11 @@ function workResults(root, ctx) {
   if (!works.length) return sheet(null, empty('Nothing came back', 'Try broader words, or drop the year filter.'));
   return sheet(null,
     el('div', { class: 'row', style: 'margin-bottom:16px' },
-      el('div', { class: 'note', text: `${works.length} shown of ${total.toLocaleString()} matching in ${source}.` }),
+      el('div', { class: 'note' },
+        `${works.length} shown of ${total.toLocaleString()} matching in ${source}.`,
+        S.works.refused && S.works.refused.length
+          ? el('span', { text: ` ${S.works.refused.map((r) => r.label).join(' and ')} did not answer, so anything only ${S.works.refused.length === 1 ? 'it holds' : 'they hold'} is missing.` })
+          : null),
       el('div', { class: 'spacer' }),
       el('button', { class: 'sm', text: `Keep ${S.picked.size || 'selected'}`, disabled: !S.picked.size, onClick: () => keep(root, ctx, works) })
     ),
@@ -291,18 +331,31 @@ async function run(root, ctx) {
       if (!S.people.length) S.loose = await worksMentioningName(q);
     } else {
       const fromYear = S.fromYear ? Number(S.fromYear) : null;
-      const [oa, cr] = await Promise.allSettled([
+      const [oa, cr, ex] = await Promise.allSettled([
         searchOpenAlex(q, { perPage: 25, fromYear }),
-        searchCrossref(q, { rows: 10, fromYear })
+        searchCrossref(q, { rows: 10, fromYear }),
+        searchExtras(q, { limit: 25 })
       ]);
       if (oa.status === 'fulfilled') {
-        /* Crossref fills gaps where OpenAlex has no abstract; duplicates by
-           DOI are dropped rather than shown twice. */
+        /* Every catalogue merged by DOI, then by title: the same article
+           reached three ways must appear once, or the count lies. */
         const seen = new Set(oa.value.works.map((w) => (w.doi || w.title).toLowerCase()));
-        const extra = cr.status === 'fulfilled'
-          ? cr.value.works.filter((w) => !seen.has((w.doi || w.title).toLowerCase()))
-          : [];
-        S.works = { works: [...oa.value.works, ...extra], total: oa.value.total, source: extra.length ? 'OpenAlex and Crossref' : 'OpenAlex' };
+        const take = (list) => list.filter((w) => {
+          const k = String(w.doi || w.title || '').toLowerCase();
+          if (!k || seen.has(k)) return false;
+          seen.add(k);
+          return true;
+        });
+        const extra = cr.status === 'fulfilled' ? take(cr.value.works) : [];
+        const more = ex.status === 'fulfilled' ? take(ex.value.works) : [];
+        const answered = ex.status === 'fulfilled' ? ex.value.status.filter((x) => x.ok) : [];
+        const refused = ex.status === 'fulfilled' ? ex.value.status.filter((x) => !x.ok) : [];
+        S.works = {
+          works: [...oa.value.works, ...extra, ...more],
+          total: oa.value.total,
+          source: ['OpenAlex', extra.length ? 'Crossref' : '', ...answered.map((a) => a.label)].filter(Boolean).join(', '),
+          refused
+        };
       } else if (cr.status === 'fulfilled') {
         S.works = { ...cr.value, source: 'Crossref (OpenAlex did not answer)' };
       } else {
