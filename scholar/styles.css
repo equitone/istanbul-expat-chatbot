@@ -566,3 +566,88 @@ body.is-offline .offline input { accent-color: var(--paper); }
 
 /* The authority behind a finding, quiet but always present. */
 .finding .source { font-style: italic; opacity: 0.75; }
+
+/* ------------------------------------------------- the style audit, on References
+ *
+ * Six buttons that must be told apart at a glance: three styles to work to
+ * and three checks to run. Colour carries which is which, and the pressed
+ * state carries the colour solid rather than relying on a tint, so the
+ * choice is still legible to anyone who does not see the hues apart. Each
+ * also says in words what it is, so the colour is a second signal and never
+ * the only one.
+ */
+:root {
+  --sty-apa:  #1f6f5c;   /* green, the sciences */
+  --sty-mla8: #7a4fa3;   /* violet, the older handbook */
+  --sty-mla9: #3f5fb0;   /* blue, the current one */
+  --chk-cite:  #b4651a;  /* the citations in the prose */
+  --chk-list:  #1f6f5c;  /* the list at the back */
+  --chk-marks: #a32f3f;  /* the marks inside both */
+}
+
+.styles, .checks { display: flex; flex-wrap: wrap; gap: 10px; }
+
+.style-pick, .check-run {
+  flex: 1 1 190px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  text-align: left;
+  padding: 11px 13px;
+  border: 1.5px solid var(--rule-firm);
+  border-left-width: 5px;
+  border-radius: 3px;
+  background: var(--paper);
+  color: var(--ink);
+  cursor: pointer;
+  font-family: var(--sans);
+}
+.style-pick .name, .check-run .name { font-weight: 600; font-size: 14.5px; }
+.style-pick .what, .check-run .what {
+  font-size: 12.5px; color: var(--ink-faint); line-height: 1.45; white-space: normal;
+}
+.style-pick:hover, .check-run:hover:not(:disabled) { background: var(--paper-sunk); }
+.check-run:disabled { opacity: 0.45; cursor: not-allowed; }
+
+.style-pick.apa  { border-left-color: var(--sty-apa); }
+.style-pick.mla8 { border-left-color: var(--sty-mla8); }
+.style-pick.mla9 { border-left-color: var(--sty-mla9); }
+
+/* Pressed: the colour fills, so the chosen one is obvious without hue. */
+.style-pick[aria-pressed="true"] { color: var(--paper); border-color: transparent; }
+.style-pick[aria-pressed="true"] .what { color: rgba(255, 255, 255, 0.82); }
+.style-pick.apa[aria-pressed="true"]  { background: var(--sty-apa); }
+.style-pick.mla8[aria-pressed="true"] { background: var(--sty-mla8); }
+.style-pick.mla9[aria-pressed="true"] { background: var(--sty-mla9); }
+
+.check-run.check-cite  { border-left-color: var(--chk-cite); }
+.check-run.check-list  { border-left-color: var(--chk-list); }
+.check-run.check-marks { border-left-color: var(--chk-marks); }
+
+/* The heading over a result, in the colour of the check that produced it. */
+.audit-head {
+  font-family: var(--sans);
+  font-size: 13px;
+  letter-spacing: 0.02em;
+  padding: 7px 11px;
+  border-radius: 3px;
+  color: var(--paper);
+  display: inline-block;
+}
+.audit-head.check-cite  { background: var(--chk-cite); }
+.audit-head.check-list  { background: var(--chk-list); }
+.audit-head.check-marks { background: var(--chk-marks); }
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --sty-apa:  #4fae93;
+    --sty-mla8: #b089d6;
+    --sty-mla9: #7f9ce0;
+    --chk-cite:  #e0924a;
+    --chk-list:  #4fae93;
+    --chk-marks: #e07a88;
+  }
+  :root:not([data-theme="light"]) .style-pick[aria-pressed="true"],
+  :root:not([data-theme="light"]) .audit-head { color: #14140f; }
+  :root:not([data-theme="light"]) .style-pick[aria-pressed="true"] .what { color: rgba(0, 0, 0, 0.68); }
+}

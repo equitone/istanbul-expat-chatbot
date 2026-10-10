@@ -14,13 +14,22 @@
 import { el, mount, sheet, tag, toast, clip, empty, figure } from '../ui.js';
 import { getState, activeSources } from '../store.js';
 import { formatReference, refFromSource, blankRef, stripMarks, toHtml, CITE_TYPES } from '../analysis/cite.js';
+import { auditStyle, STYLES as AUDIT_STYLES, CHECKS, DEFAULT_STYLE } from '../analysis/style-audit.js';
+import { buildDocument } from '../analysis/text.js';
 
 const S = {
   style: 'apa',
   refs: [],          /* working list, not stored: a bibliography is a draft */
   editing: null,
   pasting: false,
-  pasted: ''
+  pasted: '',
+  /* ---- the audit half: a document of yours, checked against one style --- */
+  auditStyle: DEFAULT_STYLE,
+  auditText: '',
+  auditFile: '',
+  auditBusy: null,
+  audit: null,
+  ran: new Set()     /* which of the three checks were asked for */
 };
 
 export default function render(root, ctx) {
@@ -31,9 +40,9 @@ export default function render(root, ctx) {
 
   mount(root,
     el('h1', { text: 'References' }),
-    el('p', { class: 'lede', text: 'APA 7 or MLA 9, formatted from the fields rather than written by a model. Anything missing is named as missing, because a reference with an invented page range is worse than one with a hole in it.' }),
+    el('p', { class: 'lede', text: 'Two halves. Build a reference from its fields, in APA 7 or MLA 9, with nothing written by a model and anything missing named as missing. Or open a draft you have written and check its citations against APA 7, MLA 8 or MLA 9.' }),
 
-    sheet(null,
+    sheet('Build a reference',
       el('div', { class: 'row', style: 'margin-bottom:16px' },
         el('div', { class: 'seg' },
           el('button', { 'aria-pressed': String(S.style === 'apa'), text: 'APA 7',
@@ -52,6 +61,9 @@ export default function render(root, ctx) {
         S.refs.length ? el('button', { class: 'bare sm', text: 'Clear the list',
           onClick: () => { S.refs = []; render(root, ctx); } }) : null)
     ),
+
+    auditSheet(root, ctx),
+    auditResults(root, ctx),
 
     S.pasting ? pasteBox(root, ctx) : null,
     S.editing ? sheet(null, refForm(root, ctx)) : null,
@@ -183,6 +195,132 @@ function saveRef(root, ctx) {
 }
 
 /* ----------------------------------------------------------------- paste */
+
+/* ====================================================================== *
+ * Checking a document against a style.
+ *
+ * Separate from the formatter above, and deliberately so: that half builds
+ * a reference out of fields you supply, this half reads a draft you already
+ * wrote and says where it departs from the style you are working to.
+ *
+ * Three checks, because they are three different jobs done at three
+ * different moments: the citations in the prose, the list at the back, and
+ * the punctuation inside both. Each runs on its own so a chapter full of
+ * citation slips does not bury one bad entry.
+ *
+ * Nothing is rewritten. Every finding says what is wrong and which manual
+ * says so, and the fixing is yours.
+ * ====================================================================== */
+
+function auditSheet(root, ctx) {
+  const st = AUDIT_STYLES.find((x) => x.id === S.auditStyle) || AUDIT_STYLES[0];
+  return sheet('Check a draft against a style',
+    el('p', { class: 'note', style: 'margin-bottom:14px', text: 'Open a chapter or an article and it is read here, in this browser. Nothing is uploaded and nothing is changed: each check says what departs from the style and names the manual it comes from.' }),
+
+    el('div', { class: 'styles', style: 'margin-bottom:16px' },
+      AUDIT_STYLES.map((x) => el('button', {
+        class: `style-pick ${x.tone}`, 'aria-pressed': String(S.auditStyle === x.id),
+        onClick: () => { S.auditStyle = x.id; S.audit = null; render(root, ctx); }
+      },
+      el('span', { class: 'name', text: x.label }),
+      el('span', { class: 'what', text: x.about })))),
+
+    el('div', { class: 'row', style: 'margin-bottom:12px' },
+      el('input', { id: 'audit-file', type: 'file',
+        accept: '.txt,.md,.markdown,.pdf,.docx,.rtf,.html,.htm',
+        onChange: (e) => readDraft(e.target.files[0], root, ctx) }),
+      S.auditBusy ? el('span', { class: 'note' }, el('span', { class: 'spin' }), ` ${S.auditBusy}`) : null),
+
+    S.auditFile
+      ? el('p', { class: 'note', text: `Read from ${S.auditFile}: ${S.auditText.split(/\s+/).filter(Boolean).length.toLocaleString()} words.` })
+      : null,
+
+    el('div', { class: 'checks', style: 'margin-top:4px' },
+      CHECKS.map((c) => el('button', {
+        class: `check-run ${c.tone}`, disabled: !S.auditText || Boolean(S.auditBusy),
+        onClick: () => runCheck(c.id, root, ctx)
+      },
+      el('span', { class: 'name', text: c.label }),
+      el('span', { class: 'what', text: c.about })))),
+
+    el('p', { class: 'note', style: 'margin-top:14px', text: `Rules from ${st.manual}. No copy of the APA or MLA manuals ships with this app, so these findings name the manual and the rule rather than a chapter, and only patterns the style is unambiguous about are checked. For MLA, the eighth and ninth editions agree on the entry types a literature department submits; where a finding differs between them the tab will show it.` })
+  );
+}
+
+async function readDraft(file, root, ctx) {
+  if (!file) return;
+  S.auditBusy = `Reading ${file.name}\u2026`;
+  S.audit = null;
+  render(root, ctx);
+  try {
+    const { extractText } = await import('../io/files.js');
+    const { text } = await extractText(file);
+    if (!text || text.trim().length < 40) throw new Error('almost no text came out of it');
+    S.auditText = text;
+    S.auditFile = file.name;
+  } catch (err) {
+    toast(`Could not read it: ${err.message}`);
+  }
+  S.auditBusy = null;
+  render(root, ctx);
+}
+
+function runCheck(id, root, ctx) {
+  const doc = buildDocument(S.auditText);
+  S.ran = new Set([id]);
+  S.audit = auditStyle(doc, { style: S.auditStyle, checks: [id] });
+  S.audit.check = CHECKS.find((c) => c.id === id);
+  render(root, ctx);
+}
+
+/*
+ * The findings.
+ *
+ * An empty result is given its own wording per check, because "no findings"
+ * means something different each time and a single blank panel would let a
+ * check that found nothing to look at pass for a clean bill of health.
+ */
+function auditResults(root, ctx) {
+  const r = S.audit;
+  if (!r) return null;
+  const c = r.check;
+  const st = AUDIT_STYLES.find((x) => x.id === r.style);
+
+  if (!r.issues.length) {
+    let why = `Nothing in your ${c.label.toLowerCase()} departs from ${st.label}.`;
+    if (c.id === 'citations' && !r.citationsFound) {
+      why = 'No in-text citation in a form this recognises was found at all, so nothing was checked. Parenthetical and narrative citations are what it looks for.';
+    } else if (c.id === 'entries' && !r.list) {
+      why = 'No reference list was found. It is located by its heading \u2014 References, Works Cited or Bibliography on a line of its own \u2014 so nothing was checked.';
+    }
+    return sheet(null, el('div', { class: `audit-head ${c.tone}` },
+      el('strong', { text: c.label }), ' \u2014 ', st.label),
+      empty('Nothing to report', why));
+  }
+
+  const bySeverity = { high: 0, medium: 0, low: 0 };
+  r.issues.forEach((i) => { bySeverity[i.severity] = (bySeverity[i.severity] || 0) + 1; });
+
+  return sheet(null,
+    el('div', { class: `audit-head ${c.tone}` },
+      el('strong', { text: c.label }), ' \u2014 ', st.label, ' \u2014 ',
+      `${r.issues.length} finding${r.issues.length === 1 ? '' : 's'}`),
+    el('div', { class: 'row tight', style: 'margin:10px 0 16px' },
+      bySeverity.high ? tag(`${bySeverity.high} clearly wrong`, 'firm') : null,
+      bySeverity.medium ? tag(`${bySeverity.medium} to look at`) : null,
+      bySeverity.low ? tag(`${bySeverity.low} minor`) : null,
+      r.list ? tag(`${r.list.count} entries in the list`) : null,
+      c.id === 'citations' ? tag(`${r.citationsFound} citations seen`) : null),
+    el('div', {}, r.issues.map((i) => el('div', { class: `finding sev-${i.severity}` },
+      el('div', { class: 'head' },
+        el('span', { class: 'mono', text: i.rule }),
+        el('span', { class: 'sev', text: i.severity })),
+      el('div', { class: 'excerpt', text: i.excerpt }),
+      el('div', { class: 'body', text: i.message }),
+      el('div', { class: 'source', text: `${i.says} \u2014 ${i.source}` })))),
+    el('p', { class: 'note', style: 'margin-top:14px', text: 'Nothing above has been changed in your file. Fix them in your own document; this never rewrites a citation, because a citation silently corrected is a citation nobody checked.' })
+  );
+}
 
 function pasteBox(root, ctx) {
   return sheet(null,
