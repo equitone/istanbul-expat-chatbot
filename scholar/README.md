@@ -106,6 +106,19 @@ the rules that assume a sentence. A thesis has a section break every page or
 two, and a checker that marks up the table of contents is one nobody
 finishes reading.
 
+The punctuation rules come from one book, June Casagrande's *The Best
+Punctuation Book, Period*, and every punctuation finding names the chapter
+behind it, so a disagreement is settled by opening the book rather than by
+arguing with the app. Settings asks which style you write in, because the
+four major styles disagree in real places and those are exactly the places a
+checker otherwise marks correct writing wrong. The en dash is the clearest
+case: it exists only in book style, so under the academic setting a
+hyphenated date range is left alone. Sentence spacing splits the same way,
+one space in three styles and either in academic writing, which turns that
+rule into a consistency check. Anything the book calls the writer's
+judgement — commas around "however", commas between short independent
+clauses — is not checked at all.
+
 Nothing needs a model, and nothing leaves the computer: the rules run in the
 page. LanguageTool is an optional second pass that catches more, and it can
 also be run on this computer — Settings has the Docker and Java commands, and
@@ -192,10 +205,10 @@ emits the patterns it tells you to remove is not worth having.
 
 ## Shared code
 
-Twelve modules are shared verbatim with `../instructor`: `text.js`,
+Thirteen modules are shared verbatim with `../instructor`: `text.js`,
 `lexicons.js`, `bloom.js`, `gaps.js`, `argument.js`, `verify.js`,
-`grammar.js`, `mechanics.js`, `learner-english.js`, `languagetool.js`,
-`segments.js`, and `turkish.js` a level up. They are
+`grammar.js`, `mechanics.js`, `punctuation.js`, `learner-english.js`,
+`languagetool.js`, `segments.js`, and `turkish.js` a level up. They are
 pure — no DOM, no store — so a copy works. A copy is also how a counting
 helper drifted out of step earlier in this project and silently dropped a
 category, so `./sync-shared.sh` diffs them and `package.sh` refuses to build
@@ -211,6 +224,23 @@ works online and fails offline.
 Opened from a folder rather than served, the parser runs on the main thread,
 because browsers will not start a background worker from a `file://` page. A
 long PDF is slower that way. The served version has no such limit.
+
+## The offline switch
+
+Top right, in the header. On, and nothing can leave this computer: every way
+a page has of sending something — `fetch`, `XMLHttpRequest`, `sendBeacon`,
+WebSocket, EventSource — is replaced before a single line of the app loads,
+so there is no order in which some part of it gets an unwrapped one. It reads
+its setting straight out of storage rather than asking the app, for the same
+reason, and it fails shut: if it cannot read the setting, it blocks.
+
+Addresses on this computer are left alone, because a model or a LanguageTool
+server running here is not data leaving.
+
+It ships off. Half of what this app does is search catalogues, and shipping
+with that dead would read as broken rather than as careful. On, the header
+inverts so the state is visible from every tab, and the tabs that need the
+internet say they were refused rather than failing like a bad connection.
 
 ## Where your data is
 

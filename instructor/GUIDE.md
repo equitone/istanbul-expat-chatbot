@@ -189,7 +189,12 @@ explaining each one. Click a finding to jump to it.
 
 The tabs across the top of the results:
 
-- **Findings** — spelling, grammar, punctuation, register.
+- **Findings** — spelling, grammar, punctuation, register. The punctuation
+  rules come from one book, June Casagrande's *The Best Punctuation Book,
+  Period*, and each finding names the chapter behind it, so a student who
+  argues can be shown where it is settled. They run as academic style, which
+  is what the book calls MLA: judgement calls the book gives both ways,
+  among them the comma after an opening phrase, are not marked at all.
 - **Level of thinking** — the important one. It places each paragraph on
   Bloom's revised taxonomy (Anderson & Krathwohl 2001): is the student
   *retelling* the novel or *reading* it? The headline number is the share of

@@ -29,6 +29,12 @@ cp -R "$DIR/index.html" "$DIR/styles.css" "$DIR/js" "$DIR/vendor" "$DIR/serve.js
 cp "$DIR/Start Scholar Desk.command" "$DIR/start.bat" "$DIR/start.ps1" "$APP/"
 chmod +x "$APP/start.sh" "$APP/Start Scholar Desk.command"
 [ -f "$DIR/README.md" ] && cp "$DIR/README.md" "$APP/"
+
+# The marked-up test essays, so the Grammar tab can be tried on something
+# with known faults in it before it is pointed at real work. The script that
+# generates them is a development tool and stays out.
+mkdir -p "$APP/samples"
+cp "$DIR/samples/README.md" "$DIR/samples"/test-essay*.txt "$DIR/samples"/test-essay*.docx "$APP/samples/"
 printf "export const BUILD = '%s';\n" "$(date +%Y-%m-%d-%H%M)" > "$APP/js/version.js"
 
 # The single file is built from the staged copy, so it carries the same stamp.
@@ -69,6 +75,22 @@ the export and import buttons in Settings.
 
 No installer, no account, no build step. Export a backup from Settings now and
 then.
+
+THE OFFLINE SWITCH, top right
+   Flick it on and nothing can leave this computer. Every way a web page has
+   of sending something is shut off before the app starts, and it fails shut:
+   if it cannot read its own setting it blocks anyway. The whole header turns
+   black so you can see the state from any tab.
+
+   It starts off, because searching the catalogues is half of what this app
+   does and that needs the internet. With it on, the catalogue searches, the
+   calls feeds and the Claude API stop working and say why. A model or a
+   LanguageTool server running on this same computer still works — that is
+   not data leaving it.
+
+   The grammar checker, the prose check, Bloom, the argument evaluation, the
+   reference formatting and your library never needed the internet in the
+   first place, switch or no switch.
 
 What works with no model at all: searching the catalogues, finding a person,
 the coverage map and the counted gaps, the argument evaluation, Bloom, the
