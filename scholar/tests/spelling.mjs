@@ -68,30 +68,33 @@ ok('American spelling passes the American dictionary',
 ok('and is flagged against the British one',
   (await rulesFor(american, { dialect: 'en_GB' })).length > 0);
 
-/* ---- names: the largest class of word a dictionary lacks ---- */
-ok('a name mid-sentence is left alone',
-  !(await rulesFor('The reading offered by Pamuk is different.')).includes('Pamuk'));
-ok('a name opening a sentence is left alone too, being capitalised throughout',
-  !(await rulesFor('Pamuk writes against it. The reading Pamuk offers is different.')).includes('Pamuk'));
-ok('a Turkish name with diacritics is left alone',
-  (await rulesFor('The essay by Günseli Sönmez İşçi argues otherwise.')).length === 0);
+/* ---- names: reported, but never called misspelled ---- */
+ok('a name the dictionary lacks is reported, nothing guessed on the writer\u2019s behalf',
+  (await rulesFor('The reading offered by Pamuk is different.')).includes('Pamuk'));
+ok('but a name is never called a misspelling, whatever the dictionary offers',
+  (await check('The reading offered by Pamuk is different.')).issues
+    .every((i) => i.rule === 'not-in-dictionary' && !/^Misspelling/.test(i.message)));
 ok('a capitalised unknown word never gets the higher severity',
-  (await check('Yeditepe runs the programme, and Yeditepe funds it, and yeditepe is a hill.')).issues
+  (await check('Yeditepe runs the programme, and Yeditepe funds it.')).issues
     .every((i) => i.severity !== 'high'));
-ok('no finding ever claims a word is misspelled, only that it is unknown',
-  (await check('The seperate chapter and the interiority of it.')).issues
-    .every((i) => i.rule === 'not-in-dictionary' && !/misspell/i.test(i.message)));
-ok('a long word one substitution from a real one is still only offered, not ruled on',
-  (await check('The interiority of that room is the subject.')).issues
-    .every((i) => /Did you mean/.test(i.message)));
+ok('a Turkish name is reported like any other unknown word',
+  (await rulesFor('The essay by G\u00fcnseli S\u00f6nmez \u0130\u015f\u00e7i argues otherwise.')).length > 0);
 
-/* ---- the writer's own vocabulary ---- */
-const own = await check('Interiority is the term. The interiority of the room matters, and interiority is what the chapter is about.');
-ok('a word used three times is taken as the writer’s own, not reported',
-  own.issues.length === 0 && (own.ownWords || []).includes('interiority'));
-ok('and is named, so silence is not mistaken for approval',
-  (own.ownWords || []).length === 1);
-ok('a word used once is still reported',
+/* ---- a near miss gets the blunt word, a distant one does not ---- */
+ok('a near miss is called a misspelling',
+  (await check('The seperate chapter is clear.')).issues
+    .every((i) => i.rule === 'misspelling' && /^Misspelling/.test(i.message)));
+ok('and names the word the dictionary has',
+  (await check('The seperate chapter is clear.')).issues[0].suggestion === 'separate');
+
+/* ---- nothing is suppressed any more ---- */
+const thrice = await check('Interiority is the term. The interiority of the room matters, and interiority is what the chapter is about.');
+ok('a word used three times is reported three times, not gathered into a note',
+  thrice.issues.length === 3);
+ok('and the old own-vocabulary list is gone', thrice.ownWords === undefined);
+
+/* ---- the writer's own dictionary: the one escape that is left ---- */
+ok('a word used once is reported',
   (await rulesFor('The interiority of that room is the subject.')).length === 1);
 ok('a word in the writer’s dictionary is never reported',
   (await rulesFor('The interiority of that room is the subject.', { personal: ['interiority'] })).length === 0);
@@ -151,7 +154,8 @@ ok('an uncountable noun is explained once, by the rule that knows why',
 
 const swallowed = await merged('Department of English Language and Literature, Ege University i argue that the interwar short story treats the room as a seperate character rather than as a interior setting, and that this move is what distinguishes it from the domestic novel it grew out of.');
 ok('a clause-length finding does not swallow an unknown word inside it',
-  swallowed.some((i) => i.rule === 'not-in-dictionary' && i.excerpt === 'seperate'));
+  swallowed.some((i) => i.excerpt === 'seperate'
+    && (i.rule === 'not-in-dictionary' || i.rule === 'misspelling')));
 
 console.log('\n  SPELLING, AGAINST A REAL DICTIONARY\n');
 console.log(`  passed: ${pass}/${pass + fails.length}`);
@@ -160,6 +164,6 @@ if (fails.length) {
   fails.forEach((f) => console.log('   - ' + f));
   process.exitCode = 1;
 } else {
-  console.log('  Catches what the old table caught, plus what it could not, and');
-  console.log('  leaves names, subject vocabulary and bibliographies alone.\n');
+  console.log('  Catches what the old table caught and what it could not, reports');
+  console.log('  every word it does not hold, and never rules on a name.\n');
 }

@@ -16,6 +16,42 @@ import renderCalls from './views/calls.js';
 import renderReferences from './views/references.js';
 import renderSettings from './views/settings.js';
 
+/*
+ * TWO DOORS.
+ *
+ * Nine tabs in one row asked a question nobody wants at the start of a
+ * working session: which of these nine am I in the mood for. The two things
+ * this app does are not alike and are not done at the same hour. Building an
+ * argument is open-ended and takes a morning; checking a draft is close work
+ * on something already written and takes twenty minutes.
+ *
+ * So the app opens on the choice, and each door shows only its own tabs.
+ * Settings is in both, because a setting is needed wherever you are, and the
+ * wordmark goes back to the doors from anywhere.
+ *
+ * The door is remembered, so this is a first-run question and not a toll
+ * gate: come back tomorrow and you land where you left off, with the doors
+ * one click away.
+ */
+const DOORS = [
+  {
+    id: 'write',
+    title: 'Write',
+    blurb: 'Build the argument. Find who has written on it, see what is missing, and draft against your own notes.',
+    doing: ['Your library', 'Who has published on it', 'Where the gaps are', 'Drafting', 'Calls for papers'],
+    tabs: ['library', 'search', 'gaps', 'write', 'calls', 'references', 'settings'],
+    land: 'library'
+  },
+  {
+    id: 'check',
+    title: 'Check',
+    blurb: 'Go over something already written. Grammar, spelling and punctuation, how the argument holds up, and whether the citations match the style.',
+    doing: ['Grammar and spelling', 'Punctuation', 'How the argument holds', 'Citations against APA or MLA'],
+    tabs: ['grammar', 'evaluate', 'references', 'settings'],
+    land: 'grammar'
+  }
+];
+
 const VIEWS = [
   { id: 'library', label: 'Library', render: renderLibrary },
   { id: 'search', label: 'Find', render: renderSearch },
@@ -135,12 +171,88 @@ VIEWS.forEach((v) => {
   main.append(el('section', { id: `view-${v.id}`, class: 'view', role: 'tabpanel' }));
 });
 
-let current = location.hash.replace('#', '') || 'library';
-if (!VIEWS.some((v) => v.id === current)) current = 'library';
+/* The entrance, and a panel of its own so it can be shown and hidden like
+   any view rather than by tearing the page down. */
+const foyer = el('section', { id: 'view-foyer', class: 'view foyer' });
+main.append(foyer);
+
+let door = null;
+let current = null;
+
+/*
+ * Which door, and where in it.
+ *
+ * The hash carries both — #check/grammar — so a reload, a back button and a
+ * bookmark all land where they were. A bare tab name in the hash still
+ * works, from an older link: the door it belongs to is worked out from it.
+ */
+function readHash() {
+  const raw = location.hash.replace('#', '');
+  if (!raw || raw === 'doors') return { door: null, view: null };
+  const [a, b] = raw.split('/');
+  const d = DOORS.find((x) => x.id === a);
+  if (d) return { door: d.id, view: d.tabs.includes(b) ? b : d.land };
+  const owner = DOORS.find((x) => x.tabs.includes(a));
+  return owner ? { door: owner.id, view: a } : { door: null, view: null };
+}
+
+function openDoor(id, view) {
+  const d = DOORS.find((x) => x.id === id);
+  if (!d) { showFoyer(); return; }
+  door = d.id;
+  document.body.classList.add('has-door');
+  document.body.setAttribute('data-door', d.id);
+  /* Only this door's tabs. The others are not disabled, they are absent:
+     a greyed-out tab is still a decision to make. */
+  VIEWS.forEach((v) => {
+    const t = document.getElementById(`tab-${v.id}`);
+    if (t) t.hidden = !d.tabs.includes(v.id);
+  });
+  try { localStorage.setItem('scholar-door', d.id); } catch { /* private window */ }
+  go(d.tabs.includes(view) ? view : d.land);
+}
+
+function showFoyer() {
+  door = null;
+  current = null;
+  document.body.classList.remove('has-door');
+  document.body.removeAttribute('data-door');
+  location.hash = 'doors';
+  VIEWS.forEach((v) => {
+    document.getElementById(`view-${v.id}`).classList.remove('active');
+    const t = document.getElementById(`tab-${v.id}`);
+    if (t) t.hidden = true;
+  });
+  foyer.classList.add('active');
+  drawFoyer();
+  window.scrollTo(0, 0);
+}
+
+function drawFoyer() {
+  mount(foyer,
+    el('div', { class: 'foyer-inner' },
+      el('h1', { class: 'foyer-title', text: 'What are you doing today?' }),
+      el('p', { class: 'foyer-sub', text: 'Two ways in. Everything is the same work on the same library; this only decides which half is in front of you. You can swap at any time from the name in the corner.' }),
+      el('div', { class: 'doors' }, DOORS.map((d) => el('button', {
+        class: `door door-${d.id}`, id: `door-${d.id}`,
+        onClick: () => openDoor(d.id, d.land)
+      },
+        el('span', { class: 'door-title', text: d.title }),
+        el('span', { class: 'door-blurb', text: d.blurb }),
+        el('ul', { class: 'door-list' }, d.doing.map((x) => el('li', { text: x }))),
+        el('span', { class: 'door-go', text: 'Open \u2192' })
+      ))),
+      el('p', { class: 'foyer-foot', text: 'Nothing on either side needs the internet except the catalogue searches, and the switch in the corner stops even those.' })
+    )
+  );
+}
 
 function go(id) {
+  const owner = DOORS.find((x) => x.tabs.includes(id));
+  if (owner && owner.id !== door) { openDoor(owner.id, id); return; }
   current = id;
-  location.hash = id;
+  foyer.classList.remove('active');
+  location.hash = `${door}/${id}`;
   VIEWS.forEach((v) => {
     document.getElementById(`view-${v.id}`).classList.toggle('active', v.id === id);
     document.getElementById(`tab-${v.id}`).setAttribute('aria-selected', String(v.id === id));
@@ -171,16 +283,44 @@ function syncContact() {
 }
 syncContact();
 
-subscribe(() => { syncContact(); drawStorageWarning(); drawDeadlines(); draw(current); });
+subscribe(() => { syncContact(); drawStorageWarning(); drawDeadlines(); if (current) draw(current); });
 window.addEventListener('hashchange', () => {
-  const id = location.hash.replace('#', '');
-  if (id && id !== current && VIEWS.some((v) => v.id === id)) go(id);
+  const want = readHash();
+  if (!want.door) { if (door) showFoyer(); return; }
+  if (want.door !== door) openDoor(want.door, want.view);
+  else if (want.view && want.view !== current) go(want.view);
 });
+
+/* The wordmark is the way back to the doors, which is where a one-word
+   mark in the corner already looks like it should go. */
+const mark = document.querySelector('.wordmark');
+if (mark) {
+  mark.setAttribute('role', 'button');
+  mark.setAttribute('tabindex', '0');
+  mark.title = 'Back to the two doors';
+  mark.addEventListener('click', showFoyer);
+  mark.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); showFoyer(); }
+  });
+}
 
 wireOfflineSwitch();
 drawStorageWarning();
 drawDeadlines();
-go(current);
+
+/*
+ * Where to start.
+ *
+ * A link wins, then the door used last, then the foyer. Someone who has
+ * been here before should not have to answer the same question daily; only
+ * a first visit, or a deliberate click on the wordmark, shows the choice.
+ */
+const start = readHash();
+let remembered = null;
+try { remembered = localStorage.getItem('scholar-door'); } catch { /* private window */ }
+if (start.door) openDoor(start.door, start.view);
+else if (DOORS.some((d) => d.id === remembered)) openDoor(remembered, null);
+else showFoyer();
 window.__toast = toast;
 
 /*

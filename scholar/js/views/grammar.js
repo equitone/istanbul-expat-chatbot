@@ -223,7 +223,7 @@ function results(r, root, ctx) {
               r.dialect.total ? 'consistent' : 'nothing to tell from')
       ),
       el('p', { class: 'note', text: `Punctuation checked against ${(PUNCT_STYLES.find((x) => x.id === r.punctuationStyle) || {}).label || r.punctuationStyle} rules, from The Best Punctuation Book, Period. Change the style in Settings; the four disagree in real places, and a rule from the wrong one would tell you to break your own.` }),
-      spellingNote(r, root, ctx),
+      spellingNote(r),
       r.ltNote ? el('p', { class: 'note', text: r.ltNote }) : null,
       !real
         ? el('p', { class: 'note', text: 'Nothing flagged. These rules are deliberately cautious, so this means nothing they test for is wrong, not that the writing is beyond improvement.' })
@@ -259,7 +259,7 @@ function results(r, root, ctx) {
           } })),
       sheet(null,
         shown.length
-          ? el('div', {}, shown.map((i) => issueItem(i, r.text, r.issues.indexOf(i))))
+          ? el('div', {}, shown.map((i) => issueItem(i, r.text, r.issues.indexOf(i), root, ctx)))
           : el('p', { class: 'note', text: S.on.size ? 'Nothing in the categories you are showing.' : 'Every category is hidden. Switch one back on above.' }))
     )
   );
@@ -316,7 +316,7 @@ function highlight(idx) {
   if (card) card.classList.add('active');
 }
 
-function issueItem(i, text, idx) {
+function issueItem(i, text, idx, root, ctx) {
   /* Where it is, in words a person can use: a character offset is useless
      when you are looking at the paragraph in another window. */
   const line = text.slice(0, i.start).split('\n').length;
@@ -335,7 +335,24 @@ function issueItem(i, text, idx) {
     i.suggestion ? el('div', { class: 'meta', style: 'margin-top:4px', text: `Suggested: ${i.suggestion}` }) : null,
     /* Where the rule comes from, on the finding rather than in a footnote:
        a disagreement should be settleable by opening the book. */
-    i.source ? el('div', { class: 'note source', style: 'margin-top:4px', text: i.source }) : null
+    i.source ? el('div', { class: 'note source', style: 'margin-top:4px', text: i.source }) : null,
+    /*
+     * The way out of a dictionary that does not know your subject.
+     *
+     * Every unknown word is reported now, with nothing guessed on your
+     * behalf, so the escape has to be one click away on the finding itself
+     * rather than buried in Settings. Add it once and it never comes back.
+     */
+    (i.rule === 'not-in-dictionary' || i.rule === 'misspelling')
+      ? el('div', { style: 'margin-top:7px' },
+          el('button', { class: 'sm', text: `Add \u201C${i.excerpt}\u201D to my dictionary`,
+            onClick: (e) => {
+              e.stopPropagation();
+              addWords([i.excerpt]);
+              toast(`\u201C${i.excerpt}\u201D added. It will not be reported again.`);
+              run(root, ctx);
+            } }))
+      : null
   );
 }
 
@@ -370,17 +387,16 @@ function copyList(r) {
 }
 
 /*
- * What the spelling check rests on, and what it decided to leave alone.
+ * What the spelling check rests on.
  *
- * Two things have to be on screen for this to be trustworthy. First, which
- * dictionary — a spelling claim with no named dictionary behind it is the
- * thing this replaced. Second, the words it treated as the writer's own, so
- * nobody has to wonder whether silence meant "correct" or "given up on".
+ * Which dictionary has to be on screen for this to be trustworthy: a
+ * spelling claim with no named dictionary behind it is the thing this
+ * replaced.
  *
  * And if the dictionary did not load, that is said instead of nothing.
  * Spelling quietly going unchecked looks exactly like spelling being right.
  */
-function spellingNote(r, root, ctx) {
+function spellingNote(r) {
   const sp = r.spelling;
   if (!sp) return null;
   if (!sp.ran) {
@@ -389,16 +405,7 @@ function spellingNote(r, root, ctx) {
       `The dictionary did not load (${sp.reason}). Everything else on this page ran; spelling alone is missing, and no news here is not good news.`);
   }
   const label = (SPELL_DIALECTS.find((d) => d.id === sp.dialect) || {}).label || sp.dialect;
-  const own = sp.ownWords || [];
-  return el('div', {},
-    el('p', { class: 'note', text: `Spelling checked with Hunspell against the SCOWL ${label} dictionary \u2014 the same files LibreOffice and Firefox use, held beside the app. Change which one in Settings.` }),
-    own.length
-      ? el('p', { class: 'note' },
-          `Used more than twice and not in the dictionary, so taken as your own vocabulary rather than reported: ${own.join(', ')}. `,
-          el('button', { class: 'sm', text: own.length === 1 ? 'Add it to my dictionary' : 'Add them to my dictionary',
-            onClick: () => { addWords(own); toast(`${own.length} word(s) added to your dictionary.`); run(root, ctx); } }))
-      : null
-  );
+  return el('p', { class: 'note', text: `Spelling checked with Hunspell against the SCOWL ${label} dictionary \u2014 the same files LibreOffice and Firefox use, held beside the app. Every word it does not have is listed; add the ones you use to your own dictionary in Settings and they stop coming back. Change which dictionary in Settings.` });
 }
 
 async function run(root, ctx) {

@@ -46,12 +46,11 @@
  *   - A word the writer added to their own dictionary is never reported.
  *     This is what Word and LibreOffice do, and it is the only honest answer
  *     to domain vocabulary: the writer knows and the dictionary does not.
- *   - A capitalised word that is not starting a sentence is taken as a name
- *     and left alone. Proper nouns are the largest class of words a
- *     dictionary lacks and the one where it is least likely to be right.
- *   - A word used three times or more is the writer's term, not a slip. A
- *     typo is not made identically three times. These are gathered into one
- *     finding that lists them, rather than one finding each.
+ *     It is also the only one left, by choice: earlier versions also guessed
+ *     that a word capitalised throughout was a name, and that a word used
+ *     three times was the writer's own term. Both kept a first run short and
+ *     both decided for the writer what was worth seeing, so both are gone.
+ *     What the dictionary lacks is now reported, every time.
  *   - Headings, reference entries, URLs, DOIs, acronyms and anything with a
  *     digit in it are skipped, as everywhere else in this analyser.
  *
@@ -72,7 +71,9 @@ export const DIALECTS = [
   { id: 'en_US', label: 'American', about: 'analyze, color, center, defense.' },
   { id: 'en_GB', label: 'British', about: 'analyse, colour, centre, defence.' }
 ];
-export const DEFAULT_DIALECT = 'en_GB';
+/* American by default, by choice rather than by accident: it is what the
+   writer asked for, and the other is one click away in Settings. */
+export const DEFAULT_DIALECT = 'en_US';
 
 /* One loaded dictionary per dialect, kept for the life of the page: 90ms to
    parse, and the Grammar tab is run over and over. */
@@ -167,26 +168,20 @@ export async function analyseSpelling(doc, { dialect = DEFAULT_DIALECT, personal
     ? Infinity : doc.referencesStart;
   const inSkipped = (at) => at >= refsFrom || skip.some(([a, b]) => at >= a && at < b);
 
-  /* Sentence starts: a capital there says nothing about whether it is a
-     name, so those words are checked like any other. */
-  const sentenceStarts = new Set((doc.sentences || []).map((s) => {
-    const first = (s.words || [])[0];
-    return first ? first.start : -1;
-  }));
-
   /*
-   * Which words the document ever writes in lower case.
+   * EVERY UNKNOWN WORD IS REPORTED.
    *
-   * A word that is capitalised every single time it appears is a name, and
-   * that holds at the start of a sentence too — which is where the
-   * mid-sentence test alone fails. "Pamuk" opening a sentence was being
-   * offered "Amok", which is the kind of finding that costs a tool its
-   * reader in one go.
+   * Two guesses used to stand between the dictionary and the list. A word
+   * capitalised everywhere was taken for a name and skipped, and a word
+   * used three times or more was taken for the writer's own term and
+   * gathered into a note instead of being flagged. Both were there to keep
+   * a first run short, and both decided on the writer's behalf what was
+   * worth seeing. They are gone, at the writer's request: if the dictionary
+   * does not have the word, it is on the list.
+   *
+   * The release valve is the writer's own dictionary, which is explicit and
+   * theirs. A word added there is never reported again.
    */
-  const everLower = new Set();
-  for (const w of doc.words || []) {
-    if (/^[a-zà-öø-ÿğıöşüç]/.test(w.text)) everLower.add(w.lower);
-  }
 
   /*
    * Where the URLs and DOIs are.
@@ -202,7 +197,6 @@ export async function analyseSpelling(doc, { dialect = DEFAULT_DIALECT, personal
   }
   const inLink = (at) => linkSpans.some(([a, b]) => at >= a && at < b);
 
-  const counts = new Map();
   const candidates = [];
 
   for (const w of doc.words || []) {
@@ -212,61 +206,47 @@ export async function analyseSpelling(doc, { dialect = DEFAULT_DIALECT, personal
     const bare = trimPossessive(w.text);
     if (!bare || spell.correct(bare)) continue;
     const capital = /^[A-ZÀ-ÞĞİÖŞÜÇ]/.test(bare);
-    /* A capital mid-sentence is a name far more often than a misspelling,
-       and so is one that is never written any other way. */
-    if (capital && (!sentenceStarts.has(w.start) || !everLower.has(w.lower))) continue;
-    counts.set(w.lower, (counts.get(w.lower) || 0) + 1);
     candidates.push({ word: w, bare, capital });
   }
 
-  const repeated = new Set([...counts.entries()].filter(([, n]) => n >= 3).map(([k]) => k));
-
   for (const { word, bare, capital } of candidates) {
-    if (repeated.has(word.lower)) continue;
     const suggestions = spell.suggest(bare).slice(0, 4);
     /*
-     * WHY THIS NEVER SAYS "MISSPELLING".
+     * WHEN THIS SAYS "MISSPELLING", AND WHEN IT DOES NOT.
      *
-     * It said it at first, whenever the nearest suggestion was within two
-     * edits, and that was a claim it has no standing to make. "interiority"
-     * is one substitution away from "inferiority", and so is "seperate"
-     * from "separate": by distance the two cases are identical, and one of
-     * them is a word this writer uses on every page. A dictionary can tell
-     * you a word is not in it. It cannot tell you that you meant a
-     * different one.
+     * A near miss gets the blunt word, because that is what it almost
+     * always is and softening it wastes the reader's attention. Anything
+     * further out says only what is certain — the word is not in the
+     * dictionary — and offers the nearest entry as a question.
      *
-     * So the finding states what is true, and the suggestion is offered as
-     * a question. A close suggestion still raises the severity, because a
-     * near miss usually is a slip; it no longer announces a verdict the
-     * dictionary cannot support.
-     *
-     * A capitalised word never gets the higher severity at all. A
-     * dictionary has no opinion worth hearing about a name, and what it
-     * offers for one is usually absurd: "Pamuk" was being sent "Amok".
+     * A capitalised word never gets the blunt word whatever the distance.
+     * It is still reported, but a dictionary has no opinion worth hearing
+     * about a name, and what it offers for one is usually absurd: "Pamuk"
+     * is sent "Amok". Calling that a misspelling would be a claim about a
+     * person's name made by a word list that has never heard of them.
      */
     const close = !capital && suggestions.length > 0
       && distance(bare.toLowerCase(), suggestions[0].toLowerCase()) <= 2;
     const nearest = suggestions[0] ? matchCase(bare, suggestions[0]) : '';
     issues.push({
-      category: categoryForRule('not-in-dictionary', CATEGORY),
-      rule: 'not-in-dictionary',
+      category: categoryForRule(close ? 'misspelling' : 'not-in-dictionary', CATEGORY),
+      rule: close ? 'misspelling' : 'not-in-dictionary',
       severity: close ? 'high' : 'low',
       start: word.start,
       end: word.end,
       excerpt: word.text,
-      message: nearest
-        ? `\u201C${word.text}\u201D is not in the ${labelOf(dialect)} dictionary. Did you mean \u201C${nearest}\u201D? If it is a word you use, add it to your own dictionary in Settings.`
-        : `\u201C${word.text}\u201D is not in the ${labelOf(dialect)} dictionary, and it has nothing close to suggest. If it is a word you use, add it to your own dictionary in Settings.`,
+      message: close
+        ? `Misspelling: “${word.text}”. The dictionary has “${nearest}”.`
+        : nearest
+          ? `“${word.text}” is not in the ${labelOf(dialect)} dictionary. Did you mean “${nearest}”? If it is a word you use, add it to your own dictionary in Settings.`
+          : `“${word.text}” is not in the ${labelOf(dialect)} dictionary, and it has nothing close to suggest. If it is a word you use, add it to your own dictionary in Settings.`,
       suggestion: nearest,
       alternatives: suggestions.slice(1),
       source: `Hunspell with the SCOWL ${labelOf(dialect)} dictionary`
     });
   }
 
-  /* The writer's own vocabulary, named once rather than flagged many times. */
-  const ownWords = [...repeated].sort();
-
-  return { issues, ran: true, dialect, ownWords, checked: candidates.length };
+  return { issues, ran: true, dialect, checked: candidates.length };
 }
 
 /* ---------------------------------------------------------------- helpers */

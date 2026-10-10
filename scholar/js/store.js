@@ -63,13 +63,10 @@ const blank = () => ({
     /* Which style's punctuation rules to run. The reference behind them
        tags every rule by style, and the four disagree in real places. */
     punctuationStyle: 'mla',
-    /*
-     * Which spelling the dictionary should hold the writer to. British by
-     * default: this app is used in a Turkish English department, where the
-     * house spelling is British, and checking British prose against the
-     * American dictionary makes a misspelling of every "analyse".
-     */
-    spellDialect: 'en_GB',
+    /* Which spelling the dictionary holds the writer to. Both ship, because
+       checking British prose against the American list makes a misspelling
+       of every "analyse", and the reverse. */
+    spellDialect: 'en_US',
     /*
      * The writer's own dictionary. No general dictionary holds the
      * vocabulary of literary criticism or the name of a single Turkish
@@ -138,7 +135,7 @@ function migrate(s) {
   s.settings.languageTool ||= blank().settings.languageTool;
   if (typeof s.settings.offlineLock !== 'boolean') s.settings.offlineLock = false;
   s.settings.punctuationStyle ||= 'mla';
-  s.settings.spellDialect ||= 'en_GB';
+  s.settings.spellDialect ||= 'en_US';
   if (!Array.isArray(s.settings.personalWords)) s.settings.personalWords = [];
   return s;
 }

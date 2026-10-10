@@ -651,3 +651,129 @@ body.is-offline .offline input { accent-color: var(--paper); }
   :root:not([data-theme="light"]) .audit-head { color: #14140f; }
   :root:not([data-theme="light"]) .style-pick[aria-pressed="true"] .what { color: rgba(0, 0, 0, 0.68); }
 }
+
+/* ========================================================== the two doors
+ *
+ * The entrance. Nine tabs in a row asked which of nine things you felt
+ * like; two cards ask which half of the day this is, which is a question
+ * with an answer.
+ *
+ * Built to be legible before it is handsome: each door says its name, what
+ * it is for, and what is behind it, so the choice is made from words. The
+ * colour and the hover are there to make it pleasant to click, not to carry
+ * the meaning.
+ */
+.foyer { padding: 0; }
+.foyer-inner {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: clamp(32px, 9vh, 96px) 16px 64px;
+}
+.foyer-title {
+  font-family: var(--serif);
+  font-size: clamp(30px, 5.4vw, 46px);
+  line-height: 1.12;
+  letter-spacing: -0.015em;
+  margin: 0 0 14px;
+}
+.foyer-sub {
+  font-size: 16px;
+  line-height: 1.6;
+  color: var(--ink-soft);
+  max-width: 56ch;
+  margin: 0 0 clamp(26px, 5vh, 44px);
+}
+
+.doors { display: grid; grid-template-columns: repeat(2, 1fr); gap: 18px; }
+@media (max-width: 720px) { .doors { grid-template-columns: 1fr; } }
+
+.door {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  text-align: left;
+  padding: 26px 24px 22px;
+  border: 1.5px solid var(--rule);
+  border-radius: 6px;
+  background: var(--paper);
+  color: var(--ink);
+  cursor: pointer;
+  font-family: var(--sans);
+  overflow: hidden;
+  /* A button does not wrap its text the way a div does, which is how the
+     blurb ran off the side of the card and was clipped. */
+  white-space: normal;
+  transition: border-color 140ms ease, transform 140ms ease, box-shadow 140ms ease;
+}
+/* The band of colour is the only decoration, and it grows on hover rather
+   than the card moving far: a card that leaps is a card you misclick. */
+.door::before {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 5px;
+  background: var(--door-hue);
+  transition: width 140ms ease;
+}
+.door:hover, .door:focus-visible {
+  border-color: var(--door-hue);
+  transform: translateY(-2px);
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.07);
+  outline: none;
+}
+.door:hover::before, .door:focus-visible::before { width: 9px; }
+.door:active { transform: translateY(0); }
+
+.door-write { --door-hue: #3f5fb0; }
+.door-check { --door-hue: #b4651a; }
+
+.door-title {
+  font-family: var(--serif);
+  font-size: 27px;
+  line-height: 1.1;
+  letter-spacing: -0.01em;
+}
+/* A flex column with align-items:flex-start lets a child keep its content
+   width, so the blurb ran past the card and was clipped by overflow:hidden.
+   Every child is told to take the full width and wrap. */
+.door > * { max-width: 100%; align-self: stretch; white-space: normal; }
+.door-blurb { font-size: 14.5px; line-height: 1.55; color: var(--ink-soft); }
+.door-list {
+  margin: 2px 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 13px;
+  color: var(--ink-faint);
+  line-height: 1.85;
+}
+.door-list li::before { content: '\00b7\00a0\00a0'; color: var(--door-hue); }
+.door-go {
+  margin-top: auto;
+  padding-top: 14px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--door-hue);
+}
+.foyer-foot {
+  margin: clamp(26px, 5vh, 40px) 0 0;
+  font-size: 13px;
+  color: var(--ink-faint);
+  max-width: 60ch;
+}
+
+/* In the foyer the tab row is empty, so the header should not look broken. */
+body:not(.has-door) header.bar .tabs { display: none; }
+.wordmark { cursor: pointer; }
+.wordmark:hover { opacity: 0.72; }
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .door-write { --door-hue: #7f9ce0; }
+  :root:not([data-theme="light"]) .door-check { --door-hue: #e0924a; }
+  :root:not([data-theme="light"]) .door:hover,
+  :root:not([data-theme="light"]) .door:focus-visible {
+    box-shadow: 0 10px 26px rgba(0, 0, 0, 0.45);
+  }
+}

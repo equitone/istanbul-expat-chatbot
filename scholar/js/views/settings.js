@@ -54,7 +54,7 @@ let ltProbe = null;   /* the result of the LanguageTool test */
 let testing = false;
 let ltTesting = false;
 
-const clone = (s) => ({ contactEmail: s.contactEmail || '', punctuationStyle: s.punctuationStyle || 'mla', spellDialect: s.spellDialect || 'en_GB', ai: { ...s.ai }, languageTool: { ...s.languageTool } });
+const clone = (s) => ({ contactEmail: s.contactEmail || '', punctuationStyle: s.punctuationStyle || 'mla', spellDialect: s.spellDialect || 'en_US', ai: { ...s.ai }, languageTool: { ...s.languageTool } });
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 
 export default function render(root, ctx) {
