@@ -42,6 +42,8 @@ const blank = () => ({
   },
   sources: [],   /* papers you have kept: title, authors, year, abstract, full text */
   drafts: [],    /* essays in progress */
+  calls: [],     /* submission deadlines you are tracking */
+  feeds: [],     /* places you check for new ones */
   updatedAt: null
 });
 
@@ -64,6 +66,8 @@ function load() {
 function migrate(s) {
   s.sources ||= [];
   s.drafts ||= [];
+  s.calls ||= [];
+  s.feeds ||= [];
   s.settings.ai ||= blank().settings.ai;
   s.settings.languageTool ||= blank().settings.languageTool;
   return s;
@@ -181,3 +185,70 @@ export const removeDraft = (id) => update((s) => { s.drafts = s.drafts.filter((d
 export const setSettings = (patch) => update((s) => Object.assign(s.settings, patch));
 export const setAi = (patch) => update((s) => { s.settings.ai = { ...s.settings.ai, ...patch }; });
 export const setLanguageTool = (patch) => update((s) => { s.settings.languageTool = { ...s.settings.languageTool, ...patch }; });
+
+/* ------------------------------------------------------------------ calls
+ *
+ * Deadlines you are tracking, and the places you check for new ones. Kept
+ * beside the library because a call with a date is research planning, not
+ * correspondence, and because it has to survive the same backup.
+ */
+export const KINDS = [
+  { id: 'cfp', label: 'Call for papers' },
+  { id: 'conference', label: 'Conference' },
+  { id: 'journal', label: 'Journal issue' },
+  { id: 'volume', label: 'Edited volume' },
+  { id: 'prize', label: 'Prize' },
+  { id: 'grant', label: 'Grant or travel funding' },
+  { id: 'fellowship', label: 'Fellowship or residency' },
+  { id: 'other', label: 'Something else' }
+];
+
+export const STATUSES = [
+  { id: 'watching', label: 'Watching' },
+  { id: 'preparing', label: 'Preparing' },
+  { id: 'submitted', label: 'Submitted' },
+  { id: 'accepted', label: 'Accepted' },
+  { id: 'declined', label: 'Declined' },
+  { id: 'passed', label: 'Let it pass' }
+];
+
+export function addCall(data) {
+  const call = {
+    id: uid('call'),
+    title: (data.title || '').trim(),
+    kind: data.kind || 'cfp',
+    status: data.status || 'watching',
+    deadline: data.deadline || '',
+    url: (data.url || '').trim(),
+    where: (data.where || '').trim(),
+    notes: (data.notes || '').trim(),
+    addedAt: new Date().toISOString()
+  };
+  update((s) => { s.calls.push(call); });
+  return call;
+}
+
+export const updateCall = (id, patch) =>
+  update((s) => { const c = s.calls.find((x) => x.id === id); if (c) Object.assign(c, patch); });
+
+export const removeCall = (id) =>
+  update((s) => { s.calls = s.calls.filter((x) => x.id !== id); });
+
+export function addFeed(data) {
+  const feed = {
+    id: uid('feed'),
+    name: (data.name || '').trim() || (data.site || data.feed || 'Unnamed'),
+    site: (data.site || '').trim(),
+    feed: (data.feed || '').trim(),
+    about: (data.about || '').trim(),
+    lastChecked: null
+  };
+  update((s) => { s.feeds.push(feed); });
+  return feed;
+}
+
+export const updateFeed = (id, patch) =>
+  update((s) => { const f = s.feeds.find((x) => x.id === id); if (f) Object.assign(f, patch); });
+
+export const removeFeed = (id) =>
+  update((s) => { s.feeds = s.feeds.filter((x) => x.id !== id); });

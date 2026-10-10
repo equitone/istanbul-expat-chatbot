@@ -11,6 +11,8 @@ import renderGaps from './views/gaps.js';
 import renderEvaluate from './views/evaluate.js';
 import renderWrite from './views/write.js';
 import renderGrammar from './views/grammar.js';
+import renderCalls from './views/calls.js';
+import renderReferences from './views/references.js';
 import renderSettings from './views/settings.js';
 
 const VIEWS = [
@@ -20,6 +22,8 @@ const VIEWS = [
   { id: 'evaluate', label: 'Evaluate', render: renderEvaluate },
   { id: 'write', label: 'Write', render: renderWrite },
   { id: 'grammar', label: 'Grammar', render: renderGrammar },
+  { id: 'calls', label: 'Calls', render: renderCalls },
+  { id: 'references', label: 'References', render: renderReferences },
   { id: 'settings', label: 'Settings', render: renderSettings }
 ];
 

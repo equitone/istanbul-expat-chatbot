@@ -38,12 +38,25 @@ No summaries, because a summary is where invention gets in. Searching for a
 person is two steps: the name resolves to candidate author records with
 enough detail to tell them apart, and only then are that person's works
 fetched by id. A name is not an identifier, and a plain name search returns
-everything that merely mentions them.
+everything that merely mentions them. Where OpenAlex has no author record —
+it only creates one after disambiguating someone across several works, so
+early-career researchers and anyone publishing mainly in books have none — a
+looser text search runs underneath, labelled as such, marking which hits
+carry the name on the by-line. A search that fails says so on the page, with
+what the catalogue actually replied.
 
-**Gaps** — your library placed on four axes (framework, period, method,
-region) and cross-tabulated. Crossings where two well-represented areas never
-meet are counted. With a model configured, those counted holes are turned
-into research questions; without one you still get the arithmetic.
+**Gaps** — name a field and a few hundred real catalogue records are
+fetched, placed on four axes (framework, period, method, region) and
+cross-tabulated. Crossings where two well-represented areas never meet are
+counted. With a model configured, those counted holes are turned into
+research questions; without one you still get the arithmetic. Your own
+library is the other option, which answers a different question: where your
+reading is thin, rather than where the field is.
+
+Every result carries the query, how many works matched, how many were
+examined, and the standing caveat — monographs are indexed far more thinly
+than articles, and Turkish-language scholarship thinly in both catalogues.
+The only claim it can make is "nothing in these N works does this".
 
 **Evaluate** — three readings of one text, all local:
 
@@ -53,7 +66,30 @@ into research questions; without one you still get the arithmetic.
 - *Prose*: whether the writing carries the patterns that mark machine prose.
 
 **Write** — arguments, then an outline, then expansion from your own notes, in
-that order. A section with no notes cannot be expanded.
+that order. A section with no notes cannot be expanded. Sources for the topic
+are fetched from the catalogues and ranked by citation count, so it argues
+from work the field has had to respond to rather than only from what is on
+your shelf; yours come first and are never crowded out.
+
+**Grammar** — the Instructor Workbench's checker pointed at your own
+writing. Mistakes, typos and style are counted separately, because a style
+suggestion is not an error and burying six real faults under forty
+suggestions is how a checker stops being read. Passive-voice share and mixed
+British/American spelling are reported too. Nothing needs a model;
+LanguageTool is an optional second pass, merged in with duplicates dropped.
+
+**Calls** — conferences, journal issues, prizes, grants and fellowships,
+with what is left on the clock. The list you keep is the reliable half.
+Sources are a rotation of sites to check: where one publishes a feed and
+permits it, items are fetched and deadlines pulled out of the text; where it
+does not, it keeps an open button and the date you last looked, and says why.
+There is no API for literature CFPs, and an empty list that silently means
+"could not read" would say "nothing is open".
+
+**References** — APA 7 or MLA 9, formatted from fields by rules, with no
+model anywhere near it. Take them from your library, paste a bibliography, or
+type them. A missing publisher is reported as missing rather than invented,
+and the list copies out with the italics intact.
 
 ## Two rules the whole thing is built on
 
@@ -71,8 +107,8 @@ something that was not there is reported rather than hidden.
 ## What needs a model and what does not
 
 Works with nothing installed: the catalogue searches, author lookup, the
-coverage map and counted gaps, the argument evaluation, Bloom, and the prose
-check.
+coverage map and counted gaps, the argument evaluation, Bloom, the prose
+check, the grammar checker, the calls list and all reference formatting.
 
 Needs a model: the write-up on the Gaps tab, the argument finder, and
 expanding an outline. Point it at a local model (Ollama serves an
@@ -95,8 +131,9 @@ emits the patterns it tells you to remove is not worth having.
 
 ## Shared code
 
-Six analysis modules are shared verbatim with `../instructor`: `text.js`,
-`lexicons.js`, `bloom.js`, `gaps.js`, `argument.js`, `verify.js`. They are
+Ten analysis modules are shared verbatim with `../instructor`: `text.js`,
+`lexicons.js`, `bloom.js`, `gaps.js`, `argument.js`, `verify.js`,
+`grammar.js`, `mechanics.js`, `learner-english.js`, `languagetool.js`. They are
 pure — no DOM, no store — so a copy works. A copy is also how a counting
 helper drifted out of step earlier in this project and silently dropped a
 category, so `./sync-shared.sh` diffs them and `package.sh` refuses to build

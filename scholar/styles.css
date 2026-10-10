@@ -308,3 +308,18 @@ mark.weak { border-bottom-style: dotted; }
   margin-top: 6px;
 }
 .item .mono { font-family: var(--mono); font-size: 11px; }
+
+/* --------------------------------------------------------- bibliography
+ *
+ * Hanging indent, because that is what both styles require and seeing it on
+ * screen is how you notice an entry that has gone wrong.
+ */
+.biblio .ref {
+  font-family: var(--serif);
+  font-size: 15.5px;
+  line-height: 1.65;
+  margin: 0;
+  padding-left: 2.2em;
+  text-indent: -2.2em;
+}
+.biblio em { font-style: italic; }
