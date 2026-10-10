@@ -80,13 +80,18 @@ from work the field has had to respond to rather than only from what is on
 your shelf; yours come first and are never crowded out.
 
 **Grammar** — the Instructor Workbench's checker pointed at your own
-writing, with its text beside its findings. Four buckets, counted and
+writing, with its text beside its findings. Three buckets, counted and
 coloured separately, split on what the fix changes: **grammar** when a word
 changes form or one is missing, **punctuation** when a mark or a space is
-wrong and no word needs to change, **typos** when the word itself is wrong,
-and **style** when nothing is wrong at all. Burying six real faults under
-forty suggestions is how a checker stops being read, and so is making
-someone hunting a comma problem read past forty misspellings. Click anything underlined to find it in the list, or a
+wrong and no word needs to change, **typos** when the word itself is wrong.
+Making someone hunting a comma problem read past forty misspellings is how a
+checker stops being read.
+
+Only things that are wrong are listed. The style rules — passive voice,
+wordiness, sentence length — still exist and the Instructor Workbench shows
+them, but they are matters of taste and this tab does not. The passive-voice
+share stays as a figure, because a proportion is a count rather than a
+verdict. Click anything underlined to find it in the list, or a
 finding to jump back to it in the text. Each category can be switched off.
 Passive-voice share and mixed British/American spelling are reported too, and
 the whole thing saves as a self-contained HTML report that prints to PDF with

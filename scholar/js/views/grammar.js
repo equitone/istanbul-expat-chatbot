@@ -61,9 +61,22 @@ const S = {
 const BUCKETS = [
   ['grammar', 'Grammatical mistakes', 'A word is the wrong form, or one is missing. Agreement, articles, plurals, prepositions.'],
   ['punctuation', 'Punctuation', 'A mark or a space is wrong, and no word needs to change. Commas, quotes, brackets, dashes.'],
-  ['typo', 'Typos', 'The wrong word, or the right one mistyped. Misspellings, doubled words, its/it\u2019s.'],
-  ['style', 'Style', 'Nothing is wrong. Suggestions, and you may ignore every one of them.']
+  ['typo', 'Typos', 'The wrong word, or the right one mistyped. Misspellings, doubled words, its/it\u2019s.']
 ];
+
+/*
+ * Style findings are computed and then dropped.
+ *
+ * The rules still run — the Instructor Workbench shows them, and they share
+ * this code — but this tab lists only things that are wrong. Passive voice,
+ * wordiness and sentence length are matters of taste, and the tab reads
+ * better without a third of its findings being opinions.
+ *
+ * The passive-voice share stays on as a figure. It is a count rather than a
+ * judgement: it says what proportion of your sentences are passive and
+ * leaves you to decide whether that is too many for what you are writing.
+ */
+const SHOWN = new Set(BUCKETS.map(([id]) => id));
 
 /* Everything on, the first time the view runs. */
 if (!S.on.size) BUCKETS.forEach(([id]) => S.on.add(id));
@@ -74,7 +87,7 @@ export default function render(root, ctx) {
 
   mount(root,
     el('h1', { text: 'Grammar' }),
-    el('p', { class: 'lede', text: 'Paste text or open a file, and it is checked here, on this computer, with no model involved. Grammar, punctuation, typos and style are counted separately, because they are four different jobs and a style suggestion is not an error.' }),
+    el('p', { class: 'lede', text: 'Paste text or open a file, and it is checked here, on this computer, with no model involved. Grammar, punctuation and typos are counted separately, because they are three different jobs. Only things that are wrong are listed; no suggestions.' }),
 
     sheet(null,
       el('div', { class: 'row', style: 'margin-bottom:14px' },
@@ -183,8 +196,7 @@ function whereItRuns(settings, ctx) {
 
 function results(r, root, ctx) {
   const counts = Object.fromEntries(BUCKETS.map(([id]) => [id, r.issues.filter((i) => i.category === id).length]));
-  /* Everything that is actually wrong, which is every bucket but style. */
-  const real = counts.grammar + counts.punctuation + counts.typo;
+  const real = r.issues.length;
   const shown = r.issues.filter((i) => S.on.has(i.category));
 
   return el('div', {},
@@ -193,8 +205,7 @@ function results(r, root, ctx) {
         figure('grammar', counts.grammar),
         figure('punctuation', counts.punctuation),
         figure('typos', counts.typo),
-        figure('style notes', counts.style),
-        figure('per 1000 words', r.words ? (real / r.words * 1000).toFixed(1) : '0', 'everything but style'),
+        figure('per 1000 words', r.words ? (real / r.words * 1000).toFixed(1) : '0'),
         figure('passive voice', `${Math.round(r.passiveRate * 100)}%`, 'of sentences'),
         /* Mixed British and American spelling in one document is the kind of
            thing a reader notices and a rule-by-rule list buries. */
@@ -204,7 +215,7 @@ function results(r, root, ctx) {
               r.dialect.total ? 'consistent' : 'nothing to tell from')
       ),
       r.ltNote ? el('p', { class: 'note', text: r.ltNote }) : null,
-      !real && !counts.style
+      !real
         ? el('p', { class: 'note', text: 'Nothing flagged. These rules are deliberately cautious, so this means nothing they test for is wrong, not that the writing is beyond improvement.' })
         : null,
       el('div', { class: 'row', style: 'margin-top:14px' },
@@ -360,7 +371,9 @@ async function run(root, ctx) {
   const g = analyseGrammar(doc);
   const m = analyseMechanics(doc);
   const l = analyseLearnerEnglish(doc);
-  let issues = [...g.issues, ...m.issues, ...l.issues].sort((a, b) => a.start - b.start);
+  let issues = [...g.issues, ...m.issues, ...l.issues]
+    .filter((i) => SHOWN.has(i.category))
+    .sort((a, b) => a.start - b.start);
   let ltNote = '';
 
   if (ltConfigured(s.settings)) {
@@ -371,7 +384,7 @@ async function run(root, ctx) {
         onProgress: ({ done, total }) => { S.busy = `LanguageTool, part ${done} of ${total}…`; render(root, ctx); }
       });
       const mine = issues.length;
-      issues = merge(issues, ext.issues);
+      issues = merge(issues, ext.issues.filter((i) => SHOWN.has(i.category)));
       ltNote = `LanguageTool checked all ${ext.chunks} part(s) in ${ext.language}: ${ext.issues.length} finding(s) from it, ${mine} from the built-in rules, ${mine + ext.issues.length - issues.length} dropped as duplicates.`;
     } catch (err) {
       /* Its absence must not look like a clean bill of health. */
