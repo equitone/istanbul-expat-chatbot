@@ -8,7 +8,7 @@
 set -u
 HERE="$(cd "$(dirname "$0")" && pwd)"
 SRC="$HERE/../instructor/js/analysis"
-FILES="text.js lexicons.js bloom.js gaps.js argument.js verify.js grammar.js mechanics.js learner-english.js languagetool.js segments.js"
+FILES="text.js lexicons.js bloom.js gaps.js argument.js verify.js grammar.js mechanics.js learner-english.js languagetool.js segments.js punctuation.js"
 # turkish.js sits a level up in both apps, not under analysis/.
 ROOT_SRC="$HERE/../instructor/js"
 ROOT_FILES="turkish.js"

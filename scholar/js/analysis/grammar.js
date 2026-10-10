@@ -158,10 +158,16 @@ export function analyseGrammar(doc) {
       add({ rule: 'comma-splice', severity: 'high', start: off, end: off + m[0].length, message: 'Comma splice: two independent clauses joined by a comma. Use a semicolon, a full stop, or a conjunction.', suggestion: `. ${cap(m[1])} ${m[2]}` });
     });
 
-    /* ------------------------------------------------- introductory comma */
-    scanIn(s, /^(However|Therefore|Moreover|Furthermore|Nevertheless|Nonetheless|Consequently|Accordingly|Similarly|Conversely|Indeed|In addition|For example|For instance|In conclusion|In summary|By contrast|On the other hand)\s+(?![,])/g, (m, off) =>
-      add({ rule: 'introductory-comma', severity: 'medium', start: off, end: off + m[0].length, message: `A comma normally follows the introductory “${m[1]}”.`, suggestion: `${m[1]}, ` })
-    );
+    /*
+     * No introductory-comma rule.
+     *
+     * It used to flag "However the point stands" and ask for a comma. The
+     * Best Punctuation Book, Period (ch. 2) gives both forms as correct —
+     * sentence adverbs like however, therefore and indeed may or may not be
+     * set off, as the writer judges — and notes that modern publishing
+     * leans towards the sparser form. A checker cannot have an opinion
+     * about a judgement call.
+     */
 
     /* --------------------------------------------------------- fragments */
     const wordCount = w.length;

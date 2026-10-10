@@ -50,9 +50,6 @@ export const POSITIVE = [
   ['fragment', 'Which explains the divergence between the two datasets.'],
 
   // --- introductory comma ---
-  ['introductory-comma', 'However the chronology does not support that reading.'],
-  ['introductory-comma', 'Furthermore the evidence is circumstantial.'],
-  ['introductory-comma', 'Nevertheless the pattern is consistent.'],
 
   // --- articles ---
   ['article-a-an', 'A unexpected outcome emerged in phase two.'],
@@ -96,8 +93,6 @@ export const POSITIVE = [
   // --- mechanics ---
   ['doubled-word', 'The the results are inconclusive.'],
   ['lowercase-i', 'In this chapter i argue for a different reading.'],
-  ['space-before-punctuation', 'The result was clear , though contested.'],
-  ['repeated-punctuation', 'Could this be the explanation??'],
   ['double-negative', 'The study does not provide no evidence for this.']
 ];
 
@@ -140,6 +135,14 @@ export const NEGATIVE = [
   'The series is long enough to support a time-series analysis.',
   'The status of the manuscript remains unclear.',
   'Many people were involved in the transcription of the interviews.',
+
+  /* The reference gives both forms as correct: a sentence adverb may or may
+     not be set off with a comma, as the writer judges (The Best Punctuation
+     Book, Period, ch. 2). These were planted faults until the rule behind
+     them was found to have no authority. */
+  'However the chronology does not support that reading.',
+  'Furthermore the evidence is circumstantial.',
+  'Nevertheless the pattern is consistent.',
   /* Irregular plurals: morphology alone reads these as singular. */
   'Several criteria were applied before a text entered the sample.',
   'Various phenomena recur across the three novels.',

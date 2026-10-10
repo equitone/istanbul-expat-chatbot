@@ -37,6 +37,7 @@ import { analyseMechanics } from '../analysis/mechanics.js';
 import { analyseLearnerEnglish } from '../analysis/learner-english.js';
 import { checkText, isConfigured as ltConfigured, merge } from '../analysis/languagetool.js';
 import { buildSegments, dominantIssue } from '../analysis/segments.js';
+import { analysePunctuation, STYLES as PUNCT_STYLES } from '../analysis/punctuation.js';
 import { buildGrammarReport, openPrintable, downloadReport } from '../export/grammar-report.js';
 
 const S = {
@@ -220,6 +221,7 @@ function results(r, root, ctx) {
           : figure('spelling', r.dialect.dominant === 'UK' ? 'British' : r.dialect.dominant === 'US' ? 'American' : '—',
               r.dialect.total ? 'consistent' : 'nothing to tell from')
       ),
+      el('p', { class: 'note', text: `Punctuation checked against ${(PUNCT_STYLES.find((x) => x.id === r.punctuationStyle) || {}).label || r.punctuationStyle} rules, from The Best Punctuation Book, Period. Change the style in Settings; the four disagree in real places, and a rule from the wrong one would tell you to break your own.` }),
       r.ltNote ? el('p', { class: 'note', text: r.ltNote }) : null,
       !real
         ? el('p', { class: 'note', text: 'Nothing flagged. These rules are deliberately cautious, so this means nothing they test for is wrong, not that the writing is beyond improvement.' })
@@ -328,7 +330,10 @@ function issueItem(i, text, idx) {
       i.rule ? el('span', { class: 'mono', text: i.rule }) : null),
     el('div', { class: 'quote', text: `…${text.slice(Math.max(0, i.start - 40), i.start)}\u27e6${i.excerpt}\u27e7${text.slice(i.end, i.end + 40)}…` }),
     el('div', { class: 'body', style: 'margin-top:6px', text: i.message }),
-    i.suggestion ? el('div', { class: 'meta', style: 'margin-top:4px', text: `Suggested: ${i.suggestion}` }) : null
+    i.suggestion ? el('div', { class: 'meta', style: 'margin-top:4px', text: `Suggested: ${i.suggestion}` }) : null,
+    /* Where the rule comes from, on the finding rather than in a footnote:
+       a disagreement should be settleable by opening the book. */
+    i.source ? el('div', { class: 'note source', style: 'margin-top:4px', text: i.source }) : null
   );
 }
 
@@ -377,7 +382,10 @@ async function run(root, ctx) {
   const g = analyseGrammar(doc);
   const m = analyseMechanics(doc);
   const l = analyseLearnerEnglish(doc);
-  let issues = [...g.issues, ...m.issues, ...l.issues]
+  /* Punctuation is checked against one named reference, per the style set
+     in Settings, and every finding carries its chapter. */
+  const punct = analysePunctuation(doc, { style: s.settings.punctuationStyle });
+  let issues = [...g.issues, ...m.issues, ...l.issues, ...punct.issues]
     .filter((i) => SHOWN.has(i.category))
     .sort((a, b) => a.start - b.start);
   let ltNote = '';
@@ -401,7 +409,8 @@ async function run(root, ctx) {
   S.result = {
     text, issues, ltNote,
     words: text.split(/\s+/).length,
-    dialect: m.dialect
+    dialect: m.dialect,
+    punctuationStyle: punct.style
   };
   S.busy = null;
   render(root, ctx);

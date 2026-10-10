@@ -59,35 +59,23 @@ export function analyseMechanics(doc) {
     });
   }
 
-  /* -------------------------------------------------------------- spacing */
-  scan(text, /[^\n\S]{2,}/g, (m) => {
-    if (m.index > 0 && text[m.index - 1] === '\n') return; // indentation
-    add({ rule: 'double-space', severity: 'low', start: m.index, end: m.index + m[0].length, message: 'Multiple consecutive spaces.', suggestion: ' ' });
-  });
-  scan(text, /\s+([,;:.!?])/g, (m) => {
-    if (/\n/.test(m[0])) return;
-    add({ rule: 'space-before-punctuation', severity: 'medium', start: m.index, end: m.index + m[0].length, message: `No space before “${m[1]}”.`, suggestion: m[1] });
-  });
-  scan(text, /([,;:])(?=[A-Za-z0-9])/g, (m) =>
-    add({ rule: 'missing-space-after-punctuation', severity: 'medium', start: m.index, end: m.index + 1, message: `Missing space after “${m[1]}”.`, suggestion: `${m[1]} ` })
-  );
-  scan(text, /\(\s+|\s+\)/g, (m) => {
-    if (/\n/.test(m[0])) return;
-    add({ rule: 'bracket-spacing', severity: 'low', start: m.index, end: m.index + m[0].length, message: 'Stray space inside parentheses.', suggestion: m[0].trim() });
-  });
+  /*
+   * Spacing moved to punctuation.js, which checks it against a named
+   * reference and knows that academic style permits two spaces between
+   * sentences where the other three do not. Doing it here could not make
+   * that distinction and so told MLA writers their spacing was wrong.
+   *
+   * Stray space inside parentheses went with it, unreplaced: the reference
+   * says nothing about it, and a rule with no authority behind it is what
+   * this whole pass is removing.
+   */
 
   /* ---------------------------------------------------------- punctuation */
-  scan(text, /([!?.])\1{1,}/g, (m) =>
-    add({ rule: 'repeated-punctuation', severity: 'medium', start: m.index, end: m.index + m[0].length, message: 'Repeated punctuation is out of register for a thesis.', suggestion: m[1] })
-  );
   scan(text, /,\s*(?:and|but|or)\s*,/gi, (m) =>
     add({ rule: 'stray-comma', severity: 'medium', start: m.index, end: m.index + m[0].length, message: 'Comma on both sides of a conjunction.', suggestion: m[0].replace(/,\s*$/, '') })
   );
   scan(text, /\s+-\s+/g, (m) =>
     add({ rule: 'hyphen-as-dash', severity: 'low', start: m.index, end: m.index + m[0].length, message: 'A spaced hyphen is being used as a dash; use an em dash (—) or en dash (–).', suggestion: ' — ' })
-  );
-  scan(text, /\b(\d{4})\s*-\s*(\d{4})\b/g, (m) =>
-    add({ rule: 'year-range-dash', severity: 'low', start: m.index, end: m.index + m[0].length, message: 'Year ranges take an en dash.', suggestion: `${m[1]}–${m[2]}` })
   );
 
   /* --------------------------------------------------- unbalanced delimiters */

@@ -16,6 +16,7 @@ import { analyseArgument } from './argument.js';
 import { analyseBloom } from './bloom.js';
 import { analyseOverview } from './overview.js';
 import { analyseCitations } from './citations.js';
+import { analysePunctuation } from './punctuation.js';
 
 /* How many instances of one rule to list before collapsing to a count. */
 const PER_RULE_CAP = 150;
@@ -24,7 +25,7 @@ const PER_RULE_CAP = 150;
 /* Colours are CSS variables rather than literals so the legend tints follow
    the light/dark palette instead of staying fixed to one theme. */
 
-export function analyseThesis(rawText, { citationStyle = 'apa7' } = {}) {
+export function analyseThesis(rawText, { citationStyle = 'apa7', punctuationStyle = 'mla' } = {}) {
   const text = normalise(rawText);
   const doc = buildDocument(text);
 
@@ -37,6 +38,8 @@ export function analyseThesis(rawText, { citationStyle = 'apa7' } = {}) {
   const bloom = analyseBloom(doc);
   const overview = analyseOverview(doc, argument);
   const citations = analyseCitations(doc, citationStyle);
+  /* Checked against one named reference; see punctuation.js. */
+  const punctuation = analysePunctuation(doc, { style: punctuationStyle });
 
   const merged = dedupe([
     ...mechanics.issues,
@@ -45,7 +48,8 @@ export function analyseThesis(rawText, { citationStyle = 'apa7' } = {}) {
     ...argument.issues,
     ...bloom.issues,
     ...overview.issues,
-    ...citations.issues
+    ...citations.issues,
+    ...punctuation.issues
   ]);
   const { issues, truncated } = capPerRule(merged);
 

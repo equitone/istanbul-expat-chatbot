@@ -12,6 +12,7 @@ import { el, mount, sheet, field, toast } from '../ui.js';
 import { getState, setSettings, setAi, setLanguageTool } from '../store.js';
 import { isConfigured, testModel, listModels } from '../ai.js';
 import { LANGUAGES, isConfigured as ltConfigured, testConnection as testLt } from '../analysis/languagetool.js';
+import { STYLES as PUNCT_STYLES } from '../analysis/punctuation.js';
 
 /* The working copy, kept across redraws of this view. */
 const S = { howTo: false, models: null, listing: false };
@@ -22,7 +23,7 @@ let ltProbe = null;   /* the result of the LanguageTool test */
 let testing = false;
 let ltTesting = false;
 
-const clone = (s) => ({ contactEmail: s.contactEmail || '', ai: { ...s.ai }, languageTool: { ...s.languageTool } });
+const clone = (s) => ({ contactEmail: s.contactEmail || '', punctuationStyle: s.punctuationStyle || 'mla', ai: { ...s.ai }, languageTool: { ...s.languageTool } });
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 
 export default function render(root, ctx) {
@@ -125,6 +126,16 @@ export default function render(root, ctx) {
       el('p', { class: 'note', style: 'margin-top:12px', text: inUse(saved) })
     ),
 
+    sheet('Punctuation',
+      el('p', { text: 'The punctuation rules on the Grammar tab come from one book — June Casagrande, The Best Punctuation Book, Period — and every finding names the chapter behind it, so a disagreement can be settled by opening it rather than by arguing with this app.' }),
+      el('p', { class: 'note', style: 'margin-bottom:14px', text: 'The four major styles disagree in real places, and the book marks which rules belong to which. A rule from the wrong style would tell you to break your own, so pick yours. The en dash, for one, exists only in book style: in academic writing a hyphenated date range is correct.' }),
+      field('Which style you write in', el('select', {
+        id: 'punct-style',
+        onChange: (e) => touch(() => { d.punctuationStyle = e.target.value; })
+      }, PUNCT_STYLES.map((x) => el('option', { value: x.id, selected: d.punctuationStyle === x.id, text: `${x.label} \u2014 ${x.about}` })))),
+      el('p', { class: 'note', text: 'Much of comma use is the writer\u2019s judgement and is deliberately not checked at all. The book gives both forms as correct for introductory commas and for commas around \u201chowever\u201d, so this app has no opinion about them.' })
+    ),
+
     sheet('Grammar checking',
       el('p', { text: 'The Grammar tab runs its own rules with nothing installed. LanguageTool is an optional second pass that catches a wider range, and the two are merged with duplicates dropped.' }),
       el('label', { class: 'row', style: 'margin-bottom:14px' },
@@ -198,6 +209,7 @@ export default function render(root, ctx) {
    you nothing about whether you meant them. */
 function pendingSummary(before, after) {
   const moved = [];
+  if (before.punctuationStyle !== after.punctuationStyle) moved.push('punctuation style');
   if (before.contactEmail !== after.contactEmail) moved.push('contact address');
   if (before.ai.enabled !== after.ai.enabled) moved.push(after.ai.enabled ? 'model switched on' : 'model switched off');
   if (before.ai.provider !== after.ai.provider) moved.push('where the model runs');
@@ -289,6 +301,7 @@ function apply(root, ctx) {
   const before = clone(getState().settings);
   const d = draft;
   setSettings({ contactEmail: String(d.contactEmail || '').trim() });
+  setSettings({ punctuationStyle: d.punctuationStyle });
   setLanguageTool({
     enabled: d.languageTool.enabled,
     endpoint: String(d.languageTool.endpoint || '').trim(),
@@ -315,6 +328,9 @@ function apply(root, ctx) {
  */
 function describe(before, after) {
   const moved = [];
+  if (before.punctuationStyle !== after.punctuationStyle) {
+    moved.push(`punctuation style is now ${(PUNCT_STYLES.find((x) => x.id === after.punctuationStyle) || {}).label || after.punctuationStyle}`);
+  }
   if (before.contactEmail !== after.contactEmail) {
     moved.push(after.contactEmail ? `contact address is now ${after.contactEmail}` : 'contact address cleared');
   }

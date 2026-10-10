@@ -60,6 +60,9 @@ const blank = () => ({
      * catalogues, and shipping with that dead would read as broken.
      */
     offlineLock: false,
+    /* Which style's punctuation rules to run. The reference behind them
+       tags every rule by style, and the four disagree in real places. */
+    punctuationStyle: 'mla',
     ai: { enabled: false, provider: 'local', model: '', apiKey: '', endpoint: 'http://localhost:11434/v1', contextTokens: 32768 },
     /* Optional second opinion on the Grammar tab. Off by default: the public
        server means sending text somewhere, and that is a choice to make
@@ -120,6 +123,7 @@ function migrate(s) {
   s.settings.ai ||= blank().settings.ai;
   s.settings.languageTool ||= blank().settings.languageTool;
   if (typeof s.settings.offlineLock !== 'boolean') s.settings.offlineLock = false;
+  s.settings.punctuationStyle ||= 'mla';
   return s;
 }
 
