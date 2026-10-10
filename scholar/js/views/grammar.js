@@ -2,21 +2,27 @@
  * grammar.js — plain grammar checking, nothing else.
  *
  * The same engine the Instructor Workbench runs over student submissions,
- * pointed at your own writing instead. Three layers, kept separate on screen
- * because they answer different questions:
+ * pointed at your own writing instead. Three buckets, kept separate on
+ * screen because they are three different jobs, and split on what the fix
+ * changes:
  *
- *   Mistakes      agreement, articles, run-ons, tense, punctuation. Things
- *                 that are wrong.
- *   Typos         misspellings, doubled words, spacing, confusables.
- *   Style         passive voice, wordiness, informal register. Not errors,
- *                 and kept apart so six real faults are not buried under
- *                 forty suggestions.
+ *   Grammar       a word is the wrong form, or one is missing. Agreement,
+ *                 articles, plurals, prepositions.
+ *   Punctuation   a mark or a space is wrong and no word needs to change.
+ *                 Commas, quotes, brackets, dashes, spacing.
+ *   Typos         the word itself is wrong. Misspellings, doubled words,
+ *                 the homophone confusions.
  *
- * Every rule is tuned for precision over recall. A checker that flags correct
- * prose gets switched off after the second false alarm, so a rule that cannot
- * be narrowed enough is left out rather than shipped noisy.
+ * Only faults are listed. The shared rules also produce style findings —
+ * passive voice, wordiness, sentence length — and this tab drops them: they
+ * are matters of taste, and the Instructor Workbench is where a supervisor
+ * marking someone else's draft can see them.
  *
- * LanguageTool, if you have it, runs as a fourth pass and its findings are
+ * Every rule is tuned for precision over recall. A checker that flags
+ * correct prose gets switched off after the second false alarm, so a rule
+ * that cannot be narrowed enough is left out rather than shipped noisy.
+ *
+ * LanguageTool, if you have it, runs as a further pass and its findings are
  * merged in. It catches a wider range; these rules catch things it does not,
  * which is why both run rather than one replacing the other.
  *
@@ -72,9 +78,10 @@ const BUCKETS = [
  * wordiness and sentence length are matters of taste, and the tab reads
  * better without a third of its findings being opinions.
  *
- * The passive-voice share stays on as a figure. It is a count rather than a
- * judgement: it says what proportion of your sentences are passive and
- * leaves you to decide whether that is too many for what you are writing.
+ * The passive-voice share went with them. It was defensible as a count
+ * rather than a verdict, but a percentage on a page of errors reads as a
+ * score however it is labelled, and passive voice is normal in academic
+ * prose — particularly in a methods section, where it is the right choice.
  */
 const SHOWN = new Set(BUCKETS.map(([id]) => id));
 
@@ -206,7 +213,6 @@ function results(r, root, ctx) {
         figure('punctuation', counts.punctuation),
         figure('typos', counts.typo),
         figure('per 1000 words', r.words ? (real / r.words * 1000).toFixed(1) : '0'),
-        figure('passive voice', `${Math.round(r.passiveRate * 100)}%`, 'of sentences'),
         /* Mixed British and American spelling in one document is the kind of
            thing a reader notices and a rule-by-rule list buries. */
         r.dialect.mixed
@@ -366,7 +372,7 @@ async function run(root, ctx) {
   render(root, ctx);
 
   const doc = buildDocument(text);
-  /* Each analyser returns {issues, …}; the extras (dialect, passive rate) are
+  /* Each analyser returns {issues, …}; the extras (dialect) are
      taken where they are worth showing and otherwise left alone. */
   const g = analyseGrammar(doc);
   const m = analyseMechanics(doc);
@@ -395,8 +401,7 @@ async function run(root, ctx) {
   S.result = {
     text, issues, ltNote,
     words: text.split(/\s+/).length,
-    dialect: m.dialect,
-    passiveRate: g.metrics.passiveRate
+    dialect: m.dialect
   };
   S.busy = null;
   render(root, ctx);

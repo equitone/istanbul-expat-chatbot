@@ -45,7 +45,7 @@ function markedHtml(text, issues) {
   return out.split(/\n{2,}/).map((p) => `<p>${p.replace(/\n/g, '<br>')}</p>`).join('\n');
 }
 
-export function buildGrammarReport({ text, issues, words, dialect, passiveRate, ltNote, title = 'Grammar check' }) {
+export function buildGrammarReport({ text, issues, words, dialect, ltNote, title = 'Grammar check' }) {
   const byCat = (c) => issues.filter((i) => i.category === c);
   const real = issues.length;
   const when = new Date().toLocaleString(undefined, { dateStyle: 'long', timeStyle: 'short' });
@@ -113,7 +113,6 @@ export function buildGrammarReport({ text, issues, words, dialect, passiveRate, 
     <div class="fig"><b>${byCat('punctuation').length}</b><span>punctuation</span></div>
     <div class="fig"><b>${byCat('typo').length}</b><span>typos</span></div>
     <div class="fig"><b>${words ? (real / words * 1000).toFixed(1) : '0'}</b><span>per 1000 words</span></div>
-    <div class="fig"><b>${Math.round((passiveRate || 0) * 100)}%</b><span>passive voice</span></div>
     <div class="fig"><b>${dialect && dialect.mixed ? 'Mixed' : dialect && dialect.dominant === 'UK' ? 'British' : dialect && dialect.dominant === 'US' ? 'American' : '—'}</b><span>spelling</span></div>
   </div>
   <div class="legend">
