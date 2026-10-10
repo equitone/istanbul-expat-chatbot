@@ -113,7 +113,29 @@ export function analyseLearnerEnglish(doc) {
   const text = doc.text;
   const body = text.slice(0, doc.bodyEnd);
   const issues = [];
-  const add = (o) => issues.push({ category: CATEGORY, ...o, excerpt: text.slice(o.start, o.end) });
+
+  /*
+   * Headings are not sentences, so none of these rules apply to them.
+   *
+   * grammar.js skips headings in its sentence loop and mechanics.js checks
+   * the flag directly, but these rules scan the raw body text and had no
+   * way to know. The result was "2.2 Method" read as a numeral followed by
+   * a singular noun and reported as a missing plural — a finding on a
+   * section heading, which is the fastest way to lose a reader's trust.
+   *
+   * Guarded once here rather than in each of the nine rules: a guard added
+   * per rule is a guard forgotten by the tenth.
+   */
+  const headingSpans = (doc.paragraphs || [])
+    .filter((p) => p.isHeading)
+    .map((p) => [p.start, p.start + p.text.length]);
+  const inHeading = (start, end) =>
+    headingSpans.some(([a, b]) => start >= a && end <= b);
+
+  const add = (o) => {
+    if (inHeading(o.start, o.end)) return;
+    issues.push({ category: CATEGORY, ...o, excerpt: text.slice(o.start, o.end) });
+  };
   const scan = (re, fn) => { let m; const r = new RegExp(re.source, re.flags); while ((m = r.exec(body)) !== null) fn(m); };
 
   /* ---------------------------------------------- mass nouns pluralised */

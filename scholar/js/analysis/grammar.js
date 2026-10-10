@@ -101,7 +101,7 @@ export function analyseGrammar(doc) {
       add({ rule: 'latin-plural', severity: 'high', start: off, end: off + m[0].length, message: `“${m[1]}” is singular.`, suggestion: '' })
     );
     /* Plural noun subject + singular verb: "the results has been reported". */
-    scanIn(s, /\b(the|these|those|many|several|all|both|most|two|three|four|various|numerous|our|their)\s+([a-z]+s)\s+(is|was|has|does)\b/gi, (m, off) => {
+    scanIn(s, /\b(the|these|those|many|several|few|all|both|most|two|three|four|various|numerous|our|their)\s+([a-z]+s)\s+(is|was|has|does)\b/gi, (m, off) => {
       if (isSingularLookingS(m[2].toLowerCase())) return;
       add({ rule: 'subject-verb-agreement', severity: 'high', start: off, end: off + m[0].length, message: `“${m[2]}” is plural but “${m[3]}” is singular.`, suggestion: `${m[1]} ${m[2]} ${PLURALISE[m[3].toLowerCase()]}` });
     });

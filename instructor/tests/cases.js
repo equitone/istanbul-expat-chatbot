@@ -21,6 +21,7 @@ export const POSITIVE = [
   ['subject-verb-agreement', 'This study are the first of its kind.'],
   ['subject-verb-agreement', 'These results is inconclusive.'],
   ['subject-verb-agreement', 'The responses was coded independently.'],
+  ['subject-verb-agreement', 'Few studies has asked what the device does.'],
 
   // --- Latin plurals ---
   ['latin-plural', 'The criteria is not met by any case.'],

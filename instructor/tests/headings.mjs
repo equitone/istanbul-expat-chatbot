@@ -74,6 +74,30 @@ const caught = analyseMechanics(buildDocument(real)).issues
   .some((i) => i.rule === 'missing-terminal-punctuation');
 ok('a genuinely unpunctuated paragraph is still caught', caught);
 
+/* --- no rule of any kind may fire inside a heading --- */
+import { analyseGrammar } from '../js/analysis/grammar.js';
+import { analyseLearnerEnglish } from '../js/analysis/learner-english.js';
+
+const withHeadings = `2.2 Method
+
+The present study aims to understand the device rather than cataloguing it.
+
+Table 3 Results of the Annotation Exercise
+
+Three students were asked to annotate the passages independently.
+
+4. Conclusion`;
+const hd = buildDocument(withHeadings);
+const spans = hd.paragraphs.filter((p) => p.isHeading).map((p) => [p.start, p.start + p.text.length]);
+const everything = [
+  ...analyseGrammar(hd).issues,
+  ...analyseMechanics(hd).issues,
+  ...analyseLearnerEnglish(hd).issues
+];
+const onHeading = everything.filter((i) => spans.some(([a, b]) => i.start >= a && i.end <= b));
+ok(`nothing fires inside a heading (got ${onHeading.length}: ${onHeading.map((i) => i.rule).join(', ')})`,
+  onHeading.length === 0);
+
 console.log('\n  HEADINGS, CAPTIONS AND REFERENCES\n');
 console.log(`  passed: ${pass}/${pass + fails.length}`);
 if (fails.length) {
