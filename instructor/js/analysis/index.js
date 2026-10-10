@@ -54,7 +54,7 @@ export function analyseThesis(rawText, { citationStyle = 'apa7' } = {}) {
   const count = (cat) => issues.filter((i) => i.category === cat).length;
 
   const scorecard = {
-    mechanicsPer1000: per1000(merged.filter((i) => i.category === 'typo').length),
+    mechanicsPer1000: per1000(merged.filter((i) => i.category === 'typo' || i.category === 'punctuation').length),
     grammarPer1000: per1000(merged.filter((i) => i.category === 'grammar').length),
     /* Bloom's is a distribution, not a rank, so the scorecard carries the two
        facts that are comparable across theses: where most paragraphs sit, and
@@ -77,6 +77,7 @@ export function analyseThesis(rawText, { citationStyle = 'apa7' } = {}) {
       medium: issues.filter((i) => i.severity === 'medium').length,
       low: issues.filter((i) => i.severity === 'low').length,
       typo: count('typo'),
+      punctuation: count('punctuation'),
       grammar: count('grammar'),
       style: count('style'),
       argument: count('argument'),
@@ -120,6 +121,7 @@ export function recountIssues(report) {
     medium: by((i) => i.severity === 'medium'),
     low: by((i) => i.severity === 'low'),
     typo: by((i) => i.category === 'typo'),
+    punctuation: by((i) => i.category === 'punctuation'),
     grammar: by((i) => i.category === 'grammar'),
     style: by((i) => i.category === 'style'),
     argument: by((i) => i.category === 'argument'),

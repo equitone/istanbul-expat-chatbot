@@ -16,7 +16,7 @@ import { downloadBlob } from '../io/files.js';
 
 export const SECTIONS = [
   { id: 'summary', label: 'Summary', always: true },
-  { id: 'grammar', label: 'Grammar & spelling', categories: ['grammar', 'typo'] },
+  { id: 'grammar', label: 'Grammar, spelling & punctuation', categories: ['grammar', 'typo', 'punctuation'] },
   { id: 'citation', label: 'Citations & references', categories: ['citation', 'structure'] },
   { id: 'argument', label: 'Argument', categories: ['argument'] },
   { id: 'style', label: 'Style suggestions', categories: ['style'] },
@@ -27,7 +27,7 @@ export const SECTIONS = [
 /* Print colours are set as literals: a report is read on someone else's
    machine, where this app's CSS variables do not exist. */
 const PALETTE = {
-  grammar: '#d98324', typo: '#d1495b', citation: '#9a5b13',
+  grammar: '#d98324', typo: '#d1495b', punctuation: '#1f7a8c', citation: '#9a5b13',
   argument: '#7b4bc4', structure: '#0d8a72', style: '#8a8f9a', ai: '#2b6cb0'
 };
 

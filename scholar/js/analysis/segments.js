@@ -17,7 +17,8 @@ export const SEVERITY_ORDER = { high: 0, medium: 1, low: 2 };
 
 export const CATEGORY_META = {
   grammar: { label: 'Grammar errors', colour: 'var(--cat-grammar)' },
-  typo: { label: 'Spelling & punctuation', colour: 'var(--cat-typo)' },
+  typo: { label: 'Typos & spelling', colour: 'var(--cat-typo)' },
+  punctuation: { label: 'Punctuation', colour: 'var(--cat-punctuation)' },
   citation: { label: 'Citation style', colour: 'var(--cat-citation)' },
   argument: { label: 'Argument support', colour: 'var(--cat-argument)' },
   bloom: { label: 'Level of thinking', colour: 'var(--cat-bloom)' },
@@ -25,6 +26,60 @@ export const CATEGORY_META = {
   ai: { label: 'AI review', colour: 'var(--cat-ai)' },
   style: { label: 'Style suggestions', colour: 'var(--cat-style)' }
 };
+
+
+/*
+ * Which bucket a rule belongs in.
+ *
+ * Spelling and punctuation used to share one, and they are not the same
+ * question. Someone hunting for a comma problem and someone hunting for a
+ * misspelling are doing different jobs, and a single list makes both of them
+ * read past the other.
+ *
+ * The line is drawn on what the fix changes, which is the only test that
+ * stays decidable at the edges:
+ *
+ *   PUNCTUATION   a mark or a space changes and no word does. A comma splice
+ *                 is here: the repair is a semicolon, not a rewrite.
+ *   TYPO          a word is the wrong word. Misspellings, doubled words, and
+ *                 the homophone confusions — its/it’s, loose/lose.
+ *   GRAMMAR       a word changes form, or one is added or removed. Agreement,
+ *                 articles, plurals, prepositions.
+ *   STYLE         nothing is wrong; this is a suggestion.
+ *
+ * Anything not named here keeps whatever category its analyser assigned.
+ */
+const PUNCTUATION = new Set([
+  'comma-splice', 'introductory-comma', 'stray-comma',
+  'double-space', 'space-before-punctuation', 'missing-space-after-punctuation',
+  'bracket-spacing', 'repeated-punctuation', 'missing-terminal-punctuation',
+  'hyphen-as-dash', 'year-range-dash', 'decades-apostrophe',
+  'unbalanced-quote', 'unbalanced-bracket', 'mixed-quote-style'
+]);
+
+/* Mechanical slips that are not punctuation: the wrong word, or the wrong
+   case on the right one. */
+const TYPO = new Set([
+  'misspelling', 'doubled-word', 'sentence-capitalisation', 'lowercase-i',
+  'its-verb', 'affect-article', 'effect-verb', 'then-compare', 'there-poss',
+  'their-is', 'lead-past', 'loose-lose', 'whos-poss', 'to-too', 'alot',
+  'irregardless', 'based-of'
+]);
+
+/* Caught by mechanics.js or the confusables list, but grammatical: a word
+   changes form or a preposition appears that English does not take. */
+const GRAMMAR = new Set([
+  'article-a-an', 'amount-count', 'less-count', 'informations',
+  'research-plural', 'literatures', 'comprised-of', 'different-than',
+  'discuss-about', 'emphasise-on', 'the-most-unique'
+]);
+
+export function categoryForRule(rule, fallback) {
+  if (PUNCTUATION.has(rule)) return 'punctuation';
+  if (TYPO.has(rule)) return 'typo';
+  if (GRAMMAR.has(rule)) return 'grammar';
+  return fallback;
+}
 
 
 export function buildSegments(text, issues, { categories, severities } = {}) {
@@ -53,7 +108,7 @@ export function buildSegments(text, issues, { categories, severities } = {}) {
 
 /* The category a segment is painted with when several findings overlap:
    the most severe wins, ties broken by category weight. */
-const CATEGORY_WEIGHT = { argument: 0, grammar: 1, citation: 2, typo: 3, structure: 4, ai: 5, style: 6 };
+const CATEGORY_WEIGHT = { argument: 0, grammar: 1, citation: 2, typo: 3, punctuation: 4, structure: 5, ai: 6, style: 7 };
 
 export function dominantIssue(segmentIssues) {
   if (!segmentIssues.length) return null;

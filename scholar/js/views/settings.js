@@ -50,7 +50,16 @@ export default function render(root, ctx) {
     ),
 
     sheet('Model',
-      el('p', { text: 'Needed by three things: the write-up on the Gaps tab, the argument finder, and expanding an outline. Everything else — search, the coverage map, the argument evaluation, Bloom, the prose check — runs here with no model at all.' }),
+      el('p', { text: 'Three things use it, and nothing else does:' }),
+      el('ul', { class: 'uses' },
+        el('li', {}, el('a', { href: '#gaps', onClick: (e) => { e.preventDefault(); ctx.go('gaps'); }, text: 'Gaps' }),
+          ' — turning the counted empty crossings into research questions. The counting happens without it.'),
+        el('li', {}, el('a', { href: '#write', onClick: (e) => { e.preventDefault(); ctx.go('write'); }, text: 'Write' }),
+          ' — finding lines of argument in the sources, at step 1.'),
+        el('li', {}, el('a', { href: '#write', onClick: (e) => { e.preventDefault(); ctx.go('write'); }, text: 'Write' }),
+          ' — expanding a section from notes you have written, at step 3.'),
+      ),
+      el('p', { class: 'note', text: 'Everything else runs with no model at all: the catalogue searches, finding a person, the coverage map and the counted crossings, the argument evaluation, Bloom, the prose check, every reference format, and the whole Grammar tab, which imports nothing from the model layer and cannot be made to use one.' }),
       el('label', { class: 'row', style: 'margin-bottom:14px' },
         el('input', { type: 'checkbox', checked: d.ai.enabled, style: 'width:auto',
           onChange: (e) => touch(() => { d.ai.enabled = e.target.checked; }) }),
@@ -103,16 +112,11 @@ export default function render(root, ctx) {
             'Kept in this browser. With this provider the text of your notes and sources is sent to Anthropic when you press a Write button.'),
 
       el('div', { class: 'row', style: 'margin-top:16px' },
-        el('button', { class: 'solid', disabled: !dirty, text: dirty ? 'Apply changes' : 'No changes to apply',
-          onClick: () => apply(root, ctx) }),
         el('button', { class: 'sm', disabled: dirty || testing, text: testing ? 'Testing…' : 'Test the connection',
           onClick: () => runTest(root, ctx) }),
         testing ? el('span', { class: 'note' }, el('span', { class: 'spin' }), ' asking it to answer') : null,
-        dirty ? el('span', { class: 'note', text: 'Apply first, then test what you applied.' }) : null
+        dirty ? el('span', { class: 'note', text: 'Apply your changes first, then test what you applied.' }) : null
       ),
-
-      applied ? el('div', { class: 'verdict', role: 'status' },
-        el('strong', { text: 'Applied.' }), ' ', el('span', { text: applied })) : null,
 
       probe ? el('div', { class: probe.ok ? 'verdict' : 'verdict bad', role: 'status' },
         el('strong', { text: probe.ok ? 'It answered.' : 'It did not answer.' }), ' ',
@@ -162,8 +166,48 @@ export default function render(root, ctx) {
           } catch (err) { toast(err.message); }
         } })),
       el('p', { class: 'note', style: 'margin-top:10px', text: `${getState().sources.length} source(s), ${getState().drafts.length} draft(s). Clearing this browser's data erases both, so export now and then.` })
-    )
+    ),
+
+    /*
+     * One Apply, for the whole page.
+     *
+     * It was inside the Model section, which was wrong in two ways: it saves
+     * the contact address and the LanguageTool settings as well, so its
+     * placement claimed a scope it did not have, and anyone editing the
+     * address at the top had to scroll down into an unrelated section to
+     * find the button that saves it.
+     *
+     * It now sits at the end and sticks to the bottom of the window while
+     * anything is unsaved, so it is reachable from wherever you are typing
+     * and disappears the moment there is nothing to do.
+     */
+    dirty
+      ? el('div', { class: 'applybar', role: 'region', 'aria-label': 'Unsaved changes' },
+          el('span', { class: 'what', text: pendingSummary(clone(saved), d) }),
+          el('div', { class: 'spacer' }),
+          el('button', { class: 'bare sm', text: 'Discard', onClick: () => { draft = clone(saved); applied = null; probe = null; ltProbe = null; render(root, ctx); } }),
+          el('button', { class: 'solid', text: 'Apply changes', onClick: () => apply(root, ctx) }))
+      : applied
+        ? el('div', { class: 'applybar done', role: 'status' },
+            el('strong', { text: 'Applied. ' }), el('span', { class: 'what', text: applied }))
+        : null
   );
+}
+
+/* What is waiting to be saved, named rather than counted: "3 changes" tells
+   you nothing about whether you meant them. */
+function pendingSummary(before, after) {
+  const moved = [];
+  if (before.contactEmail !== after.contactEmail) moved.push('contact address');
+  if (before.ai.enabled !== after.ai.enabled) moved.push(after.ai.enabled ? 'model switched on' : 'model switched off');
+  if (before.ai.provider !== after.ai.provider) moved.push('where the model runs');
+  if (before.ai.model !== after.ai.model) moved.push('model name');
+  if (before.ai.endpoint !== after.ai.endpoint) moved.push('model address');
+  if (before.ai.apiKey !== after.ai.apiKey) moved.push('API key');
+  if (before.languageTool.enabled !== after.languageTool.enabled) moved.push(after.languageTool.enabled ? 'LanguageTool on' : 'LanguageTool off');
+  if (before.languageTool.endpoint !== after.languageTool.endpoint) moved.push('LanguageTool address');
+  if (before.languageTool.language !== after.languageTool.language) moved.push('English variant');
+  return `Not saved yet: ${moved.join(', ')}.`;
 }
 
 /* Local or not, said as a fact about the address rather than a reassurance. */

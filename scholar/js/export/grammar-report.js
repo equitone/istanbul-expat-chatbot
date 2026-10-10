@@ -18,13 +18,15 @@ import { buildSegments, dominantIssue } from '../analysis/segments.js';
 
 const PALETTE = {
   grammar: '#b4651a',
+  punctuation: '#1f6f7a',
   typo: '#a32f3f',
   style: '#6a6f78'
 };
 
 const LABEL = {
-  grammar: 'Mistakes',
-  typo: 'Typos and spelling',
+  grammar: 'Grammatical mistakes',
+  punctuation: 'Punctuation',
+  typo: 'Typos',
   style: 'Style'
 };
 
@@ -46,7 +48,7 @@ function markedHtml(text, issues) {
 
 export function buildGrammarReport({ text, issues, words, dialect, passiveRate, ltNote, title = 'Grammar check' }) {
   const byCat = (c) => issues.filter((i) => i.category === c);
-  const real = byCat('grammar').length + byCat('typo').length;
+  const real = byCat('grammar').length + byCat('punctuation').length + byCat('typo').length;
   const when = new Date().toLocaleString(undefined, { dateStyle: 'long', timeStyle: 'short' });
 
   const section = (cat) => {
@@ -92,6 +94,7 @@ export function buildGrammarReport({ text, issues, words, dialect, passiveRate, 
          font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; }
   mark { padding: 0 1px; border-radius: 2px; }
   mark.grammar { background: ${PALETTE.grammar}2e; border-bottom: 2px solid ${PALETTE.grammar}; }
+  mark.punctuation { background: ${PALETTE.punctuation}2e; border-bottom: 2px solid ${PALETTE.punctuation}; }
   mark.typo    { background: ${PALETTE.typo}2e;    border-bottom: 2px solid ${PALETTE.typo}; }
   mark.style   { background: ${PALETTE.style}22;   border-bottom: 1px dotted ${PALETTE.style}; }
   .legend { font-size: 12px; color: #555; display: flex; gap: 16px; flex-wrap: wrap; margin: 10px 0 0;
@@ -108,7 +111,8 @@ export function buildGrammarReport({ text, issues, words, dialect, passiveRate, 
   <p class="sub">${when} · ${words.toLocaleString()} words</p>
 
   <div class="figures">
-    <div class="fig"><b>${byCat('grammar').length}</b><span>mistakes</span></div>
+    <div class="fig"><b>${byCat('grammar').length}</b><span>grammar</span></div>
+    <div class="fig"><b>${byCat('punctuation').length}</b><span>punctuation</span></div>
     <div class="fig"><b>${byCat('typo').length}</b><span>typos</span></div>
     <div class="fig"><b>${byCat('style').length}</b><span>style notes</span></div>
     <div class="fig"><b>${words ? (real / words * 1000).toFixed(1) : '0'}</b><span>per 1000 words</span></div>
@@ -116,13 +120,15 @@ export function buildGrammarReport({ text, issues, words, dialect, passiveRate, 
     <div class="fig"><b>${dialect && dialect.mixed ? 'Mixed' : dialect && dialect.dominant === 'UK' ? 'British' : dialect && dialect.dominant === 'US' ? 'American' : '—'}</b><span>spelling</span></div>
   </div>
   <div class="legend">
-    <span><span class="dot" style="background:${PALETTE.grammar}"></span> mistakes</span>
+    <span><span class="dot" style="background:${PALETTE.grammar}"></span> grammar</span>
+    <span><span class="dot" style="background:${PALETTE.punctuation}"></span> punctuation</span>
     <span><span class="dot" style="background:${PALETTE.typo}"></span> typos</span>
     <span><span class="dot" style="background:${PALETTE.style}"></span> style</span>
   </div>
   ${ltNote ? `<p class="sub" style="margin-top:14px">${esc(ltNote)}</p>` : ''}
 
   ${section('grammar')}
+  ${section('punctuation')}
   ${section('typo')}
   ${section('style')}
 

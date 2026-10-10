@@ -348,7 +348,7 @@ function findingsPanel(root, ctx) {
 }
 
 /* Most useful first: real faults, then sources, then matters of taste. */
-const CATEGORY_ORDER = ['grammar', 'typo', 'citation', 'argument', 'structure', 'ai', 'style'];
+const CATEGORY_ORDER = ['grammar', 'typo', 'punctuation', 'citation', 'argument', 'structure', 'ai', 'style'];
 
 /*
  * Build the highlighted document. Segments are non-overlapping by

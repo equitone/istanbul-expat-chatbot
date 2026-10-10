@@ -218,7 +218,7 @@ td.wrap { max-width: 42ch; }
 .spin { display: inline-block; width: 11px; height: 11px; border: 1.5px solid var(--rule-firm); border-top-color: var(--ink); border-radius: 50%; animation: sp .7s linear infinite; vertical-align: -1px; }
 @keyframes sp { to { transform: rotate(360deg); } }
 
-.toasts { position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%); z-index: 90; display: flex; flex-direction: column; gap: 8px; align-items: center; }
+.toasts { position: fixed; bottom: var(--toast-lift, 22px); left: 50%; transform: translateX(-50%); z-index: 90; display: flex; flex-direction: column; gap: 8px; align-items: center; }
 .toast { background: var(--ink); color: var(--paper); padding: 10px 16px; font-size: 13px; max-width: 70ch; }
 
 mark { background: var(--paper-mark); color: inherit; padding: 0 1px; border-bottom: 1px solid var(--ink-faint); }
@@ -487,3 +487,48 @@ a.button.sm { font-size: 12.5px; padding: 4px 9px; }
 /* An installed model: its name, then what it costs to run it. */
 .model-name { font-family: var(--mono); font-size: 12.5px; }
 .model-note { margin-left: 10px; padding-left: 10px; border-left: 1px solid var(--rule-firm); font-size: 11.5px; }
+
+/* The fourth bucket. Punctuation reads as a cooler hue than the two kinds
+   of wrongness beside it, which is the distinction being drawn. */
+:root { --cat-punctuation: #1f6f7a; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { --cat-punctuation: #56b3c4; }
+}
+:root[data-theme="dark"] { --cat-punctuation: #56b3c4; }
+
+.reader mark.cat-punctuation { background: color-mix(in srgb, var(--cat-punctuation) 20%, transparent); border-bottom: 2px solid var(--cat-punctuation); }
+.swatch.cat-punctuation { background: var(--cat-punctuation); }
+.finding.cat-punctuation { border-left-color: var(--cat-punctuation); }
+
+/* ------------------------------------------------------- unsaved changes
+ *
+ * One bar for the whole form, stuck to the bottom while anything is
+ * pending. A save button that lives inside one section of a form claims a
+ * scope it does not have, and is out of reach from the fields at the top.
+ */
+.applybar {
+  position: sticky;
+  bottom: 0;
+  z-index: 15;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin: 0 -28px -96px;
+  padding: 14px 28px;
+  background: var(--ink);
+  color: var(--paper);
+  font-family: var(--sans);
+  font-size: 13.5px;
+}
+.applybar .what { opacity: 0.85; }
+.applybar button { border-color: var(--paper); color: var(--paper); background: transparent; }
+.applybar button.solid { background: var(--paper); color: var(--ink); }
+.applybar.done { background: var(--paper-mark); color: var(--ink); border-top: 1px solid var(--rule-firm); }
+
+/* A toast landing on top of the apply bar hides the thing it is telling you
+   about, so the bar lifts them while it is there. */
+body:has(.applybar) { --toast-lift: 76px; }
+
+/* Where the model is used, as a list of places rather than a sentence. */
+.uses { margin: 4px 0 12px; padding-left: 20px; font-size: 14.5px; line-height: 1.6; }
+.uses li { margin-bottom: 3px; }

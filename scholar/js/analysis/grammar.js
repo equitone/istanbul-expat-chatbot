@@ -6,6 +6,7 @@
  * until its false-positive rate is near zero, even at the cost of missing cases.
  */
 import { CONJUNCTIVE_ADVERBS, WORDY_PHRASES, INFORMAL } from './lexicons.js';
+import { categoryForRule } from './segments.js';
 
 export const CATEGORY = 'grammar';
 
@@ -45,8 +46,8 @@ export function analyseGrammar(doc) {
   const issues = [];
   const { text } = doc;
   const add = (o) => issues.push({
-    category: STYLE_RULES.has(o.rule) ? 'style' : CATEGORY,
     ...o,
+    category: STYLE_RULES.has(o.rule) ? 'style' : categoryForRule(o.rule, CATEGORY),
     excerpt: text.slice(o.start, o.end)
   });
 

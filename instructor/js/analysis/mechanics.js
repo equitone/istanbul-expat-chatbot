@@ -4,6 +4,7 @@
  */
 import { MISSPELLINGS, SPELLING_VARIANTS, CONFUSION_PATTERNS } from './lexicons.js';
 import { isHeadingLike, looksLikeReference } from './text.js';
+import { categoryForRule } from './segments.js';
 
 export const CATEGORY = 'typo';
 
@@ -19,7 +20,9 @@ const variantIndex = (() => {
 export function analyseMechanics(doc) {
   const issues = [];
   const { text, words } = doc;
-  const add = (o) => issues.push({ category: CATEGORY, ...o, excerpt: text.slice(o.start, o.end) });
+  /* CATEGORY is the fallback; the shared table decides for every rule it
+     names, so the two apps cannot disagree about where a finding belongs. */
+  const add = (o) => issues.push({ ...o, category: categoryForRule(o.rule, CATEGORY), excerpt: text.slice(o.start, o.end) });
 
   /* ---------------------------------------------------------- misspellings */
   words.forEach((w) => {

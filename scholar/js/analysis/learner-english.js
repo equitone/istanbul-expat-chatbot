@@ -33,6 +33,8 @@
  * Nothing here needs installing. It is the same offline rule engine as the
  * rest of the app.
  */
+import { categoryForRule } from './segments.js';
+
 export const CATEGORY = 'grammar';
 
 /*
@@ -139,7 +141,7 @@ export function analyseLearnerEnglish(doc) {
 
   const add = (o) => {
     if (inHeading(o.start, o.end)) return;
-    issues.push({ category: CATEGORY, ...o, excerpt: text.slice(o.start, o.end) });
+    issues.push({ ...o, category: categoryForRule(o.rule, CATEGORY), excerpt: text.slice(o.start, o.end) });
   };
   const scan = (re, fn) => { let m; const r = new RegExp(re.source, re.flags); while ((m = r.exec(body)) !== null) fn(m); };
 

@@ -27,6 +27,7 @@
   --good-soft:     #e2f3e9;
 
   --cat-typo:      #d1495b;
+  --cat-punctuation: #1f7a8c;
   --cat-grammar:   #d98324;
   --cat-argument:  #7b4bc4;
   --cat-bloom:     #1f7a8c;
@@ -68,6 +69,7 @@
     --good-soft:     #1b3226;
 
     --cat-typo:      #f0788c;
+    --cat-punctuation: #56b3c4;
     --cat-grammar:   #e0a44f;
     --cat-argument:  #b18aec;
     --cat-bloom:     #56b3c4;
@@ -338,6 +340,7 @@ tfoot td { background: var(--surface-2); font-weight: 600; }
   -webkit-box-decoration-break: clone;
 }
 .reader mark.typo      { background: color-mix(in srgb, var(--cat-typo) 22%, transparent); border-bottom: 2px solid var(--cat-typo); }
+.reader mark.punctuation { background: color-mix(in srgb, var(--cat-punctuation) 20%, transparent); border-bottom: 2px solid var(--cat-punctuation); }
 .reader mark.grammar   { background: color-mix(in srgb, var(--cat-grammar) 22%, transparent); border-bottom: 2px solid var(--cat-grammar); }
 .reader mark.argument  { background: color-mix(in srgb, var(--cat-argument) 18%, transparent); border-bottom: 2px solid var(--cat-argument); }
 .reader mark.bloom     { background: color-mix(in srgb, var(--cat-bloom) 16%, transparent); border-bottom: 2px solid var(--cat-bloom); }

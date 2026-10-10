@@ -38,7 +38,10 @@ const S = {
   /* Which categories are painted and listed. A set rather than one filter:
      looking at mistakes and typos together while style stays out of the way
      is the normal case, and a single-choice filter cannot express it. */
-  on: new Set(['grammar', 'typo', 'style']),
+  /* Derived from BUCKETS rather than written out again: a fourth bucket
+     added to the list and forgotten here is shown in the legend, counted in
+     the figures, and painted nowhere — which is exactly what happened. */
+  on: new Set(),
   focused: null,
   /* How the text got here: 'paste' or 'file'. The filename, when there is
      one, becomes the report's title, which beats "Grammar check" on a
@@ -47,11 +50,23 @@ const S = {
   filename: ''
 };
 
+/*
+ * Four buckets, split on what the fix changes.
+ *
+ * Punctuation and spelling used to share one, and they are not the same
+ * job: someone hunting a comma problem and someone hunting a misspelling
+ * read past each other's findings. The dividing line is in segments.js,
+ * where both apps read it from, so the two cannot drift apart.
+ */
 const BUCKETS = [
-  ['grammar', 'Mistakes', 'Wrong, not merely improvable.'],
-  ['typo', 'Typos and spelling', 'Including doubled words and confusables.'],
-  ['style', 'Style', 'Suggestions. Ignore freely; they are not errors.']
+  ['grammar', 'Grammatical mistakes', 'A word is the wrong form, or one is missing. Agreement, articles, plurals, prepositions.'],
+  ['punctuation', 'Punctuation', 'A mark or a space is wrong, and no word needs to change. Commas, quotes, brackets, dashes.'],
+  ['typo', 'Typos', 'The wrong word, or the right one mistyped. Misspellings, doubled words, its/it\u2019s.'],
+  ['style', 'Style', 'Nothing is wrong. Suggestions, and you may ignore every one of them.']
 ];
+
+/* Everything on, the first time the view runs. */
+if (!S.on.size) BUCKETS.forEach(([id]) => S.on.add(id));
 
 export default function render(root, ctx) {
   const s = getState();
@@ -59,7 +74,7 @@ export default function render(root, ctx) {
 
   mount(root,
     el('h1', { text: 'Grammar' }),
-    el('p', { class: 'lede', text: 'Paste text or open a file, and it is checked here, on this computer, with no model involved. Mistakes, typos and style are counted separately, because a style suggestion is not an error and should not sit in the same list as one.' }),
+    el('p', { class: 'lede', text: 'Paste text or open a file, and it is checked here, on this computer, with no model involved. Grammar, punctuation, typos and style are counted separately, because they are four different jobs and a style suggestion is not an error.' }),
 
     sheet(null,
       el('div', { class: 'row', style: 'margin-bottom:14px' },
@@ -168,16 +183,18 @@ function whereItRuns(settings, ctx) {
 
 function results(r, root, ctx) {
   const counts = Object.fromEntries(BUCKETS.map(([id]) => [id, r.issues.filter((i) => i.category === id).length]));
-  const real = counts.grammar + counts.typo;
+  /* Everything that is actually wrong, which is every bucket but style. */
+  const real = counts.grammar + counts.punctuation + counts.typo;
   const shown = r.issues.filter((i) => S.on.has(i.category));
 
   return el('div', {},
     sheet('What came back',
       el('div', { class: 'figures' },
-        figure('mistakes', counts.grammar),
+        figure('grammar', counts.grammar),
+        figure('punctuation', counts.punctuation),
         figure('typos', counts.typo),
         figure('style notes', counts.style),
-        figure('per 1000 words', r.words ? (real / r.words * 1000).toFixed(1) : '0', 'mistakes and typos'),
+        figure('per 1000 words', r.words ? (real / r.words * 1000).toFixed(1) : '0', 'everything but style'),
         figure('passive voice', `${Math.round(r.passiveRate * 100)}%`, 'of sentences'),
         /* Mixed British and American spelling in one document is the kind of
            thing a reader notices and a rule-by-rule list buries. */
