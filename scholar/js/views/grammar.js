@@ -39,7 +39,12 @@ const S = {
      looking at mistakes and typos together while style stays out of the way
      is the normal case, and a single-choice filter cannot express it. */
   on: new Set(['grammar', 'typo', 'style']),
-  focused: null
+  focused: null,
+  /* How the text got here: 'paste' or 'file'. The filename, when there is
+     one, becomes the report's title, which beats "Grammar check" on a
+     printout you are filing with a chapter. */
+  via: 'paste',
+  filename: ''
 };
 
 const BUCKETS = [
@@ -54,20 +59,32 @@ export default function render(root, ctx) {
 
   mount(root,
     el('h1', { text: 'Grammar' }),
-    el('p', { class: 'lede', text: 'Paste anything and it is checked here, on this computer, with no model involved. Mistakes, typos and style are counted separately, because a style suggestion is not an error and should not sit in the same list as one.' }),
+    el('p', { class: 'lede', text: 'Paste text or open a file, and it is checked here, on this computer, with no model involved. Mistakes, typos and style are counted separately, because a style suggestion is not an error and should not sit in the same list as one.' }),
 
     sheet(null,
+      el('div', { class: 'row', style: 'margin-bottom:14px' },
+        el('div', { class: 'seg' },
+          el('button', { 'aria-pressed': String(S.via === 'paste'), text: 'Paste text',
+            onClick: () => { S.via = 'paste'; render(root, ctx); } }),
+          el('button', { 'aria-pressed': String(S.via === 'file'), text: 'From a file',
+            onClick: () => { S.via = 'file'; render(root, ctx); } })),
+        S.filename ? el('span', { class: 'note', text: `Read from ${S.filename}.` }) : null),
+
+      S.via === 'file' ? fileInput(root, ctx) : null,
+
       el('label', { class: 'field' },
-        el('span', { text: 'Your text' }),
-        el('textarea', { id: 'gr-text', rows: 12, value: S.text,
-          placeholder: 'Paste a paragraph, a chapter, an abstract, an email.',
-          onInput: (e) => { S.text = e.target.value; } })),
+        el('span', { text: S.via === 'file' ? 'What was read, which you can edit before checking' : 'Your text' }),
+        el('textarea', { id: 'gr-text', rows: 8, value: S.text,
+          placeholder: S.via === 'file'
+            ? 'Choose a file above and its text appears here.'
+            : 'Paste a paragraph, a chapter, an abstract, an email.',
+          onInput: (e) => { S.text = e.target.value; S.filename = ''; } })),
       el('div', { class: 'row' },
         el('button', { id: 'gr-run', class: 'solid', disabled: Boolean(S.busy), text: 'Check it',
           onClick: () => run(root, ctx) }),
         el('span', { class: 'note', text: `${words.toLocaleString()} word${words === 1 ? '' : 's'}.` }),
         S.text ? el('button', { class: 'bare sm', text: 'Clear',
-          onClick: () => { S.text = ''; S.result = null; render(root, ctx); } }) : null,
+          onClick: () => { S.text = ''; S.filename = ''; S.result = null; render(root, ctx); } }) : null,
         S.busy ? el('span', { class: 'note' }, el('span', { class: 'spin' }), ` ${S.busy}`) : null),
       el('div', { class: 'note', style: 'margin-top:10px' }, ...whereItRuns(s.settings, ctx))
     ),
@@ -76,6 +93,46 @@ export default function render(root, ctx) {
   );
   /* After mount, so the reader node exists to write into. */
   if (S.result) paintReader(S.result);
+}
+
+/*
+ * A chapter is a file, not a paste.
+ *
+ * Pasting forty pages out of Word is awkward and loses the paragraph breaks
+ * the sentence rules depend on, so PDF, Word, text and Markdown are read
+ * directly — the same extractor the Library uses. The text lands in the box
+ * rather than going straight to the checker, because an extracted PDF often
+ * carries a running header on every page and you want to see that before it
+ * becomes forty findings.
+ *
+ * It is read in this browser. Nothing is uploaded.
+ */
+function fileInput(root, ctx) {
+  return el('div', { style: 'margin-bottom:14px' },
+    el('input', {
+      id: 'gr-file', type: 'file', accept: '.txt,.md,.markdown,.pdf,.docx,.rtf,.html,.htm',
+      onChange: async (e) => {
+        const f = e.target.files[0];
+        if (!f) return;
+        S.busy = `Reading ${f.name}…`;
+        render(root, ctx);
+        try {
+          const { extractText } = await import('../io/files.js');
+          const { text } = await extractText(f);
+          if (!text || text.trim().length < 20) throw new Error('almost no text came out of it');
+          S.text = text;
+          S.filename = f.name;
+          S.result = null;
+          toast(`${text.trim().split(/\s+/).length.toLocaleString()} words read. Check it over, then press Check it.`);
+        } catch (err) {
+          toast(`${f.name}: ${err.message}`);
+        }
+        S.busy = null;
+        render(root, ctx);
+      }
+    }),
+    el('p', { class: 'note', style: 'margin-top:6px', text: 'PDF, Word, RTF, plain text or Markdown. Read in this browser; nothing is uploaded. A PDF often brings its running headers with it, so look over what comes out before checking.' })
+  );
 }
 
 /*
@@ -89,7 +146,12 @@ export default function render(root, ctx) {
  */
 function whereItRuns(settings, ctx) {
   if (!ltConfigured(settings)) {
-    return ['Nothing you paste here leaves this computer. The rules run in this page, there is no model involved, and no request is made. LanguageTool can be added in Settings to catch more; it is optional.'];
+    return [
+      'Nothing you paste here leaves this computer. The rules run in this page, there is no model involved, and no request is made. ',
+      el('a', { href: '#settings', onClick: (e) => { e.preventDefault(); ctx.go('settings'); },
+        text: 'LanguageTool catches more and can be run on this computer too' }),
+      el('span', { text: ', so adding it need not change that.' })
+    ];
   }
   const endpoint = String(settings.languageTool.endpoint || '');
   const local = /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:|\/|$)/i.test(endpoint);
@@ -237,6 +299,7 @@ function issueItem(i, text, idx) {
 }
 
 function reportTitle() {
+  if (S.filename) return S.filename.replace(/\.[^.]+$/, '');
   const first = S.text.trim().split(/\n/)[0] || '';
   return first.length > 4 && first.length < 90 ? first.trim() : 'Grammar check';
 }
@@ -307,4 +370,21 @@ async function run(root, ctx) {
   };
   S.busy = null;
   render(root, ctx);
+
+  /*
+   * Put the two panes under the header.
+   *
+   * They are sticky, but sticky only engages once the page has scrolled to
+   * them; on the first check they sit below a tall input box and run past
+   * the bottom of the window, which is what made the two columns look
+   * mismatched. Scrolling here is not a surprise — it immediately follows
+   * pressing Check it, which is exactly when the results are what you want
+   * to be looking at.
+   */
+  const layout = root.querySelector('.reader-layout');
+  if (layout) {
+    const bar = Math.round(document.querySelector('header.bar')?.getBoundingClientRect().height || 52);
+    const y = window.scrollY + layout.getBoundingClientRect().top - bar - 18;
+    window.scrollTo({ top: Math.max(0, y), behavior: 'smooth' });
+  }
 }

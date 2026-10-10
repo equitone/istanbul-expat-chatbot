@@ -89,10 +89,16 @@ Passive-voice share and mixed British/American spelling are reported too, and
 the whole thing saves as a self-contained HTML report that prints to PDF with
 the highlighting intact.
 
+Takes a pasted passage or a file: PDF, Word, RTF, text or Markdown, read in
+the browser and dropped into the box so you can see what came out of the PDF
+before it becomes forty findings about a running header.
+
 Nothing needs a model, and nothing leaves the computer: the rules run in the
-page. LanguageTool is an optional second pass, and if you point it at a
-server that is not on this machine the Grammar tab says so, in those words,
-above the box you are pasting into.
+page. LanguageTool is an optional second pass that catches more, and it can
+also be run on this computer — Settings has the Docker and Java commands, and
+then nothing you check leaves the machine either. If you point it at someone
+else's server instead, the Grammar tab says so in those words, naming the
+address, above the box you are pasting into.
 
 **Calls** — conferences, journal issues, prizes, grants and fellowships,
 with what is left on the clock. The list you keep is the reliable half.

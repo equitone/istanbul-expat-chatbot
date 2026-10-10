@@ -159,5 +159,24 @@ window.__toast = toast;
  * brought back to the front, which is what actually catches the morning a
  * deadline turns from tomorrow into today.
  */
+/*
+ * Publish the header's real height.
+ *
+ * The panes on the Grammar tab stick below it and size themselves to what is
+ * left of the window. The header wraps to two lines at narrow widths and
+ * grows when the deadline banner appears, so a constant in the stylesheet
+ * would be wrong exactly when space is tightest.
+ */
+function measureBar() {
+  const bar = document.querySelector('header.bar');
+  if (bar) document.documentElement.style.setProperty('--bar', `${Math.round(bar.getBoundingClientRect().height)}px`);
+}
+measureBar();
+window.addEventListener('resize', measureBar);
+if (typeof ResizeObserver === 'function') {
+  const bar = document.querySelector('header.bar');
+  if (bar) new ResizeObserver(measureBar).observe(bar);
+}
+
 setInterval(drawDeadlines, 3600000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) drawDeadlines(); });

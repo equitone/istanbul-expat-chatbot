@@ -396,15 +396,65 @@ a.button.sm { font-size: 12.5px; padding: 4px 9px; }
   --cat-style:   #98a0ae;
 }
 
-.reader-layout { display: grid; grid-template-columns: 1.25fr 1fr; gap: var(--gap); align-items: start; }
-@media (max-width: 980px) { .reader-layout { grid-template-columns: 1fr; } }
+/*
+ * Text and findings, side by side and the same height.
+ *
+ * They were not: the reader was capped and scrolled while the findings list
+ * grew without limit, so on anything longer than a paragraph the two columns
+ * ended up wildly different lengths and the page scrolled past the text you
+ * were meant to be reading against. Both panes are now one height, each
+ * scrolls its own content, and the whole thing sticks below the header so
+ * the text stays put while you work down the list.
+ *
+ * scrollbar-gutter keeps the space reserved whether or not a bar is showing,
+ * so a pane does not reflow its words the moment it becomes scrollable, and
+ * the last line is never hidden under an overlay scrollbar.
+ */
+.reader-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+  gap: var(--gap);
+  align-items: start;
+}
+.reader-layout > .sheet {
+  /*
+   * Stuck below the sticky header, and never taller than what is left of
+   * the window. Without the sticky the panes simply ran past the bottom of
+   * the screen: the page scrolled, their tops went under the header, and
+   * the last line of each sat below the fold where no amount of scrolling
+   * inside them would bring it back.
+   *
+   * --bar is the header's measured height, set from JS, because the header
+   * wraps to two lines at narrow widths and a guessed constant would cut
+   * the panes short exactly when there is least room to spare.
+   */
+  position: sticky;
+  top: calc(var(--bar, 52px) + 18px);
+  max-height: calc(100vh - var(--bar, 52px) - 46px);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+  padding-bottom: 4px;
+}
+.reader-layout > .sheet > :last-child {
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+  min-height: 0;
+  padding-right: 4px;
+}
+@media (max-width: 980px) {
+  .reader-layout { grid-template-columns: 1fr; }
+  /* Stacked, a pane that scrolls inside a page that also scrolls is a trap;
+     let them run to their natural length instead. */
+  .reader-layout > .sheet { max-height: none; overflow: visible; position: static; }
+  .reader-layout > .sheet > :last-child { overflow: visible; max-height: none; }
+}
 
 .reader {
   font-family: var(--serif);
   font-size: 16px;
   line-height: 1.75;
-  max-height: 72vh;
-  overflow-y: auto;
   white-space: normal;
 }
 .reader p { margin: 0 0 13px; }

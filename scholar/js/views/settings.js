@@ -14,6 +14,7 @@ import { isConfigured, testModel } from '../ai.js';
 import { LANGUAGES, isConfigured as ltConfigured, testConnection as testLt } from '../analysis/languagetool.js';
 
 /* The working copy, kept across redraws of this view. */
+const S = { howTo: false };
 let draft = null;
 let applied = null;   /* what the last Apply did, shown until the next edit */
 let probe = null;     /* the result of the model connection test */
@@ -105,9 +106,8 @@ export default function render(root, ctx) {
       ltProbe ? el('div', { class: ltProbe.ok ? 'verdict' : 'verdict bad', role: 'status' },
         el('strong', { text: ltProbe.ok ? 'It answered.' : 'It did not answer.' }), ' ',
         el('span', { text: ltProbe.detail })) : null,
-      el('p', { class: 'note', style: 'margin-top:12px', text: ltConfigured(saved)
-        ? `In use: ${saved.languageTool.endpoint}, ${saved.languageTool.language}.`
-        : 'Not in use. The Grammar tab still works; it just catches less.' })
+      el('div', { class: 'note', style: 'margin-top:12px' }, ...ltStatus(saved)),
+      howToRunIt(root, ctx)
     ),
 
     sheet('Your data',
@@ -129,6 +129,59 @@ export default function render(root, ctx) {
         } })),
       el('p', { class: 'note', style: 'margin-top:10px', text: `${getState().sources.length} source(s), ${getState().drafts.length} draft(s). Clearing this browser's data erases both, so export now and then.` })
     )
+  );
+}
+
+/* Local or not, said as a fact about the address rather than a reassurance. */
+function ltStatus(saved) {
+  if (!ltConfigured(saved)) return ['Not in use. The Grammar tab still works; it just catches less.'];
+  const endpoint = String(saved.languageTool.endpoint || '');
+  const local = /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:|\/|$)/i.test(endpoint);
+  return local
+    ? [`In use at ${endpoint}, ${saved.languageTool.language}. That address is this computer, so nothing you check is sent anywhere.`]
+    : [el('strong', { text: 'In use at ' }), el('strong', { text: endpoint }),
+       el('span', { text: `, ${saved.languageTool.language}. That is not this computer: everything you check on the Grammar tab is sent there.` })];
+}
+
+/*
+ * How to have LanguageTool without sending anything out.
+ *
+ * This is the whole point of the setting, and the answer is to run the
+ * server yourself. Both routes need something installed, which is the real
+ * cost and is stated rather than buried: Docker, or Java. Neither is
+ * required to use this app — the built-in rules never needed either.
+ *
+ * Written out in the app rather than linked, because a link to instructions
+ * is one more thing to be out of date, and these two commands have not
+ * changed in years.
+ */
+function howToRunIt(root, ctx) {
+  if (!S.howTo) {
+    return el('p', { style: 'margin-top:8px' },
+      el('button', { class: 'bare sm', text: 'How do I run it on this computer?',
+        onClick: () => { S.howTo = true; render(root, ctx); } }));
+  }
+  return el('div', { class: 'item loose', style: 'margin-top:12px' },
+    el('div', { class: 'title', style: 'font-size:16px', text: 'Running LanguageTool on this computer' }),
+    el('p', { class: 'body', text: 'Then nothing you check leaves the machine, and you still get the wider rule set. Either route works; pick whichever you already have.' }),
+
+    el('h2', { style: 'margin-top:14px', text: 'With Docker' }),
+    el('p', { class: 'body', text: 'One command, nothing else to install, and it keeps running until you stop it:' }),
+    el('pre', { class: 'why', text: 'docker run -d --name languagetool -p 8081:8010 erikvl87/languagetool' }),
+    el('p', { class: 'note', text: 'Stop it with  docker stop languagetool,  start it again with  docker start languagetool.' }),
+
+    el('h2', { style: 'margin-top:14px', text: 'With Java' }),
+    el('p', { class: 'body' },
+      'Download the standalone ZIP from ',
+      el('a', { href: 'https://languagetool.org/download/', target: '_blank', rel: 'noopener', text: 'languagetool.org/download' }),
+      ', unzip it, and from inside that folder run:'),
+    el('pre', { class: 'why', text: 'java -cp languagetool-server.jar org.languagetool.server.HTTPServer --port 8081 --allow-origin "*"' }),
+    el('p', { class: 'note', text: 'Needs Java 17 or newer. --allow-origin is what lets this page talk to it; without it the browser refuses and the Grammar tab will say the server did not answer.' }),
+
+    el('p', { class: 'body', style: 'margin-top:14px', text: 'Either way, leave the address above as http://localhost:8081, press Apply, then Test LanguageTool. The Grammar tab will say it is running on this computer.' }),
+    el('p', { class: 'note', text: 'Worth knowing: the built-in rules need none of this and never send anything. LanguageTool catches more, and this is the price.' }),
+    el('div', { style: 'margin-top:10px' },
+      el('button', { class: 'bare sm', text: 'Hide this', onClick: () => { S.howTo = false; render(root, ctx); } }))
   );
 }
 
