@@ -10,11 +10,11 @@
  */
 import { el, mount, sheet, field, toast } from '../ui.js';
 import { getState, setSettings, setAi, setLanguageTool } from '../store.js';
-import { isConfigured, testModel } from '../ai.js';
+import { isConfigured, testModel, listModels } from '../ai.js';
 import { LANGUAGES, isConfigured as ltConfigured, testConnection as testLt } from '../analysis/languagetool.js';
 
 /* The working copy, kept across redraws of this view. */
-const S = { howTo: false };
+const S = { howTo: false, models: null, listing: false };
 let draft = null;
 let applied = null;   /* what the last Apply did, shown until the next edit */
 let probe = null;     /* the result of the model connection test */
@@ -35,6 +35,8 @@ export default function render(root, ctx) {
      settings, and leaving them up would have the page vouching for something
      that is no longer what the boxes say. */
   const touch = (fn) => { fn(); applied = null; probe = null; ltProbe = null; render(root, ctx); };
+
+  /* The listing describes the saved endpoint, so an edit invalidates it. */
 
   mount(root,
     el('h1', { text: 'Settings' }),
@@ -57,9 +59,41 @@ export default function render(root, ctx) {
         field('Where it runs', el('select', { onChange: (e) => touch(() => { d.ai.provider = e.target.value; }) },
           el('option', { value: 'local', selected: d.ai.provider === 'local', text: 'On this computer (Ollama or similar)' }),
           el('option', { value: 'anthropic', selected: d.ai.provider === 'anthropic', text: 'Claude API (sends text to Anthropic)' }))),
-        field('Model name', el('input', {
-          value: d.ai.model, placeholder: d.ai.provider === 'local' ? 'llama3.1:8b' : 'claude-opus-5',
-          onInput: (e) => { d.ai.model = e.target.value; applied = null; } }))),
+        field('Model name', el('div', {},
+          el('input', {
+            value: d.ai.model, placeholder: d.ai.provider === 'local' ? 'llama3.1:8b' : 'claude-opus-5',
+            onInput: (e) => { d.ai.model = e.target.value; applied = null; } }),
+          el('div', { class: 'row tight', style: 'margin-top:6px' },
+            el('button', { class: 'bare sm', type: 'button', disabled: S.listing,
+              text: S.listing ? 'Asking…' : (d.ai.provider === 'local' ? 'What is installed?' : 'Which models can this key use?'),
+              onClick: () => showModels(root, ctx) }),
+            S.listing ? el('span', { class: 'note' }, el('span', { class: 'spin' })) : null)))),
+
+      /*
+       * The models actually there, as buttons.
+       *
+       * The box has to stay free text — every server names its models
+       * differently and a fixed list would be wrong within a month — but a
+       * name typed from memory fails silently, at the moment you press a
+       * Write button, long after the mistake. One click fills it with
+       * something that exists.
+       */
+      S.models ? el('div', { class: S.models.ok ? 'verdict' : 'verdict bad' },
+        S.models.ok
+          ? el('div', {},
+              el('strong', { text: `${S.models.models.length} model${S.models.models.length === 1 ? '' : 's'} at ${S.models.from}. ` }),
+              el('span', { class: 'note', text: 'Click one to use it.' }),
+              el('div', { class: 'row tight', style: 'margin-top:8px' },
+                S.models.models.map((m) => el('button', {
+                  class: 'sm', type: 'button',
+                  'aria-pressed': String(d.ai.model === m.name),
+                  title: m.note || '',
+                  onClick: () => touch(() => { d.ai.model = m.name; })
+                }, el('span', { class: 'model-name', text: m.name }),
+                   m.note ? el('span', { class: 'note model-note', text: m.note }) : null))))
+          : el('div', {},
+              el('strong', { text: 'Could not list them. ' }),
+              el('span', { text: S.models.detail }))) : null,
       d.ai.provider === 'local'
         ? field('Address', el('input', { value: d.ai.endpoint, placeholder: 'http://localhost:11434/v1',
             onInput: (e) => { d.ai.endpoint = e.target.value; applied = null; } }),
@@ -262,5 +296,25 @@ async function runLtTest(root, ctx) {
     ltProbe = { ok: false, detail: String(err.message || err) };
   }
   ltTesting = false;
+  render(root, ctx);
+}
+
+/*
+ * Ask the server what it has.
+ *
+ * Against the draft rather than the saved settings, so you can type an
+ * address and see what is there before committing to it — which is the
+ * order anyone actually does this in.
+ */
+async function showModels(root, ctx) {
+  S.listing = true;
+  S.models = null;
+  render(root, ctx);
+  try {
+    S.models = await listModels({ ai: draft.ai });
+  } catch (err) {
+    S.models = { ok: false, detail: String(err.message || err) };
+  }
+  S.listing = false;
   render(root, ctx);
 }

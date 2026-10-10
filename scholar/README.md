@@ -157,7 +157,14 @@ coverage map and counted gaps, the argument evaluation, Bloom, the prose
 check, the grammar checker, the calls list and all reference formatting.
 
 Needs a model: the write-up on the Gaps tab, the argument finder, and
-expanding an outline. Point it at a local model (Ollama serves an
+expanding an outline. Nothing else, and in particular not the Grammar tab,
+which imports nothing from the model layer at all.
+
+Settings can ask a local server which models it actually has — the box stays
+free text, because every server names its models differently and a fixed
+list would be wrong within a month, but a name typed from memory fails
+silently at the moment you press a Write button. One click fills it with
+something that exists. Point it at a local model (Ollama serves an
 OpenAI-compatible endpoint at `http://localhost:11434/v1`) and nothing leaves
 the machine at all; point it at the Claude API and your notes and sources are
 sent to Anthropic when you press a Write button. Settings says which.

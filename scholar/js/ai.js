@@ -227,3 +227,76 @@ export async function testModel(settings, { signal } = {}) {
     return { ok: false, detail: m };
   }
 }
+
+/*
+ * What models are actually installed.
+ *
+ * The model name is a free-text box, which is correct — every server names
+ * its models differently and a fixed list would be wrong within a month —
+ * but it leaves the obvious question unanswered: what is on this machine?
+ * Getting that wrong is a silent failure, because a server asked for a
+ * model it does not have returns an error at the moment you press a Write
+ * button, long after the mistake was made.
+ *
+ * Two routes. `/v1/models` is the OpenAI-compatible standard and works for
+ * Ollama, LM Studio, llama.cpp and vLLM alike. Ollama's own `/api/tags` is
+ * tried after it because it carries the size and quantisation, which is
+ * what tells you whether a model will actually run on the machine.
+ */
+export async function listModels(settings, { signal } = {}) {
+  const ai = (settings || {}).ai || {};
+
+  if (ai.provider === 'anthropic') {
+    if (!ai.apiKey) return { ok: false, detail: 'Add the API key first, then this can ask which models the key may use.' };
+    try {
+      const res = await fetch('https://api.anthropic.com/v1/models?limit=40', {
+        signal,
+        headers: {
+          'x-api-key': ai.apiKey,
+          'anthropic-version': '2023-06-01',
+          'anthropic-dangerous-direct-browser-access': 'true'
+        }
+      });
+      if (!res.ok) return { ok: false, detail: `Anthropic returned ${res.status}. ${(await res.text().catch(() => '')).slice(0, 140)}` };
+      const data = await res.json();
+      const models = (data.data || []).map((m) => ({ name: m.id, note: m.display_name || '' }));
+      return models.length ? { ok: true, models, from: 'Anthropic' } : { ok: false, detail: 'The key works but no models came back.' };
+    } catch (err) {
+      return { ok: false, detail: `Could not reach Anthropic (${err.message}).` };
+    }
+  }
+
+  const base = String(ai.endpoint || '').replace(/\/+$/, '');
+  if (!base) return { ok: false, detail: 'Fill in the address first.' };
+
+  /* The standard list. */
+  try {
+    const res = await fetch(`${base.replace(/\/v1$/, '')}/v1/models`, { signal });
+    if (res.ok) {
+      const data = await res.json();
+      const models = (data.data || []).map((m) => ({ name: m.id })).filter((m) => m.name);
+      if (models.length) return { ok: true, models, from: base };
+    }
+  } catch { /* fall through to Ollama's own */ }
+
+  /* Ollama's, which says how big each one is. */
+  const root = base.replace(/\/v1$/, '');
+  try {
+    const res = await fetch(`${root}/api/tags`, { signal });
+    if (!res.ok) return { ok: false, detail: `The server at ${root} answered ${res.status} when asked for its models.` };
+    const data = await res.json();
+    const models = (data.models || []).map((m) => ({
+      name: m.name,
+      note: [m.details?.parameter_size, m.details?.quantization_level, m.size ? `${(m.size / 1e9).toFixed(1)} GB` : '']
+        .filter(Boolean).join(' · ')
+    })).filter((m) => m.name);
+    return models.length
+      ? { ok: true, models, from: root }
+      : { ok: false, detail: `${root} is running but has no models installed. Pull one, for example:  ollama pull llama3.1:8b` };
+  } catch (err) {
+    return {
+      ok: false,
+      detail: `Nothing answered at ${root}. Is the server running? For Ollama that is  ollama serve,  and it usually starts by itself. (${err.message})`
+    };
+  }
+}
