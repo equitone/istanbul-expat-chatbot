@@ -472,7 +472,13 @@ given a preposition they do not take ("discuss about"), mass nouns pluralised
 the plain form, doubled comparatives, and a pronoun repeated inside a relative
 clause. Every finding names the fault and offers the fix.
 
-LanguageTool is still there as an optional second opinion, folded away in
+LanguageTool, if you set it up, runs in **both** Thesis review and Batch
+triage, so the counts in the two tabs mean the same thing. Over a folder it is
+a network call per document: if the server stops answering, triage stops
+asking rather than waiting out a timeout on every remaining file, and says how
+many documents it reached before it gave up.
+
+It is still an optional second opinion, folded away in
 Settings. It is a fine general checker but it needs Java, a downloaded server
 and a terminal window left open, so the app does not depend on it and nothing
 is missing without it.

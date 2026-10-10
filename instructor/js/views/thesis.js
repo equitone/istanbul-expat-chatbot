@@ -4,7 +4,7 @@ import {
 } from '../ui.js';
 import { getState, LEVEL_LABEL, saveThesis, loadThesisDocument, removeThesis } from '../store.js';
 import { LEVELS as BLOOM_LEVELS } from '../analysis/bloom.js';
-import { analyseThesis, buildSegments, dominantIssue, CATEGORY_META } from '../analysis/index.js';
+import { analyseThesis, buildSegments, dominantIssue, CATEGORY_META, recountIssues as recount } from '../analysis/index.js';
 import { compareAgainstCorpus, voiceConsistency, aiIndicators } from '../analysis/similarity.js';
 import { verifyReference, findPriorWork, setContactEmail } from '../analysis/verify.js';
 import { reviewThesis, toIssues, isConfigured, planReview } from '../analysis/ai.js';
@@ -195,23 +195,6 @@ function run(root, ctx, { keepExtras = false } = {}) {
   }, 20);
 }
 
-/* Counts drive the stat tiles and the filter labels, so they have to be
-   recomputed after anything is merged into the issue list. */
-function recount(report) {
-  const by = (fn) => report.issues.filter(fn).length;
-  report.counts = {
-    total: report.issues.length,
-    high: by((i) => i.severity === 'high'),
-    medium: by((i) => i.severity === 'medium'),
-    low: by((i) => i.severity === 'low'),
-    typo: by((i) => i.category === 'typo'),
-    grammar: by((i) => i.category === 'grammar'),
-    style: by((i) => i.category === 'style'),
-    argument: by((i) => i.category === 'argument'),
-    structure: by((i) => i.category === 'structure'),
-    citation: by((i) => i.category === 'citation')
-  };
-}
 
 /* ------------------------------------------------------------ analysed */
 

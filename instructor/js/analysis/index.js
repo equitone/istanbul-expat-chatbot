@@ -108,6 +108,34 @@ export function analyseThesis(rawText, { citationStyle = 'apa7' } = {}) {
   };
 }
 
+/*
+ * Recompute the per-category counts from the issue list.
+ *
+ * Anything that merges findings into a finished report — LanguageTool, most
+ * obviously — has to call this, or the stat tiles and the triage reasons go on
+ * describing the list as it was before the merge. Shared between the views
+ * rather than copied into each, because the copy in thesis.js had already
+ * drifted: it was written before the Bloom findings existed and silently
+ * dropped that count every time it ran.
+ */
+export function recountIssues(report) {
+  const by = (fn) => report.issues.filter(fn).length;
+  report.counts = {
+    total: report.issues.length,
+    high: by((i) => i.severity === 'high'),
+    medium: by((i) => i.severity === 'medium'),
+    low: by((i) => i.severity === 'low'),
+    typo: by((i) => i.category === 'typo'),
+    grammar: by((i) => i.category === 'grammar'),
+    style: by((i) => i.category === 'style'),
+    argument: by((i) => i.category === 'argument'),
+    bloom: by((i) => i.category === 'bloom'),
+    structure: by((i) => i.category === 'structure'),
+    citation: by((i) => i.category === 'citation')
+  };
+  return report;
+}
+
 /* Normalise line endings and exotic whitespace WITHOUT changing length, so all
    offsets computed downstream stay valid against this exact string. */
 function normalise(raw) {

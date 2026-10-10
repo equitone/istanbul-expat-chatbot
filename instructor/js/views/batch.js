@@ -22,7 +22,8 @@ import {
   el, mount, table, chip, stat, toast, banner, meter, int, num
 } from '../ui.js';
 import { getState, LEVEL_LABEL } from '../store.js';
-import { analyseThesis } from '../analysis/index.js';
+import { analyseThesis, recountIssues } from '../analysis/index.js';
+import { checkText as ltCheck, isConfigured as ltReady, merge as ltMerge } from '../analysis/languagetool.js';
 import { aiIndicators, crossMatch } from '../analysis/similarity.js';
 import { extractText, SUPPORTED, downloadText } from '../io/files.js';
 import { buildSimpleReport, openPrintable, downloadReport } from '../export/report.js';
@@ -35,7 +36,8 @@ const S = {
   progress: null,
   style: 'apa7',
   sort: 'attention',
-  failures: []
+  failures: [],
+  lt: null
 };
 
 /* Above this a batch takes long enough that the instructor should be told
@@ -55,6 +57,7 @@ export default function renderBatch(root, ctx) {
       S.rows.length ? el('button', { class: 'primary', text: 'Print triage report', onClick: printTriage }) : null
     ),
     S.running ? progressCard() : intake(root, ctx),
+    ltCard(),
     S.failures.length ? failureCard() : null,
     S.rows.length && !S.running ? results(root, ctx) : null
   );
@@ -164,6 +167,23 @@ async function run(files, root, ctx) {
 
   const students = getState().students;
 
+  /*
+   * LanguageTool was wired into Thesis review and not into here, so a folder
+   * triaged with three engines could be compared against a single document
+   * reviewed with four. Nobody would notice; the counts would simply not
+   * agree between the two tabs, which is the kind of thing that quietly
+   * destroys trust in every number in the app.
+   *
+   * It is a network round-trip per document. If the server goes away we stop
+   * asking rather than waiting out a timeout on every remaining file — one
+   * failure almost always means the server is down, and a triage that takes
+   * twenty minutes to tell you so is worse than one that says it after the
+   * first attempt. What it managed is then reported precisely.
+   */
+  const settings = getState().settings;
+  let ltOn = ltReady(settings);
+  S.lt = ltOn ? { ran: 0, findings: 0, stoppedAfter: null, error: null } : null;
+
   for (const file of usable) {
     S.progress.current = file.name;
     renderBatch(root, ctx);
@@ -174,6 +194,29 @@ async function run(files, root, ctx) {
       const { text } = await extractText(file);
       if (!text || text.trim().length < 400) throw new Error('Too short to analyse (under 400 characters of text).');
       const report = analyseThesis(text, { citationStyle: S.style });
+
+      if (ltOn) {
+        S.progress.current = `${file.name} — LanguageTool…`;
+        renderBatch(root, ctx);
+        try {
+          const res = await ltCheck(text, settings);
+          const before = report.issues.length;
+          report.issues = ltMerge(report.issues, res.issues);
+          recountIssues(report);
+          report.languageTool = {
+            findings: res.issues.length,
+            language: res.language,
+            replacedBuiltIn: before + res.issues.length - report.issues.length
+          };
+          S.lt.ran++;
+          S.lt.findings += res.issues.length;
+        } catch (err) {
+          ltOn = false;
+          S.lt.error = err.message;
+          S.lt.stoppedAfter = file.name;
+        }
+      }
+
       const ai = aiIndicators(text);
       S.rows.push({
         id: `f${S.rows.length}`,
@@ -369,6 +412,26 @@ const SORTS = {
   ai: { label: 'AI signals', fn: (a, b) => b.ai.score - a.ai.score },
   length: { label: 'Length', fn: (a, b) => b.report.doc.bodyWords.length - a.report.doc.bodyWords.length }
 };
+
+/*
+ * Say exactly how many documents the second engine reached. A batch where it
+ * ran on four of thirty and then stopped is not the same as one where it ran
+ * throughout, and a reader comparing two rows needs to know which they are
+ * looking at.
+ */
+function ltCard() {
+  const lt = S.lt;
+  if (!lt) return null;
+  if (lt.error) {
+    return banner('warn',
+      `LanguageTool checked ${lt.ran} of ${S.rows.length} submission(s) and then stopped: ${lt.error} ` +
+      `Everything from “${lt.stoppedAfter}” onwards was checked with the built-in rules only, so grammar counts are not comparable across this table. ` +
+      'The built-in rules ran on all of them.');
+  }
+  if (!lt.ran) return null;
+  return banner('info',
+    `LanguageTool ran on all ${lt.ran} submission(s) alongside the built-in rules, adding ${lt.findings} finding(s).`);
+}
 
 function results(root, ctx) {
   const rows = [...S.rows].sort(SORTS[S.sort].fn);
