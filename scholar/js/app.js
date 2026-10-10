@@ -3,12 +3,14 @@ import { getState, subscribe, storageState } from './store.js';
 import { BUILD } from './version.js';
 import { setContactEmail } from './analysis/verify.js';
 import { setContactEmail as setPeopleEmail } from './analysis/people.js';
+import { setContactEmail as setGatherEmail } from './analysis/gather.js';
 
 import renderLibrary from './views/library.js';
 import renderSearch from './views/search.js';
 import renderGaps from './views/gaps.js';
 import renderEvaluate from './views/evaluate.js';
 import renderWrite from './views/write.js';
+import renderGrammar from './views/grammar.js';
 import renderSettings from './views/settings.js';
 
 const VIEWS = [
@@ -17,6 +19,7 @@ const VIEWS = [
   { id: 'gaps', label: 'Gaps', render: renderGaps },
   { id: 'evaluate', label: 'Evaluate', render: renderEvaluate },
   { id: 'write', label: 'Write', render: renderWrite },
+  { id: 'grammar', label: 'Grammar', render: renderGrammar },
   { id: 'settings', label: 'Settings', render: renderSettings }
 ];
 
@@ -88,6 +91,7 @@ function syncContact() {
   const email = getState().settings.contactEmail || '';
   setContactEmail(email);
   setPeopleEmail(email);
+  setGatherEmail(email);
 }
 syncContact();
 

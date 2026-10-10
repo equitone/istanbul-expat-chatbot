@@ -16,6 +16,7 @@ import { el, mount, sheet, tag, toast, clip, empty, figure, field } from '../ui.
 import { getState, saveDraft, uid } from '../store.js';
 import { ask, isConfigured, ideasPrompt, draftPrompt, checkCitations } from '../ai.js';
 import { findTells, readTells } from '../analysis/tells.js';
+import { gatherCorpus } from '../analysis/gather.js';
 
 const S = {
   stage: 'ideas',
@@ -27,7 +28,12 @@ const S = {
   question: '',
   sections: [],
   busy: null,
-  expanded: {}
+  expanded: {},
+  /* Where the sources for the last run came from, so the page can say. */
+  fetched: null,
+  useRecord: true,
+  /* The exact records the last run argued from; the draft stage reuses it. */
+  sources: []
 };
 
 export default function render(root, ctx) {
@@ -66,11 +72,23 @@ function ideasStage(root, ctx, ready) {
         el('textarea', { id: 'write-position', rows: 2, value: S.position,
           placeholder: 'Leave empty and it will propose positions instead of testing yours.',
           onChange: (e) => { S.position = e.target.value; } })),
+      el('label', { class: 'row', style: 'margin-bottom:12px' },
+        el('input', { type: 'checkbox', checked: S.useRecord, style: 'width:auto',
+          onChange: (e) => { S.useRecord = e.target.checked; render(root, ctx); } }),
+        el('span', { text: 'Fetch real sources on this topic from the catalogues' })),
       el('div', { class: 'row' },
         el('button', { id: 'write-gen', class: 'solid', disabled: !ready || Boolean(S.busy), text: 'Find the strongest lines', onClick: () => genIdeas(root, ctx) }),
-        el('span', { class: 'note', text: `From the ${s.sources.length} source(s) in your library. An argument it cannot tie to one of them is not offered.` }),
+        el('span', { class: 'note', text: S.useRecord
+          ? `Real catalogue records for the topic, plus the ${s.sources.length} source(s) you have collected. An argument it cannot tie to one of them is not offered.`
+          : `From the ${s.sources.length} source(s) in your library only. An argument it cannot tie to one of them is not offered.` }),
         S.busy ? el('span', { class: 'note' }, el('span', { class: 'spin' }), ` ${S.busy}`) : null)
     ),
+    S.fetched ? sheet(null,
+      el('div', { class: 'figures' },
+        figure('sources argued from', S.fetched.used),
+        figure('fetched for this topic', S.fetched.fromRecord, S.fetched.catalogue),
+        figure('from your library', S.fetched.fromLibrary)),
+      el('p', { class: 'note', text: S.fetched.note })) : null,
     S.ideas ? ideasResults(root, ctx) : null
   );
 }
@@ -104,18 +122,78 @@ async function genIdeas(root, ctx) {
   const s = getState();
   const topic = S.topic.trim();
   if (topic.length < 3) { toast('Give it a topic first.'); return; }
-  const sources = s.sources.filter((x) => (x.abstract || x.text).length > 40).slice(0, 30);
-  if (!sources.length) { toast('Your library is empty. Add sources first — it will not argue from nothing.'); return; }
-  S.busy = 'Reading your sources…';
+
+  const mine = s.sources.filter((x) => (x.abstract || x.text).length > 40);
+  S.busy = S.useRecord ? 'Searching the catalogues…' : 'Reading your sources…';
   S.ideas = null;
+  S.fetched = null;
   render(root, ctx);
+
   try {
+    /*
+     * Retrieval first, so the model is arguing from the published record
+     * rather than from whatever happens to be on the shelf. These are
+     * catalogue records with DOIs, not anything a model produced, and the
+     * citation check afterwards is run against exactly this set — so an
+     * argument citing something that was not retrieved is still dropped.
+     */
+    let found = [];
+    let catalogue = '';
+    let note = '';
+    if (S.useRecord) {
+      const corpus = await gatherCorpus(topic, {
+        want: 200,
+        crossref: true,
+        onProgress: ({ fetched, total, stage }) => {
+          S.busy = stage === 'Crossref' ? 'Topping up from Crossref…'
+            : `Fetched ${fetched.toLocaleString()} of ${total.toLocaleString()} matches…`;
+          render(root, ctx);
+        }
+      });
+      /* The most cited first: an argument is better made from work the field
+         has had to respond to than from whatever sorted first. */
+      found = corpus.placeable.slice().sort((a, b) => b.citedBy - a.citedBy);
+      catalogue = corpus.catalogue;
+      note = corpus.note;
+    }
+
+    /* Yours first, so your own reading is never crowded out by retrieval. */
+    const seen = new Set();
+    const sources = [...mine, ...found].filter((x) => {
+      const key = String(x.doi || x.title || '').toLowerCase();
+      if (!key || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    }).slice(0, 40);
+
+    if (!sources.length) {
+      toast(S.useRecord
+        ? 'Nothing came back for that topic, and your library is empty, so there is nothing to argue from.'
+        : 'Your library is empty. Tick the box above to fetch sources, or add some.');
+      S.busy = null;
+      render(root, ctx);
+      return;
+    }
+
+    S.fetched = {
+      used: sources.length,
+      fromRecord: sources.filter((x) => !mine.includes(x)).length,
+      fromLibrary: sources.filter((x) => mine.includes(x)).length,
+      catalogue: catalogue || 'not searched',
+      note: note || 'Your own library only; nothing was fetched.'
+    };
+
+    S.busy = 'Looking for the strongest lines…';
+    render(root, ctx);
     const parsed = await ask(ideasPrompt({ topic, position: S.position.trim(), sources }), s.settings);
     const { kept, dropped } = checkCitations(parsed.arguments, sources, 'uses');
     S.ideas = kept;
     S.dropped = dropped;
     S.missing = String(parsed.missing || '');
-    if (!kept.length) toast('Nothing came back that was tied to your sources.');
+    /* The outline stage cites by index into this set, so it has to be the
+       same set the ideas were checked against. */
+    S.sources = sources;
+    if (!kept.length) toast('Nothing came back that was tied to a real source.');
   } catch (err) { toast(err.message); }
   S.busy = null;
   render(root, ctx);
@@ -225,7 +303,16 @@ function draftBody(out, sec, root, ctx) {
 
 async function expand(sec, root, ctx) {
   const s = getState();
-  const sources = s.sources.filter((x) => (x.abstract || x.text).length > 40).slice(0, 25);
+  /*
+   * The same set the arguments were checked against, when there is one.
+   * Expanding against a different set would let a citation that was verified
+   * at the argument stage be reported as unsupported here, or the reverse,
+   * which is worse: an invented source slipping through because the check ran
+   * against a wider list than the prompt saw.
+   */
+  const sources = (S.sources && S.sources.length
+    ? S.sources
+    : s.sources.filter((x) => (x.abstract || x.text).length > 40)).slice(0, 25);
   S.busy = sec.id;
   render(root, ctx);
   try {

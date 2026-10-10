@@ -261,9 +261,50 @@ mark.weak { border-bottom-style: dotted; }
   margin-bottom: 4px;
 }
 .nosave p { margin: 3px 0 0; max-width: 78ch; }
+/* The catalogue's own words, kept readable and wrappable. */
+.item .why {
+  font-family: var(--mono);
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+  background: var(--paper-sunk);
+  border-left: 2px solid var(--rule-firm);
+  padding: 8px 10px;
+  margin: 10px 0 0;
+}
+
 .nosave .why {
   font-family: var(--mono);
   font-size: 11px;
   opacity: 0.6;
   margin-top: 7px;
 }
+
+/* ------------------------------------------------------ applied / tested
+ *
+ * The answer to "did that take?". Quiet when it worked, because a success
+ * that shouts is as tiring as an error that whispers; a failure gets the
+ * heavier rule so the eye lands on it first.
+ */
+.verdict {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-left: 3px solid var(--ink);
+  background: var(--paper-sunk);
+  font-size: 13.5px;
+  line-height: 1.5;
+}
+.verdict.bad { border-left-width: 5px; }
+.verdict strong { font-family: var(--sans); }
+
+/* A flagged span, shown in its neighbourhood rather than alone: a fragment
+   with no context is hard to find again in the document it came from. */
+.item .quote {
+  font-family: var(--serif);
+  font-size: 14.5px;
+  line-height: 1.6;
+  color: var(--ink-soft);
+  margin-top: 6px;
+}
+.item .mono { font-family: var(--mono); font-size: 11px; }

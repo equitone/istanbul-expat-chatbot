@@ -34,7 +34,11 @@ const blank = () => ({
   version: 1,
   settings: {
     contactEmail: '',
-    ai: { enabled: false, provider: 'local', model: '', apiKey: '', endpoint: 'http://localhost:11434/v1', contextTokens: 32768 }
+    ai: { enabled: false, provider: 'local', model: '', apiKey: '', endpoint: 'http://localhost:11434/v1', contextTokens: 32768 },
+    /* Optional second opinion on the Grammar tab. Off by default: the public
+       server means sending text somewhere, and that is a choice to make
+       deliberately, not a default to discover afterwards. */
+    languageTool: { enabled: false, endpoint: 'http://localhost:8081', language: 'en-GB' }
   },
   sources: [],   /* papers you have kept: title, authors, year, abstract, full text */
   drafts: [],    /* essays in progress */
@@ -61,6 +65,7 @@ function migrate(s) {
   s.sources ||= [];
   s.drafts ||= [];
   s.settings.ai ||= blank().settings.ai;
+  s.settings.languageTool ||= blank().settings.languageTool;
   return s;
 }
 
@@ -175,3 +180,4 @@ export const removeDraft = (id) => update((s) => { s.drafts = s.drafts.filter((d
 
 export const setSettings = (patch) => update((s) => Object.assign(s.settings, patch));
 export const setAi = (patch) => update((s) => { s.settings.ai = { ...s.settings.ai, ...patch }; });
+export const setLanguageTool = (patch) => update((s) => { s.settings.languageTool = { ...s.settings.languageTool, ...patch }; });

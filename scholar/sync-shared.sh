@@ -8,7 +8,7 @@
 set -u
 HERE="$(cd "$(dirname "$0")" && pwd)"
 SRC="$HERE/../instructor/js/analysis"
-FILES="text.js lexicons.js bloom.js gaps.js argument.js verify.js"
+FILES="text.js lexicons.js bloom.js gaps.js argument.js verify.js grammar.js mechanics.js learner-english.js languagetool.js"
 mode="${1:-check}"
 status=0
 for f in $FILES; do

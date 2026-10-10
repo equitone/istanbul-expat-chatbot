@@ -194,3 +194,36 @@ export function checkCitations(items, sources, key = 'uses') {
   });
   return { kept, dropped };
 }
+
+/*
+ * Does this actually work?
+ *
+ * Settings used to save quietly and say "Set up." the moment a box had text
+ * in it, which answers a different question from the one the user is asking.
+ * A typed address is not a reachable model, and the difference only showed up
+ * later, on a Write button, as a failure that looked like the feature being
+ * broken. This sends one trivial request and reports exactly what came back.
+ */
+export async function testModel(settings, { signal } = {}) {
+  if (!isConfigured(settings)) {
+    return { ok: false, detail: settings?.settings?.ai?.enabled === false
+      ? 'The model is switched off.'
+      : 'Nothing to test yet: fill in the address or the key.' };
+  }
+  const started = Date.now();
+  try {
+    const reply = await ask('Reply with exactly {"ok":true} and nothing else.', settings, { signal });
+    const ms = Date.now() - started;
+    return reply && typeof reply === 'object'
+      ? { ok: true, detail: `Answered in ${(ms / 1000).toFixed(1)}s.` }
+      : { ok: false, detail: 'It answered, but not with anything usable.' };
+  } catch (err) {
+    /* The model did reply, just not in JSON. For a connection test that is a
+       pass: the thing is reachable, which is what was being asked. */
+    const m = String(err.message || err);
+    if (/did not return JSON/i.test(m)) {
+      return { ok: true, detail: `Reachable in ${((Date.now() - started) / 1000).toFixed(1)}s, though it ignored the format asked for. Good enough to use.` };
+    }
+    return { ok: false, detail: m };
+  }
+}

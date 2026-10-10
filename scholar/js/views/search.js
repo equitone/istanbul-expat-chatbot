@@ -13,7 +13,7 @@
 import { el, mount, sheet, tag, toast, clip, empty, figure, table } from '../ui.js';
 import { getState, addSources } from '../store.js';
 import { searchOpenAlex, searchCrossref } from '../analysis/verify.js';
-import { findPeople, worksByAuthor, profile } from '../analysis/people.js';
+import { findPeople, worksByAuthor, profile, worksMentioningName } from '../analysis/people.js';
 
 const S = {
   mode: 'works',
@@ -24,6 +24,8 @@ const S = {
   people: null,
   person: null,
   personWorks: null,
+  loose: null,
+  error: null,
   picked: new Set()
 };
 
@@ -53,7 +55,36 @@ export default function render(root, ctx) {
       el('p', { class: 'note', style: 'margin-top:10px', text: 'OpenAlex and Crossref. Only the words you type are sent. Add a contact address in Settings and the catalogues answer faster.' })
     ),
 
+    errorSheet(root, ctx),
     S.mode === 'people' ? peopleResults(root, ctx) : workResults(root, ctx)
+  );
+}
+
+/*
+ * A search that failed has to say so where the results would have been.
+ *
+ * It used to raise a toast and nothing else, so a few seconds later the tab
+ * looked exactly like a search that had never been run: no results, no
+ * explanation, nothing to act on. Whatever the catalogue said is kept on
+ * screen instead, because that text names the problem and the alternative is
+ * the user guessing.
+ */
+function errorSheet(root, ctx) {
+  const e = S.error;
+  if (!e) return null;
+  const offline = typeof navigator !== 'undefined' && navigator.onLine === false;
+  return sheet(null,
+    el('div', { class: 'item loose' },
+      el('div', { class: 'title', text: offline ? 'This computer is offline' : 'The catalogue did not answer' }),
+      el('div', { class: 'body', style: 'margin-top:4px', text: offline
+        ? 'Nothing can be searched without a connection. Everything else in the app works offline; this tab does not.'
+        : 'Nothing was found because the search itself failed, not because there is nothing to find.' }),
+      el('pre', { class: 'why', text: e.message }),
+      e.url ? el('div', { class: 'note', style: 'margin-top:6px' },
+        'Tried: ', el('a', { href: e.url, target: '_blank', rel: 'noopener', text: e.url })) : null,
+      el('div', { class: 'row tight', style: 'margin-top:10px' },
+        el('button', { class: 'sm', text: 'Try again', onClick: () => run(root, ctx) }))
+    )
   );
 }
 
@@ -109,7 +140,11 @@ function keep(root, ctx, works) {
 function peopleResults(root, ctx) {
   if (S.person) return personSheet(root, ctx);
   if (!S.people) return null;
-  if (!S.people.length) return sheet(null, empty('No one by that name', 'Try the surname alone, or a different spelling.'));
+  if (!S.people.length) return el('div', {},
+    sheet(null, empty('No one by that name in the author index',
+      'OpenAlex lists a person only once it has matched them across several indexed works. Someone early in their career, or publishing mainly in books, often has no entry even though their work is there.')),
+    looseResults(root, ctx)
+  );
   return sheet('Which one',
     el('p', { class: 'note', style: 'margin-bottom:16px', text: 'A name is not an identifier. Pick the person and their works are fetched by id, so what comes back is theirs rather than everything that mentions the name.' }),
     S.people.map((p) => el('div', { class: 'item' },
@@ -125,6 +160,49 @@ function peopleResults(root, ctx) {
       el('div', { style: 'margin-top:8px' },
         el('button', { class: 'sm', text: 'Show their work', onClick: () => openPerson(p, root, ctx) }))
     ))
+  );
+}
+
+/*
+ * The loose fallback, kept visually separate and labelled, because it is a
+ * different kind of answer: a text match on a name, not a resolved person.
+ * Work that merely cites them comes back too, so the by-line is marked rather
+ * than implied.
+ */
+function looseResults(root, ctx) {
+  if (!S.loose) return null;
+  if (!S.loose.works.length) return sheet(null, empty('Nothing under that name either',
+    'No indexed work mentions it. Try the surname alone, or the spelling used on the publication.'));
+  const onByline = S.loose.works.filter((w) => w.byline).length;
+  return sheet('Anything mentioning that name',
+    el('p', { class: 'note', style: 'margin-bottom:14px',
+      text: `A plain text search, not a resolved person: ${S.loose.total.toLocaleString()} works mention it, ${S.loose.works.length} shown, ${onByline} with the name on the by-line. The rest cite it or discuss it.` }),
+    S.loose.works.map((w, i) => el('div', { class: 'item' },
+      el('div', { class: 'head' },
+        el('span', { text: w.year || 'n.d.' }),
+        w.venue ? el('span', { text: clip(w.venue, 44) }) : null,
+        el('span', { text: `${w.citedBy} citations` }),
+        w.byline ? tag('on the by-line') : tag('mentions only')
+      ),
+      el('div', { class: 'title', text: w.title }),
+      el('div', { class: 'meta', style: 'margin-bottom:6px', text: (w.authors || []).slice(0, 6).join(', ') || '—' }),
+      w.abstract ? el('div', { class: 'body', style: 'font-size:14px', text: clip(w.abstract, 320) }) : null,
+      el('div', { class: 'row tight', style: 'margin-top:8px' },
+        el('button', { class: 'sm', 'aria-pressed': String(S.picked.has(`l${i}`)),
+          text: S.picked.has(`l${i}`) ? 'Selected' : 'Select',
+          onClick: () => { S.picked.has(`l${i}`) ? S.picked.delete(`l${i}`) : S.picked.add(`l${i}`); render(root, ctx); } }),
+        w.url ? el('a', { href: w.url, target: '_blank', rel: 'noopener', class: 'note', text: 'open ↗' }) : null)
+    )),
+    el('div', { class: 'row', style: 'margin-top:14px' },
+      el('div', { class: 'spacer' }),
+      el('button', { class: 'sm', text: `Keep ${S.picked.size || 'selected'}`, disabled: !S.picked.size,
+        onClick: () => {
+          const chosen = [...S.picked].filter((k) => String(k).startsWith('l')).map((k) => S.loose.works[Number(String(k).slice(1))]).filter(Boolean);
+          const made = addSources(chosen);
+          S.picked.clear();
+          toast(`${made.length} added to the library${made.length < chosen.length ? `, ${chosen.length - made.length} already there` : ''}.`);
+          render(root, ctx);
+        } }))
   );
 }
 
@@ -185,10 +263,20 @@ async function run(root, ctx) {
   S.busy = 'Searching…';
   S.picked.clear();
   S.person = null;
+  S.loose = null;
+  S.error = null;
   render(root, ctx);
   try {
     if (S.mode === 'people') {
       S.people = await findPeople(q);
+      /*
+       * No author record is not the same as nothing published. OpenAlex only
+       * creates one once it has disambiguated someone across a few indexed
+       * works, so an early-career researcher, or anyone publishing mostly in
+       * books, has none. Rather than stopping at "no one by that name", the
+       * looser text search runs too and is shown underneath, labelled.
+       */
+      if (!S.people.length) S.loose = await worksMentioningName(q);
     } else {
       const fromYear = S.fromYear ? Number(S.fromYear) : null;
       const [oa, cr] = await Promise.allSettled([
@@ -206,12 +294,31 @@ async function run(root, ctx) {
       } else if (cr.status === 'fulfilled') {
         S.works = { ...cr.value, source: 'Crossref (OpenAlex did not answer)' };
       } else {
-        throw new Error(oa.reason ? oa.reason.message : 'Neither catalogue answered.');
+        /* Both failed. Report the first catalogue's reason: two stacked
+           messages say no more than one and read like a wall. */
+        throw oa.reason || cr.reason || new Error('Neither catalogue answered.');
       }
     }
   } catch (err) {
-    toast(err.message);
+    S.error = { message: friendly(err) };
+    if (S.mode === 'people') { S.people = null; S.loose = null; } else { S.works = null; }
   }
   S.busy = null;
   render(root, ctx);
+}
+
+/*
+ * A browser reports every network failure as the same bare "Failed to fetch",
+ * which tells the user nothing about whether to check their wifi, wait, or
+ * tell me the app is broken. The catalogue's own words are kept when there
+ * are any.
+ */
+function friendly(err) {
+  const m = String((err && err.message) || err || 'Unknown error');
+  if (/failed to fetch|networkerror|load failed/i.test(m)) {
+    return 'The request never reached the catalogue. That is usually no internet connection, a network that blocks it, or the catalogue being down. (Browser reported: ' + m + ')';
+  }
+  if (/\b429\b/.test(m)) return m + ' — too many requests in a short time. Wait a minute, and add a contact address in Settings: it puts you in the catalogue\'s faster pool.';
+  if (/\b403\b/.test(m)) return m + ' — the catalogue rejected the request itself, not the words you searched for.';
+  return m;
 }

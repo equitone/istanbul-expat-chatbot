@@ -130,10 +130,10 @@ async function crossrefSearch(ref, signal) {
 }
 
 async function openAlexSearch(ref, signal) {
-  const params = new URLSearchParams({ search: (ref.title || ref.raw).slice(0, 200), per_page: '4' });
+  const params = new URLSearchParams({ search: (ref.title || ref.raw).slice(0, 200), 'per-page': '4' });
   if (contact) params.set('mailto', contact);
   const res = await fetch(`${OPENALEX}?${params}`, { signal });
-  if (!res.ok) throw new Error(`OpenAlex returned ${res.status}`);
+  if (!res.ok) throw await catalogueError(res, 'OpenAlex');
   const data = await res.json();
   return (data.results || []).map(normaliseOpenAlex);
 }
@@ -192,6 +192,26 @@ const tokens = (s) => new Set(String(s).toLowerCase().match(/[a-z0-9]{3,}/g)?.fi
 
 const politeQuery = (sep) => (contact ? `${sep}mailto=${encodeURIComponent(contact)}` : '');
 
+/*
+ * What the catalogue actually said.
+ *
+ * `OpenAlex returned 403` is useless: 403 is what OpenAlex answers to an
+ * unknown or malformed query parameter, and the body names the parameter.
+ * Throwing away the body turns a one-line fix into an afternoon of guessing,
+ * which is how a wrong page-size parameter survived in here undetected.
+ */
+async function catalogueError(res, who) {
+  let detail = '';
+  try {
+    const body = await res.text();
+    try {
+      const j = JSON.parse(body);
+      detail = j.message || j.error || (j.message && j.error ? `${j.error}: ${j.message}` : '');
+    } catch { detail = body.slice(0, 200); }
+  } catch { /* nothing readable */ }
+  return new Error(`${who} returned ${res.status}${detail ? `: ${detail.trim()}` : '.'}`);
+}
+
 /* ------------------------------------------------- prior-work / novelty */
 
 /*
@@ -208,14 +228,14 @@ export async function findPriorWork(statement, { signal, perPage = 12, fromYear 
 
   const params = new URLSearchParams({
     search: query,
-    per_page: String(perPage),
+    'per-page': String(perPage),
     sort: 'relevance_score:desc'
   });
   if (fromYear) params.set('filter', `from_publication_date:${fromYear}-01-01`);
   if (contact) params.set('mailto', contact);
 
   const res = await fetch(`${OPENALEX}?${params}`, { signal });
-  if (!res.ok) throw new Error(`OpenAlex returned ${res.status}`);
+  if (!res.ok) throw await catalogueError(res, 'OpenAlex');
   const data = await res.json();
 
   const works = (data.results || []).map((w) => ({
@@ -279,7 +299,7 @@ function rebuildAbstract(inverted) {
  * the other.
  */
 export async function searchOpenAlex(query, { signal, perPage = 20, fromYear = null, openAccessOnly = false } = {}) {
-  const params = new URLSearchParams({ search: query, per_page: String(perPage) });
+  const params = new URLSearchParams({ search: query, 'per-page': String(perPage) });
   const filters = [];
   if (fromYear) filters.push(`from_publication_date:${fromYear}-01-01`);
   if (openAccessOnly) filters.push('is_oa:true');
@@ -287,7 +307,7 @@ export async function searchOpenAlex(query, { signal, perPage = 20, fromYear = n
   if (contact) params.set('mailto', contact);
 
   const res = await fetch(`${OPENALEX}?${params}`, { signal });
-  if (!res.ok) throw new Error(`OpenAlex returned ${res.status}.`);
+  if (!res.ok) throw await catalogueError(res, 'OpenAlex');
   const data = await res.json();
   return {
     total: data.meta ? data.meta.count : 0,
@@ -313,7 +333,7 @@ export async function searchCrossref(query, { signal, rows = 20, fromYear = null
   if (contact) params.set('mailto', contact);
 
   const res = await fetch(`${CROSSREF}?${params}`, { signal });
-  if (!res.ok) throw new Error(`Crossref returned ${res.status}.`);
+  if (!res.ok) throw await catalogueError(res, 'Crossref');
   const data = await res.json();
   return {
     total: data.message['total-results'] || 0,

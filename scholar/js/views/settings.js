@@ -1,39 +1,113 @@
+/*
+ * settings.js — edited as a draft, applied on purpose.
+ *
+ * It used to write every keystroke's blur straight into the store and say
+ * nothing. Saving invisibly is the same as not saving as far as the person
+ * typing is concerned: there is no moment where the app agrees that it heard
+ * you, so the only way to find out whether the address took was to go to
+ * another tab and fail there. Now the form holds a draft, Apply writes it,
+ * and the page says what changed and what it is now using.
+ */
 import { el, mount, sheet, field, toast } from '../ui.js';
-import { getState, setSettings, setAi } from '../store.js';
-import { isConfigured } from '../ai.js';
+import { getState, setSettings, setAi, setLanguageTool } from '../store.js';
+import { isConfigured, testModel } from '../ai.js';
+import { LANGUAGES, isConfigured as ltConfigured, testConnection as testLt } from '../analysis/languagetool.js';
+
+/* The working copy, kept across redraws of this view. */
+let draft = null;
+let applied = null;   /* what the last Apply did, shown until the next edit */
+let probe = null;     /* the result of the model connection test */
+let ltProbe = null;   /* the result of the LanguageTool test */
+let testing = false;
+let ltTesting = false;
+
+const clone = (s) => ({ contactEmail: s.contactEmail || '', ai: { ...s.ai }, languageTool: { ...s.languageTool } });
+const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 
 export default function render(root, ctx) {
-  const s = getState();
-  const ai = s.settings.ai;
+  const saved = getState().settings;
+  if (!draft) draft = clone(saved);
+  const d = draft;
+  const dirty = !same(d, clone(saved));
+
+  /* Any edit invalidates the previous verdicts: they describe the old
+     settings, and leaving them up would have the page vouching for something
+     that is no longer what the boxes say. */
+  const touch = (fn) => { fn(); applied = null; probe = null; ltProbe = null; render(root, ctx); };
+
   mount(root,
     el('h1', { text: 'Settings' }),
     el('p', { class: 'lede', text: 'Your library and your drafts live in this browser. The catalogue searches send only the words you type. A model sees only what a tab tells you it is sending.' }),
 
     sheet('You',
-      field('Contact email', el('input', { value: s.settings.contactEmail, placeholder: 'you@university.edu',
-        onChange: (e) => setSettings({ contactEmail: e.target.value.trim() }) }),
-        'Sent to OpenAlex and Crossref only, to get into their faster pool. Nowhere else.')
+      field('Contact email', el('input', {
+        value: d.contactEmail, placeholder: 'you@university.edu',
+        onInput: (e) => { d.contactEmail = e.target.value; applied = null; }
+      }), 'Sent to OpenAlex and Crossref only, to get into their faster pool. Nowhere else. It also makes them answer faster, which is worth the thirty seconds.')
     ),
 
     sheet('Model',
       el('p', { text: 'Needed by three things: the write-up on the Gaps tab, the argument finder, and expanding an outline. Everything else — search, the coverage map, the argument evaluation, Bloom, the prose check — runs here with no model at all.' }),
       el('label', { class: 'row', style: 'margin-bottom:14px' },
-        el('input', { type: 'checkbox', checked: ai.enabled, style: 'width:auto', onChange: (e) => setAi({ enabled: e.target.checked }) }),
+        el('input', { type: 'checkbox', checked: d.ai.enabled, style: 'width:auto',
+          onChange: (e) => touch(() => { d.ai.enabled = e.target.checked; }) }),
         el('span', { text: 'Use a model' })),
       el('div', { class: 'cols' },
-        field('Where it runs', el('select', { onChange: (e) => setAi({ provider: e.target.value }) },
-          el('option', { value: 'local', selected: ai.provider === 'local', text: 'On this computer (Ollama or similar)' }),
-          el('option', { value: 'anthropic', selected: ai.provider === 'anthropic', text: 'Claude API (sends text to Anthropic)' }))),
-        field('Model name', el('input', { value: ai.model, placeholder: ai.provider === 'local' ? 'llama3.1:8b' : 'claude-opus-5',
-          onChange: (e) => setAi({ model: e.target.value.trim() }) }))),
-      ai.provider === 'local'
-        ? field('Address', el('input', { value: ai.endpoint, placeholder: 'http://localhost:11434/v1',
-            onChange: (e) => setAi({ endpoint: e.target.value.trim() }) }),
+        field('Where it runs', el('select', { onChange: (e) => touch(() => { d.ai.provider = e.target.value; }) },
+          el('option', { value: 'local', selected: d.ai.provider === 'local', text: 'On this computer (Ollama or similar)' }),
+          el('option', { value: 'anthropic', selected: d.ai.provider === 'anthropic', text: 'Claude API (sends text to Anthropic)' }))),
+        field('Model name', el('input', {
+          value: d.ai.model, placeholder: d.ai.provider === 'local' ? 'llama3.1:8b' : 'claude-opus-5',
+          onInput: (e) => { d.ai.model = e.target.value; applied = null; } }))),
+      d.ai.provider === 'local'
+        ? field('Address', el('input', { value: d.ai.endpoint, placeholder: 'http://localhost:11434/v1',
+            onInput: (e) => { d.ai.endpoint = e.target.value; applied = null; } }),
             'An OpenAI-compatible endpoint. Ollama serves one at this address by default.')
-        : field('API key', el('input', { type: 'password', value: ai.apiKey, placeholder: 'sk-ant-…',
-            onChange: (e) => setAi({ apiKey: e.target.value.trim() }) }),
+        : field('API key', el('input', { type: 'password', value: d.ai.apiKey, placeholder: 'sk-ant-…',
+            onInput: (e) => { d.ai.apiKey = e.target.value; applied = null; } }),
             'Kept in this browser. With this provider the text of your notes and sources is sent to Anthropic when you press a Write button.'),
-      el('p', { class: 'note', text: isConfigured(s.settings) ? 'Set up.' : 'Not set up — the three tabs above will say so rather than failing.' })
+
+      el('div', { class: 'row', style: 'margin-top:16px' },
+        el('button', { class: 'solid', disabled: !dirty, text: dirty ? 'Apply changes' : 'No changes to apply',
+          onClick: () => apply(root, ctx) }),
+        el('button', { class: 'sm', disabled: dirty || testing, text: testing ? 'Testing…' : 'Test the connection',
+          onClick: () => runTest(root, ctx) }),
+        testing ? el('span', { class: 'note' }, el('span', { class: 'spin' }), ' asking it to answer') : null,
+        dirty ? el('span', { class: 'note', text: 'Apply first, then test what you applied.' }) : null
+      ),
+
+      applied ? el('div', { class: 'verdict', role: 'status' },
+        el('strong', { text: 'Applied.' }), ' ', el('span', { text: applied })) : null,
+
+      probe ? el('div', { class: probe.ok ? 'verdict' : 'verdict bad', role: 'status' },
+        el('strong', { text: probe.ok ? 'It answered.' : 'It did not answer.' }), ' ',
+        el('span', { text: probe.detail })) : null,
+
+      el('p', { class: 'note', style: 'margin-top:12px', text: inUse(saved) })
+    ),
+
+    sheet('Grammar checking',
+      el('p', { text: 'The Grammar tab runs its own rules with nothing installed. LanguageTool is an optional second pass that catches a wider range, and the two are merged with duplicates dropped.' }),
+      el('label', { class: 'row', style: 'margin-bottom:14px' },
+        el('input', { type: 'checkbox', checked: d.languageTool.enabled, style: 'width:auto',
+          onChange: (e) => touch(() => { d.languageTool.enabled = e.target.checked; }) }),
+        el('span', { text: 'Also use LanguageTool' })),
+      el('div', { class: 'cols' },
+        field('Address', el('input', { value: d.languageTool.endpoint, placeholder: 'http://localhost:8081',
+          onInput: (e) => { d.languageTool.endpoint = e.target.value; applied = null; } }),
+          'A LanguageTool server. Run one on this computer and your text stays here; point it at api.languagetool.org and every paragraph you check is sent to them.'),
+        field('English', el('select', { onChange: (e) => touch(() => { d.languageTool.language = e.target.value; }) },
+          LANGUAGES.map((l) => el('option', { value: l.id, selected: d.languageTool.language === l.id, text: l.label }))))),
+      el('div', { class: 'row', style: 'margin-top:14px' },
+        el('button', { class: 'sm', disabled: dirty || ltTesting, text: ltTesting ? 'Testing…' : 'Test LanguageTool',
+          onClick: () => runLtTest(root, ctx) }),
+        ltTesting ? el('span', { class: 'note' }, el('span', { class: 'spin' }), ' asking the server') : null),
+      ltProbe ? el('div', { class: ltProbe.ok ? 'verdict' : 'verdict bad', role: 'status' },
+        el('strong', { text: ltProbe.ok ? 'It answered.' : 'It did not answer.' }), ' ',
+        el('span', { text: ltProbe.detail })) : null,
+      el('p', { class: 'note', style: 'margin-top:12px', text: ltConfigured(saved)
+        ? `In use: ${saved.languageTool.endpoint}, ${saved.languageTool.language}.`
+        : 'Not in use. The Grammar tab still works; it just catches less.' })
     ),
 
     sheet('Your data',
@@ -53,7 +127,87 @@ export default function render(root, ctx) {
             location.reload();
           } catch (err) { toast(err.message); }
         } })),
-      el('p', { class: 'note', style: 'margin-top:10px', text: `${s.sources.length} source(s), ${s.drafts.length} draft(s). Clearing this browser's data erases both, so export now and then.` })
+      el('p', { class: 'note', style: 'margin-top:10px', text: `${getState().sources.length} source(s), ${getState().drafts.length} draft(s). Clearing this browser's data erases both, so export now and then.` })
     )
   );
+}
+
+/* What the app is actually running on, as opposed to what is in the boxes. */
+function inUse(saved) {
+  if (!saved.ai.enabled) return 'No model in use. The three tabs that need one will say so rather than failing.';
+  if (!isConfigured(saved)) return 'Switched on but incomplete, so those three tabs will still say they have no model.';
+  return saved.ai.provider === 'local'
+    ? `In use: ${saved.ai.model || 'the endpoint default'} at ${saved.ai.endpoint}. Nothing leaves this computer.`
+    : `In use: ${saved.ai.model || 'the API default'} at Anthropic. Your notes and sources are sent there when you press a Write button.`;
+}
+
+function apply(root, ctx) {
+  const before = clone(getState().settings);
+  const d = draft;
+  setSettings({ contactEmail: String(d.contactEmail || '').trim() });
+  setLanguageTool({
+    enabled: d.languageTool.enabled,
+    endpoint: String(d.languageTool.endpoint || '').trim(),
+    language: d.languageTool.language
+  });
+  setAi({
+    enabled: d.ai.enabled,
+    provider: d.ai.provider,
+    model: String(d.ai.model || '').trim(),
+    endpoint: String(d.ai.endpoint || '').trim(),
+    apiKey: String(d.ai.apiKey || '').trim()
+  });
+  draft = clone(getState().settings);
+  applied = describe(before, clone(getState().settings));
+  probe = null;
+  render(root, ctx);
+}
+
+/*
+ * Name what moved, rather than saying "Saved".
+ *
+ * "Saved" is the claim the user is checking; repeating it proves nothing. A
+ * list of the fields that changed is checkable against what they just typed.
+ */
+function describe(before, after) {
+  const moved = [];
+  if (before.contactEmail !== after.contactEmail) {
+    moved.push(after.contactEmail ? `contact address is now ${after.contactEmail}` : 'contact address cleared');
+  }
+  if (before.ai.enabled !== after.ai.enabled) moved.push(after.ai.enabled ? 'model switched on' : 'model switched off');
+  if (before.ai.provider !== after.ai.provider) moved.push(`now using ${after.ai.provider === 'local' ? 'a model on this computer' : 'the Claude API'}`);
+  if (before.ai.model !== after.ai.model) moved.push(after.ai.model ? `model name is now ${after.ai.model}` : 'model name cleared');
+  if (before.ai.endpoint !== after.ai.endpoint) moved.push(`address is now ${after.ai.endpoint || '(empty)'}`);
+  if (before.ai.apiKey !== after.ai.apiKey) moved.push(after.ai.apiKey ? 'API key stored in this browser' : 'API key cleared');
+  if (before.languageTool.enabled !== after.languageTool.enabled) moved.push(after.languageTool.enabled ? 'LanguageTool switched on' : 'LanguageTool switched off');
+  if (before.languageTool.endpoint !== after.languageTool.endpoint) moved.push(`LanguageTool address is now ${after.languageTool.endpoint || '(empty)'}`);
+  if (before.languageTool.language !== after.languageTool.language) moved.push(`LanguageTool set to ${after.languageTool.language}`);
+  if (!moved.length) return 'Nothing was different, so nothing changed.';
+  return `${moved.join('; ')}.`;
+}
+
+async function runTest(root, ctx) {
+  testing = true;
+  probe = null;
+  render(root, ctx);
+  try {
+    probe = await testModel(getState().settings);
+  } catch (err) {
+    probe = { ok: false, detail: String(err.message || err) };
+  }
+  testing = false;
+  render(root, ctx);
+}
+
+async function runLtTest(root, ctx) {
+  ltTesting = true;
+  ltProbe = null;
+  render(root, ctx);
+  try {
+    ltProbe = await testLt(getState().settings);
+  } catch (err) {
+    ltProbe = { ok: false, detail: String(err.message || err) };
+  }
+  ltTesting = false;
+  render(root, ctx);
 }
