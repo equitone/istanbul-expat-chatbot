@@ -3,6 +3,7 @@
  * Every issue carries absolute offsets so the highlighter can mark it exactly.
  */
 import { MISSPELLINGS, SPELLING_VARIANTS, CONFUSION_PATTERNS } from './lexicons.js';
+import { isHeadingLike, looksLikeReference } from './text.js';
 
 export const CATEGORY = 'typo';
 
@@ -119,7 +120,16 @@ export function analyseMechanics(doc) {
   /* -------------------------------------------- missing terminal punctuation */
   doc.paragraphs.forEach((p) => {
     const t = p.text.trimEnd();
-    if (t.length < 60) return; // headings and captions are exempt
+    if (t.length < 60) return; // captions and short labels
+    /*
+     * Headings and bibliography entries are not sentences.
+     *
+     * The flag was already on the paragraph and this rule simply never
+     * looked at it, so every numbered subsection heading longer than sixty
+     * characters was told to end with a full stop — and a reference list
+     * produced one finding per entry.
+     */
+    if (p.isHeading || isHeadingLike(t) || looksLikeReference(t)) return;
     if (!/[.!?:;)"'’”\]]$/.test(t)) {
       add({ rule: 'missing-terminal-punctuation', severity: 'medium', start: p.start + t.length - 1, end: p.start + t.length, message: 'Paragraph does not end with terminal punctuation.', suggestion: '.' });
     }

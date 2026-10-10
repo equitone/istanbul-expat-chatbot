@@ -154,12 +154,48 @@ function fileForm(root, ctx) {
  */
 async function readBibliography(file) {
   if (file.size > 8 * 1024 * 1024) return null;
+
+  /*
+   * Never sniff a binary file.
+   *
+   * A PDF is a container of compressed streams, and those streams contain
+   * arbitrary bytes — including, often enough, something shaped like
+   * `@Font{`. Reading one as text and testing it for BibTeX matched by
+   * chance, and a real PDF was rejected with "no complete entries could be
+   * read from it" instead of being read as the document it is.
+   *
+   * So the sniff only runs on files that could plausibly be an export: by
+   * extension first, and then on the bytes, because JSTOR hands out RIS
+   * files named .txt and a mislabelled binary must still be caught.
+   */
+  const name = (file.name || '').toLowerCase();
+  const plausible = /\.(ris|bib|bibtex|txt|text|enw|nbib)$/.test(name)
+    || /^(text\/plain|application\/x-research-info-systems|application\/x-bibtex)$/.test(file.type || '');
+  if (!plausible) return null;
+
   let text;
   try { text = await file.text(); } catch { return null; }
+  /* A NUL byte, or a lot of unprintable ones, means this is not text at all
+     whatever it is called. */
+  const head = text.slice(0, 4000);
+  if (head.includes('\u0000')) return null;
+  const junk = (head.match(/[\u0001-\u0008\u000e-\u001f\ufffd]/g) || []).length;
+  if (junk > head.length * 0.02) return null;
+
   const { looksLikeRis, looksLikeBibtex, parseBibliography } = await import('../io/bibliography.js');
   if (!looksLikeRis(text) && !looksLikeBibtex(text)) return null;
 
-  const { records } = parseBibliography(text);
+  let records;
+  try {
+    ({ records } = parseBibliography(text));
+  } catch {
+    /* It looked like an export and was not one. Hand it back to the document
+       reader rather than refusing the file: a wrong guess here must cost
+       nothing. */
+    return null;
+  }
+  if (!records.length) return null;
+
   const made = addSources(records.map((r) => ({
     title: r.title,
     authors: r.authors,

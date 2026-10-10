@@ -206,10 +206,85 @@ export function stripNumbering(heading) {
 }
 
 /** Headings are short, unpunctuated lines — useful for section detection. */
+/*
+ * Headings the writer never meant as sentences.
+ *
+ * This decides which paragraphs are exempt from the rules that assume prose,
+ * and it was too narrow: twelve words and ninety characters. A real
+ * subsection heading — "2.1 Doubled/Illusory Reality and Narrative Ambiguity
+ * in the Discourse of Cincinnatus" — sails past both and was being told to
+ * end with a full stop. A checker that marks up the table of contents is one
+ * nobody finishes reading.
+ *
+ * Widened along the three ways a heading announces itself, and no further.
+ * Precision still matters more than recall here: a missed full stop costs
+ * nothing, and a wrongly flagged heading costs the reader's attention on
+ * every section break in the document.
+ */
+
+/* "2.", "2.1", "IV.", "A)", "Chapter 3", "Part II" — a section label. */
+const NUMBERED = /^(?:(?:chapter|section|part|appendix|table|figure)\s+)?(?:\d+(?:\.\d+)*|[IVXLCDM]+|[A-Z])[.)]?(?:\s|$)/i;
+
+/* The headings almost every thesis carries, standing alone. */
+const STOCK_HEADINGS = new Set([
+  'abstract', 'introduction', 'conclusion', 'conclusions', 'references',
+  'bibliography', 'works cited', 'acknowledgements', 'acknowledgments',
+  'appendix', 'appendices', 'contents', 'table of contents', 'notes',
+  'endnotes', 'footnotes', 'methodology', 'method', 'methods', 'results',
+  'discussion', 'findings', 'literature review', 'theoretical framework',
+  'summary', 'preface', 'foreword', 'glossary', 'index', 'keywords',
+  'textual analysis', 'analysis', 'background', 'limitations'
+]);
+
 export function isHeadingLike(paragraphText) {
   const t = paragraphText.trim();
-  if (!t || t.length > 90) return false;
+  if (!t) return false;
+
+  /* Sentence-ending punctuation means prose, with one exception: a bare
+     numeral label such as "2." or "3.1." is a heading that happens to end
+     in a stop. */
   if (/[.!?;:]$/.test(t) && !/^\d+(\.\d+)*\.?$/.test(t)) return false;
+  /* A trailing comma is a sentence continuing, never a heading. */
+  if (/,$/.test(t)) return false;
+
   const words = t.split(/\s+/);
-  return words.length <= 12;
+  if (STOCK_HEADINGS.has(t.toLowerCase())) return true;
+
+  /* Numbered: generous, because the number is the strongest signal there is
+     and nobody numbers a sentence. */
+  if (NUMBERED.test(t)) return words.length <= 20 && t.length <= 140;
+
+  /* Unnumbered: short, or short-ish and in title case. A heading in title
+     case is a deliberate choice, and prose almost never is. */
+  if (t.length <= 90 && words.length <= 12) return true;
+  if (words.length <= 16 && t.length <= 120 && isTitleCase(words)) return true;
+  return false;
+}
+
+/* Most words capitalised, ignoring the small words a title keeps lower. */
+const TITLE_SMALL = new Set(['a', 'an', 'and', 'as', 'at', 'but', 'by', 'for', 'if', 'in',
+  'nor', 'of', 'on', 'or', 'the', 'to', 'up', 'via', 'with', 'from', 'into', 'over', 'between']);
+
+function isTitleCase(words) {
+  const judged = words.filter((w) => /^\p{L}/u.test(w) && !TITLE_SMALL.has(w.toLowerCase()));
+  if (judged.length < 2) return false;
+  const capped = judged.filter((w) => /^\p{Lu}/u.test(w)).length;
+  return capped / judged.length >= 0.8;
+}
+
+/*
+ * A reference-list entry, which is not prose either.
+ *
+ * Bibliography entries routinely end on a DOI or a URL with no full stop,
+ * and that is the house style of several manuals rather than an error. They
+ * were being flagged one per entry, which on a forty-item list buries
+ * everything else.
+ */
+export function looksLikeReference(paragraphText) {
+  const t = paragraphText.trim();
+  if (!t) return false;
+  if (/(https?:\/\/|doi\.org\/|\bdoi:\s*10\.)\S*$/i.test(t)) return true;
+  /* "Surname, A. B. (1991)." or "Surname, A., & Other, B. (1991)" near the
+     start is the shape every style shares. */
+  return /^[\p{Lu}][\p{L}'\u2019-]+,\s*(?:[\p{Lu}]\.\s*)+/u.test(t) && /\(\d{4}[a-z]?\)/.test(t.slice(0, 160));
 }

@@ -2,9 +2,11 @@
  * files.js — turn an uploaded thesis into plain text, in the browser.
  *
  * The file is read with FileReader and parsed locally; it is never uploaded.
- * Parsers are fetched lazily from a CDN the first time they are needed, so a
- * machine that only ever handles .txt/.md never loads anything at all. See
- * README for how to vendor them for a fully air-gapped install.
+ *
+ * The parsers themselves ship in vendor/ beside the app, so nothing is
+ * fetched and PDF and Word files work with no internet at all. The CDN
+ * addresses below are a fallback for a checkout that has not been packaged,
+ * and they fetch the parser only — never the document.
  */
 
 const CDN = {
@@ -43,7 +45,18 @@ function tryLoad(src) {
   });
 }
 
+/* Opened from a folder rather than served. */
+const FROM_DISK = typeof location !== 'undefined' && location.protocol === 'file:';
+
 export async function hasLocalVendor(name) {
+  /*
+   * A file:// page may not fetch its own neighbours — the browser refuses
+   * even a HEAD on a sibling file — so the probe always failed there and
+   * the app fell back to the CDN, which then failed too on a machine with
+   * no internet. The release always ships vendor/, so from disk the answer
+   * is yes and the script tag below is left to prove it.
+   */
+  if (FROM_DISK) return true;
   try {
     const res = await fetch(LOCAL[name], { method: 'HEAD' });
     return res.ok;
@@ -95,7 +108,25 @@ async function readPdf(file) {
   await loadScript('pdfjs');
   const pdfjsLib = window.pdfjsLib;
   if (!pdfjsLib) throw new Error('The PDF reader could not be loaded. Check your connection, or paste the text instead.');
-  pdfjsLib.GlobalWorkerOptions.workerSrc = (await hasLocalVendor('pdfWorker')) ? LOCAL.pdfWorker : CDN.pdfWorker;
+  /*
+   * The worker, or the main thread when a worker is not allowed.
+   *
+   * Chrome refuses to start a Worker from a file:// page, so the usual
+   * workerSrc cannot be used there at any address. pdf.js has a documented
+   * way through this: load the worker bundle as an ordinary script — which
+   * file:// does permit — and it runs on the main thread instead. Slower on
+   * a long PDF, and the alternative is not reading PDFs at all.
+   */
+  if (FROM_DISK) {
+    try {
+      await loadScript('pdfWorker');
+      pdfjsLib.GlobalWorkerOptions.workerSrc = '';
+    } catch {
+      throw new Error('The PDF reader could not start. Keep the vendor folder beside this file, or use the served version.');
+    }
+  } else {
+    pdfjsLib.GlobalWorkerOptions.workerSrc = (await hasLocalVendor('pdfWorker')) ? LOCAL.pdfWorker : CDN.pdfWorker;
+  }
 
   const buffer = await file.arrayBuffer();
   const pdf = await pdfjsLib.getDocument({ data: buffer }).promise;

@@ -93,6 +93,11 @@ Takes a pasted passage or a file: PDF, Word, RTF, text or Markdown, read in
 the browser and dropped into the box so you can see what came out of the PDF
 before it becomes forty findings about a running header.
 
+Headings, numbered subsections and reference-list entries are left alone by
+the rules that assume a sentence. A thesis has a section break every page or
+two, and a checker that marks up the table of contents is one nobody
+finishes reading.
+
 Nothing needs a model, and nothing leaves the computer: the rules run in the
 page. LanguageTool is an optional second pass that catches more, and it can
 also be run on this computer — Settings has the Docker and Java commands, and
@@ -180,6 +185,17 @@ pure — no DOM, no store — so a copy works. A copy is also how a counting
 helper drifted out of step earlier in this project and silently dropped a
 category, so `./sync-shared.sh` diffs them and `package.sh` refuses to build
 when they have moved apart.
+
+## The PDF and Word readers
+
+They ship in `vendor/` beside the app, so a PDF opens with no internet and
+nothing is fetched. Keep that folder next to `ScholarDesk.html` or
+`index.html`; without it the app falls back to a CDN for the parser, which
+works online and fails offline.
+
+Opened from a folder rather than served, the parser runs on the main thread,
+because browsers will not start a background worker from a `file://` page. A
+long PDF is slower that way. The served version has no such limit.
 
 ## Where your data is
 
