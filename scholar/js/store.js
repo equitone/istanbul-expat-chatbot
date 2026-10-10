@@ -54,6 +54,12 @@ const blank = () => ({
   version: 1,
   settings: {
     contactEmail: '',
+    /*
+     * The offline switch, read directly from storage by netguard.js before
+     * any module loads. Off by default: this app's job involves searching
+     * catalogues, and shipping with that dead would read as broken.
+     */
+    offlineLock: false,
     ai: { enabled: false, provider: 'local', model: '', apiKey: '', endpoint: 'http://localhost:11434/v1', contextTokens: 32768 },
     /* Optional second opinion on the Grammar tab. Off by default: the public
        server means sending text somewhere, and that is a choice to make
@@ -113,6 +119,7 @@ function migrate(s) {
   }
   s.settings.ai ||= blank().settings.ai;
   s.settings.languageTool ||= blank().settings.languageTool;
+  if (typeof s.settings.offlineLock !== 'boolean') s.settings.offlineLock = false;
   return s;
 }
 

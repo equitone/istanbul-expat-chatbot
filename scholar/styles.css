@@ -532,3 +532,34 @@ body:has(.applybar) { --toast-lift: 76px; }
 /* Where the model is used, as a list of places rather than a sentence. */
 .uses { margin: 4px 0 12px; padding-left: 20px; font-size: 14.5px; line-height: 1.6; }
 .uses li { margin-bottom: 3px; }
+
+/* ---------------------------------------------------------- offline switch
+ *
+ * In the header, because the state it reports changes what half the app can
+ * do. Buried in Settings it would be a thing you set once and then wonder
+ * about; here it is a thing you flick while you work.
+ */
+.offline {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-family: var(--mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ink-faint);
+  cursor: pointer;
+  white-space: nowrap;
+  padding: 4px 0;
+}
+.offline input { width: auto; margin: 0; accent-color: var(--ink); }
+.offline:hover { color: var(--ink); }
+
+/* On: the whole header inverts, so the state is impossible to miss from any
+   tab, and no one wonders later whether a search failed or was refused. */
+body.is-offline header.bar { background: var(--ink); border-bottom-color: var(--ink); }
+body.is-offline header.bar .wordmark,
+body.is-offline header.bar .tabs button { color: var(--paper); }
+body.is-offline header.bar .tabs button[aria-selected="true"] { border-bottom-color: var(--paper); }
+body.is-offline .offline { color: var(--paper); }
+body.is-offline .offline input { accent-color: var(--paper); }

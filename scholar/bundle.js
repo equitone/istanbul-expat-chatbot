@@ -120,9 +120,18 @@ const modules = [...seen.entries()]
 
 const css = fs.readFileSync(path.join(ROOT, 'styles.css'), 'utf8');
 const html = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
+/*
+ * netguard.js is a classic script, not a module, and it has to stay one: it
+ * must run before anything else. So its source is inlined where its tag was
+ * rather than going through the module graph, or the single-file build
+ * would ship a dead offline switch.
+ */
+const netguard = fs.readFileSync(path.join(ROOT, 'js/netguard.js'), 'utf8');
 const head = html.match(/<head>([\s\S]*?)<\/head>/)[1]
   .replace(/<link rel="stylesheet"[^>]*>/, '')
+  .replace(/<script src="js\/netguard\.js"><\/script>/, `<script>\n${netguard}\n</script>`)
   .replace(/<title>[\s\S]*?<\/title>/, '<title>Scholar Desk</title>');
+if (!/__offlineLock/.test(head)) throw new Error('bundle: netguard was not inlined into the head');
 const body = html.match(/<body>([\s\S]*?)<\/body>/)[1].replace(/<script[\s\S]*?<\/script>/g, '');
 
 const outHtml = `<!doctype html>

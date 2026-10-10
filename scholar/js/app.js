@@ -1,5 +1,5 @@
 import { el, mount, toast } from './ui.js';
-import { getState, subscribe, storageState, dismissWarning } from './store.js';
+import { getState, subscribe, storageState, dismissWarning, setSettings } from './store.js';
 import { dueWarnings, urgency } from './analysis/feeds.js';
 import { BUILD } from './version.js';
 import { setContactEmail } from './analysis/verify.js';
@@ -93,6 +93,35 @@ function drawDeadlines() {
   document.body.insertBefore(note, document.getElementById('main'));
 }
 
+/*
+ * The offline switch, wired to the guard that is already running.
+ *
+ * netguard.js reads the flag straight out of storage on every request, so
+ * this only has to write it — there is no state to keep in sync and no
+ * window in which the setting and the guard disagree. The page is marked so
+ * the whole interface can show the state rather than only this corner of it.
+ */
+function wireOfflineSwitch() {
+  const box = document.getElementById('offline-toggle');
+  if (!box) return;
+  const apply = () => {
+    const on = getState().settings.offlineLock === true;
+    box.checked = on;
+    document.body.classList.toggle('is-offline', on);
+    const label = document.querySelector('#offline .offline-label');
+    if (label) label.textContent = on ? 'Offline \u2014 nothing leaves' : 'Offline';
+  };
+  box.addEventListener('change', () => {
+    setSettings({ offlineLock: box.checked });
+    apply();
+    toast(box.checked
+      ? 'Offline. Nothing can leave this computer. Find, Gaps and the calls feeds will not work until you switch it off.'
+      : 'Back online. The catalogue searches work again.');
+  });
+  apply();
+  subscribe(apply);
+}
+
 const main = document.getElementById('main');
 const tabs = document.getElementById('tabs');
 const stamp = document.getElementById('stamp');
@@ -148,6 +177,7 @@ window.addEventListener('hashchange', () => {
   if (id && id !== current && VIEWS.some((v) => v.id === id)) go(id);
 });
 
+wireOfflineSwitch();
 drawStorageWarning();
 drawDeadlines();
 go(current);

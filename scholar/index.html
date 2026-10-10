@@ -5,12 +5,20 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Scholar Desk</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%23111'/%3E%3Crect x='3' y='7' width='10' height='1.5' fill='%23fff'/%3E%3Crect x='3' y='10' width='6' height='1.5' fill='%23fff'/%3E%3C/svg%3E">
+<!-- Before everything else, and deliberately not a module: the offline
+     switch must be in force before a line of the app can run. -->
+<script src="js/netguard.js"></script>
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
 <header class="bar">
   <div class="wordmark">Scholar Desk <span id="stamp"></span></div>
   <nav class="tabs" id="tabs" role="tablist"></nav>
+  <div class="spacer"></div>
+  <label class="offline" id="offline" title="When this is on, nothing can leave this computer. The catalogue searches stop working until you turn it off.">
+    <input type="checkbox" id="offline-toggle">
+    <span class="offline-label">Offline</span>
+  </label>
 </header>
 <main id="main"></main>
 <div class="toasts" id="toasts"></div>
