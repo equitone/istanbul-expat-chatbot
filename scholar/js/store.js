@@ -92,6 +92,10 @@ function load() {
 
 function migrate(s) {
   s.sources ||= [];
+  /* A library saved before the tick boxes existed has no flag on anything.
+     Absent means in use: the alternative is a professor opening the app to
+     find every source silently switched off. */
+  s.sources.forEach((x) => { if (x.active === undefined) x.active = true; });
   s.drafts ||= [];
   s.calls ||= [];
   s.dismissed ||= [];
@@ -168,6 +172,8 @@ export function addSource(data) {
     text: (data.text || '').trim(),
     concepts: Array.isArray(data.concepts) ? data.concepts : [],
     note: '',
+    /* Whether the rest of the app may read this one. See activeSources(). */
+    active: data.active !== false,
     addedAt: new Date().toISOString()
   };
   update((s) => s.sources.push(src));
@@ -192,6 +198,7 @@ export function addSources(list) {
         text: (data.text || '').trim(),
         concepts: Array.isArray(data.concepts) ? data.concepts : [],
         note: '',
+        active: data.active !== false,
         addedAt: new Date().toISOString()
       };
       s.sources.push(src);
@@ -295,3 +302,22 @@ export const removeFeed = (id) =>
 /* A warning seen and waved away, so it does not return on every visit. */
 export const dismissWarning = (token) =>
   update((s) => { if (!s.dismissed.includes(token)) s.dismissed.push(token); });
+
+/*
+ * The sources the rest of the app may read.
+ *
+ * Everything that reasons over the library goes through here rather than
+ * touching state.sources, so unticking a book takes it out of the gap map,
+ * out of what the model is shown, and out of the citation check in one
+ * place. Scattering the filter across six views is how one of them ends up
+ * quietly still reading the lot.
+ */
+export const activeSources = () => state.sources.filter((x) => x.active !== false);
+
+export const setSourceActive = (id, on) =>
+  update((s) => { const x = s.sources.find((y) => y.id === id); if (x) x.active = Boolean(on); });
+
+export const setAllActive = (on, ids = null) =>
+  update((s) => s.sources.forEach((x) => {
+    if (!ids || ids.includes(x.id)) x.active = Boolean(on);
+  }));

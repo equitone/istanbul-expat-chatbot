@@ -12,7 +12,7 @@
  * have already built, pasted in bulk from a draft's bibliography, or typed.
  */
 import { el, mount, sheet, tag, toast, clip, empty, figure } from '../ui.js';
-import { getState } from '../store.js';
+import { getState, activeSources } from '../store.js';
 import { formatReference, refFromSource, blankRef, stripMarks, toHtml, CITE_TYPES } from '../analysis/cite.js';
 
 const S = {
@@ -45,9 +45,9 @@ export default function render(root, ctx) {
           onClick: () => { S.editing = blankRef(); S.pasting = false; render(root, ctx); } }),
         el('button', { id: 'ref-paste', class: 'sm', text: 'Paste a list',
           onClick: () => { S.pasting = !S.pasting; S.editing = null; render(root, ctx); } }),
-        s.sources.length
-          ? el('button', { id: 'ref-lib', class: 'sm', text: `Take all ${s.sources.length} from my library`,
-              onClick: () => { fromLibrary(s.sources); render(root, ctx); } })
+        activeSources().length
+          ? el('button', { id: 'ref-lib', class: 'sm', text: `Take the ${activeSources().length} ticked in my library`,
+              onClick: () => { fromLibrary(activeSources()); render(root, ctx); } })
           : null,
         S.refs.length ? el('button', { class: 'bare sm', text: 'Clear the list',
           onClick: () => { S.refs = []; render(root, ctx); } }) : null)

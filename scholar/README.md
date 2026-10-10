@@ -28,10 +28,14 @@ import buttons in Settings.
 
 ## What it does
 
-**Library** — the sources you hold. A PDF, a Word file, a pasted reference, or
-anything you keep from a search. Every other tab reasons over this set and
-says how large it was, so a finding about "the literature" is always a finding
-about something you can point at.
+**Library** — the sources you hold, and the knowledge the rest of the app is
+allowed to use. A PDF, a Word file, a pasted reference, or anything you keep
+from a search. Each one has a tick box: ticked, the other tabs read it;
+unticked, none of them will, though it stays in the list. So you can keep
+forty books and reason over the eight that bear on the chapter you are
+writing, without deleting anything. Every tab says how large the set it used
+was, so a finding about "the literature" is always a finding about something
+you can point at.
 
 **Find** — catalogue records from OpenAlex and Crossref, shown as they come.
 No summaries, because a summary is where invention gets in. Searching for a

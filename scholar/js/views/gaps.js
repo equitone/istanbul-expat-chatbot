@@ -20,7 +20,7 @@
  * the only claim it can make.
  */
 import { el, mount, sheet, tag, toast, clip, empty, figure, table } from '../ui.js';
-import { getState, addSources } from '../store.js';
+import { getState, addSources, activeSources } from '../store.js';
 import { coverageMap, findHoles, findThin, buildGapPrompt, validateGaps, AXES } from '../analysis/gaps.js';
 import { gatherCorpus } from '../analysis/gather.js';
 import { ask, isConfigured } from '../ai.js';
@@ -39,7 +39,9 @@ const S = {
 
 export default function render(root, ctx) {
   const s = getState();
-  const usable = s.sources.filter((x) => (x.abstract || x.text || '').length > 40);
+  /* Only what is ticked in the Library. A source switched off there must
+     not reappear in a gap map, which is the whole point of the switch. */
+  const usable = activeSources().filter((x) => (x.abstract || x.text || '').length > 40);
 
   mount(root,
     el('h1', { text: 'Gaps' }),

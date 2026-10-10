@@ -13,7 +13,7 @@
  *   remove is not worth having.
  */
 import { el, mount, sheet, tag, toast, clip, empty, figure, field } from '../ui.js';
-import { getState, saveDraft, uid } from '../store.js';
+import { getState, saveDraft, uid, activeSources } from '../store.js';
 import { ask, isConfigured, ideasPrompt, draftPrompt, checkCitations } from '../ai.js';
 import { findTells, readTells } from '../analysis/tells.js';
 import { gatherCorpus } from '../analysis/gather.js';
@@ -79,8 +79,8 @@ function ideasStage(root, ctx, ready) {
       el('div', { class: 'row' },
         el('button', { id: 'write-gen', class: 'solid', disabled: !ready || Boolean(S.busy), text: 'Find the strongest lines', onClick: () => genIdeas(root, ctx) }),
         el('span', { class: 'note', text: S.useRecord
-          ? `Real catalogue records for the topic, plus the ${s.sources.length} source(s) you have collected. An argument it cannot tie to one of them is not offered.`
-          : `From the ${s.sources.length} source(s) in your library only. An argument it cannot tie to one of them is not offered.` }),
+          ? `Real catalogue records for the topic, plus the ${activeSources().length} source(s) ticked in your library. An argument it cannot tie to one of them is not offered.`
+          : `From the ${activeSources().length} source(s) ticked in your library. An argument it cannot tie to one of them is not offered.` }),
         S.busy ? el('span', { class: 'note' }, el('span', { class: 'spin' }), ` ${S.busy}`) : null)
     ),
     S.fetched ? sheet(null,
@@ -123,7 +123,7 @@ async function genIdeas(root, ctx) {
   const topic = S.topic.trim();
   if (topic.length < 3) { toast('Give it a topic first.'); return; }
 
-  const mine = s.sources.filter((x) => (x.abstract || x.text).length > 40);
+  const mine = activeSources().filter((x) => (x.abstract || x.text).length > 40);
   S.busy = S.useRecord ? 'Searching the catalogues…' : 'Reading your sources…';
   S.ideas = null;
   S.fetched = null;
@@ -312,7 +312,7 @@ async function expand(sec, root, ctx) {
    */
   const sources = (S.sources && S.sources.length
     ? S.sources
-    : s.sources.filter((x) => (x.abstract || x.text).length > 40)).slice(0, 25);
+    : activeSources().filter((x) => (x.abstract || x.text).length > 40)).slice(0, 25);
   S.busy = sec.id;
   render(root, ctx);
   try {
