@@ -174,11 +174,25 @@ export function analyseGrammar(doc) {
       add({ rule: 'fragment', severity: 'medium', start: s.start, end: s.end, message: 'No finite verb found — this may be a heading or an incomplete sentence.', suggestion: '' });
     }
 
-    /* ----------------------------------------------------- overlong sentence */
+    /*
+     * ------------------------------------------------- overlong sentence
+     *
+     * A length, reported as a length.
+     *
+     * This used to say "beyond ~40 words a reader loses the subject", which
+     * is a claim about comprehension dressed up with a number, and I did not
+     * get that number from any study. Readability formulas use average
+     * sentence length; none of them establishes a cliff at forty words, and
+     * plenty of excellent academic prose runs longer. The threshold is a
+     * place to look, not a finding, and the message now says so.
+     *
+     * Severity is low because the whole category is suggestions. A style
+     * note marked "high" contradicts the bucket it sits in.
+     */
     if (wordCount > 45) {
-      add({ rule: 'overlong-sentence', severity: 'high', start: s.start, end: s.end, message: `${wordCount}-word sentence. Beyond ~40 words a reader loses the subject; split it.`, suggestion: '' });
+      add({ rule: 'overlong-sentence', severity: 'low', start: s.start, end: s.end, message: `${wordCount} words. Long enough to be worth re-reading aloud — if the subject is still clear at the end, leave it.`, suggestion: '' });
     } else if (wordCount > 35) {
-      add({ rule: 'overlong-sentence', severity: 'medium', start: s.start, end: s.end, message: `${wordCount}-word sentence — consider splitting.`, suggestion: '' });
+      add({ rule: 'overlong-sentence', severity: 'low', start: s.start, end: s.end, message: `${wordCount} words. Longer than most in this document; check it still holds together.`, suggestion: '' });
     }
 
     /* ------------------------------------------------- vague “This” subject */
@@ -196,7 +210,7 @@ export function analyseGrammar(doc) {
        numeral, and numbered lists are common in a methods chapter. */
     const isListItem = /^\s*\d+[.)](\s|$)/.test(s.text);
     if (w[0] && w[0].isNumber && w[0].text.length <= 4 && !isListItem) {
-      add({ rule: 'sentence-initial-numeral', severity: 'low', start: w[0].start, end: w[0].end, message: 'Do not begin a sentence with a numeral — spell it out or rephrase.', suggestion: '' });
+      add({ rule: 'sentence-initial-numeral', severity: 'low', start: w[0].start, end: w[0].end, message: 'APA, Chicago and MLA all ask that a sentence not open with a numeral: spell it out, or rephrase so the number falls later.', suggestion: '' });
     }
 
     finiteVerbTotal += countFiniteVerbs(s.text);
