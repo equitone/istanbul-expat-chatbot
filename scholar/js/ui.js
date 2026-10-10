@@ -54,8 +54,11 @@ export function table(headers, rows) {
 export const sheet = (title, ...kids) =>
   el('section', { class: 'sheet' }, title ? el('h2', { text: title }) : null, ...kids);
 
+/* `body` is optional: an empty paragraph leaves a gap under the heading for
+   nothing, and some callers have the explanation elsewhere on the sheet. */
 export const empty = (title, body, action) =>
-  el('div', { class: 'empty' }, el('h3', { text: title }), el('p', { style: 'margin:0 auto', text: body }),
+  el('div', { class: 'empty' }, el('h3', { text: title }),
+    body ? el('p', { style: 'margin:0 auto', text: body }) : null,
     action ? el('div', { style: 'margin-top:18px' }, action) : null);
 
 export function toast(message, ms = 4200) {

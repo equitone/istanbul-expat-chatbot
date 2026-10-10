@@ -187,68 +187,20 @@ export async function searchExtras(query, { signal, limit = 50, only = null } = 
   return { works, status };
 }
 
-/* ------------------------------------------------------------ handed off */
-
 /*
- * The subscription databases, as links.
+ * The subscription databases are not here any more, and neither is the list
+ * of links that stood in for them.
  *
- * Each builds the search you typed into that database's own URL format and
- * opens it in a tab, where your institutional login already applies. The app
- * never sees the results; you export them and bring them back.
+ * JSTOR, Project MUSE, Scopus, the MLA Bibliography and ProQuest answer no
+ * request from a web page: no public API, or one gated behind an
+ * institutional key that is issued to a person rather than to a page. That
+ * is a licensing fact and not a thing to engineer around.
  *
- * These URL formats are the ones the sites use publicly and they do change.
- * If one lands on a front page instead of a result list, the query shape has
- * moved and it needs updating — not a reason to distrust the records.
+ * What was here was a table of URL templates, one per database, so the Find
+ * tab could show a button per database and leave the searching to be done by
+ * hand, eight times, for every query. It also carried DergiPark, which is
+ * not wanted. Searching the catalogues that can be read, and saying plainly
+ * what is not reached, is the better trade: the Find tab now does that in a
+ * line. Records from a licensed database come back the way they always did,
+ * through Library → from a file, which reads RIS and BibTeX.
  */
-export const HANDOFF = [
-  {
-    id: 'mla',
-    label: 'MLA International Bibliography',
-    about: 'The core subject index for literature, 1925 to now: journals, monographs, essay collections, dissertations. Licensed through EBSCO or ProQuest, so the link goes through your library.',
-    note: 'If the link asks who you are, search your library catalogue for "MLA International Bibliography" and go in from there.',
-    url: (q) => `https://www.ebsco.com/products/research-databases/mla-international-bibliography?query=${encodeURIComponent(q)}`
-  },
-  {
-    id: 'jstor',
-    label: 'JSTOR',
-    about: 'Deep back-runs of literary journals, and book chapters. Full text, which the open catalogues do not have.',
-    url: (q) => `https://www.jstor.org/action/doBasicSearch?Query=${encodeURIComponent(q)}`
-  },
-  {
-    id: 'muse',
-    label: 'Project MUSE',
-    about: 'Current humanities journals and university-press books, where JSTOR is stronger on the back-run.',
-    url: (q) => `https://muse.jhu.edu/search?action=search&query=content:${encodeURIComponent(q)}:and&limit=available_yes`
-  },
-  {
-    id: 'scopus',
-    label: 'Scopus',
-    about: 'Broader than Web of Science for the humanities and indexes about 400,000 books, though its citation data starts only in 1996.',
-    url: (q) => `https://www.scopus.com/results/results.uri?st1=${encodeURIComponent(q)}&sid=&sot=b&sdt=b`
-  },
-  {
-    id: 'proquest',
-    label: 'ProQuest Dissertations',
-    about: 'What students have already written. A thesis on your exact subject is the fastest way to find out a gap is not one.',
-    url: (q) => `https://www.proquest.com/results/?q=${encodeURIComponent(q)}`
-  },
-  {
-    id: 'scholar',
-    label: 'Google Scholar',
-    about: 'Broad and free, opaque about what it covers. Useful for the "Cited by" trail, not for establishing that something is absent.',
-    url: (q) => `https://scholar.google.com/scholar?q=${encodeURIComponent(q)}`
-  },
-  {
-    id: 'yoktez',
-    label: 'YÖK Ulusal Tez Merkezi',
-    about: 'Every thesis submitted in Turkey. Not indexed by any of the above, and for work on Turkish literature often the most relevant thing there is.',
-    url: () => 'https://tez.yok.gov.tr/UlusalTezMerkezi/',
-    manual: true
-  },
-  {
-    id: 'dergipark',
-    label: 'DergiPark',
-    about: 'Turkish academic journals. Largely invisible to the international indexes.',
-    url: (q) => `https://dergipark.org.tr/en/search?q=${encodeURIComponent(q)}&section=articles`
-  }
-];

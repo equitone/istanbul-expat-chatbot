@@ -34,7 +34,7 @@ chmod +x "$APP/start.sh" "$APP/Start Scholar Desk.command"
 # with known faults in it before it is pointed at real work. The script that
 # generates them is a development tool and stays out.
 mkdir -p "$APP/samples"
-cp "$DIR/samples/README.md" "$DIR/samples"/test-essay*.txt "$DIR/samples"/test-essay*.docx "$APP/samples/"
+cp "$DIR/samples/README.md" "$DIR/samples"/test-essay*.txt "$DIR/samples"/test-essay*.docx "$DIR/samples/test-abstract.pdf" "$APP/samples/"
 printf "export const BUILD = '%s';\n" "$(date +%Y-%m-%d-%H%M)" > "$APP/js/version.js"
 
 # The single file is built from the staged copy, so it carries the same stamp.

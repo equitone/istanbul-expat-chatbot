@@ -13,8 +13,8 @@
 import { el, mount, sheet, tag, toast, clip, empty, figure, table } from '../ui.js';
 import { getState, addSources } from '../store.js';
 import { searchOpenAlex, searchCrossref } from '../analysis/verify.js';
-import { findPeople, worksByAuthor, profile, worksMentioningName } from '../analysis/people.js';
-import { searchExtras, FETCHABLE, HANDOFF } from '../analysis/catalogues.js';
+import { findPeople, worksByAuthor, worksByOrcid, profile, worksMentioningName, parseOrcid } from '../analysis/people.js';
+import { searchExtras, FETCHABLE } from '../analysis/catalogues.js';
 
 const S = {
   mode: 'works',
@@ -59,7 +59,7 @@ export default function render(root, ctx) {
 
     errorSheet(root, ctx),
     S.mode === 'people' ? peopleResults(root, ctx) : workResults(root, ctx),
-    handoffSheet(root, ctx)
+    notCoveredNote()
   );
 }
 
@@ -92,37 +92,31 @@ function errorSheet(root, ctx) {
 }
 
 /*
- * The databases this app cannot read.
+ * What is not covered, in one line rather than eight buttons.
  *
  * JSTOR, Project MUSE, Scopus and the MLA Bibliography publish no interface
  * a web page may call: no public API, or one that needs an institutional key
- * and refuses browser requests. Rather than pretend, the search you typed is
- * built into each one's own URL and opened in a tab, where your university
- * login already applies. Export what you find as RIS or BibTeX and the
- * Library will read the file, at which point those records join everything
- * else here.
+ * and refuses browser requests. That has not changed and no amount of
+ * engineering here changes it — a licensed database is licensed to a person,
+ * not to a page.
  *
- * It is on screen whenever there is a query, not hidden behind a disclosure,
- * because the advice in the field is to use three to five indexes and a
- * single-index search is what manufactures false gaps in the first place.
+ * What did change is what this tab does about it. It used to keep a sheet of
+ * link cards on screen under every search, each building your query into one
+ * database's URL. Eight buttons to press, by hand, one at a time, for every
+ * search: the work of searching, moved onto the reader and called a feature.
+ * They are gone. The catalogues that can be read are read directly and their
+ * results are merged, and this says what that does not reach, once, so it is
+ * known rather than quietly missing.
+ *
+ * Anything found in one of them still comes back through Library → from a
+ * file, which reads RIS and BibTeX exports.
  */
-function handoffSheet(root, ctx) {
-  const q = S.q.trim();
-  if (q.length < 2) return null;
-  return sheet('Search the subscription databases',
-    el('p', { class: 'note', style: 'margin-bottom:14px', text: 'These cannot be read from here — they publish no interface a web page may call — so each link opens your search in a tab, through your library login. Bring what you find back with Library → from a file: it reads RIS and BibTeX exports.' }),
-    el('div', { class: 'handoff' }, HANDOFF.map((d) => el('div', { class: 'item' },
-      el('div', { class: 'row' },
-        el('div', {},
-          el('div', { class: 'title', style: 'font-size:16px', text: d.label }),
-          el('div', { class: 'body', style: 'font-size:13.5px', text: d.about }),
-          d.note ? el('div', { class: 'note', style: 'margin-top:4px', text: d.note }) : null),
-        el('div', { class: 'spacer' }),
-        el('a', { class: 'button sm', href: d.url(q), target: '_blank', rel: 'noopener',
-          text: d.manual ? 'Open it \u2197' : `Search \u201C${clip(q, 28)}\u201D \u2197` })
-      )))),
-    el('p', { class: 'note', style: 'margin-top:14px', text: 'YÖK\u2019s thesis centre has no linkable search, so that one opens its front page; type the terms there. The others build the query for you, and if a link lands on a front page instead of results, that database has changed its URL format.' })
-  );
+function notCoveredNote() {
+  if (S.q.trim().length < 2) return null;
+  return el('p', { class: 'note', style: 'margin-top:4px' },
+    'Not searched here: JSTOR, Project MUSE, Scopus, the MLA Bibliography and ProQuest Dissertations, which are licensed and answer no request from a web page \u2014 and YÖK’s ',
+    el('a', { href: 'https://tez.yok.gov.tr/UlusalTezMerkezi/', target: '_blank', rel: 'noopener', text: 'Ulusal Tez Merkezi' }),
+    ', which has no linkable search at all. Export from any of them and Library \u2192 from a file will read it.');
 }
 
 /* ----------------------------------------------------------------- works */
@@ -181,11 +175,30 @@ function keep(root, ctx, works) {
 function peopleResults(root, ctx) {
   if (S.person) return personSheet(root, ctx);
   if (!S.people) return null;
-  if (!S.people.length) return el('div', {},
-    sheet(null, empty('No one by that name in the author index',
-      'OpenAlex lists a person only once it has matched them across several indexed works. Someone early in their career, or publishing mainly in books, often has no entry even though their work is there.')),
-    looseResults(root, ctx)
-  );
+  /*
+   * An empty result used to say one thing whatever had happened: "no one by
+   * that name in the author index". For an ORCID iD that is three kinds of
+   * wrong at once — it is not a name, the author index is not the only place
+   * looked, and a mistyped check digit has nothing to do with indexing. The
+   * note from the search says what actually happened, so it is shown, and
+   * the heading matches the kind of query that was run.
+   */
+  if (!S.people.length) {
+    const byId = parseOrcid(S.q);
+    return el('div', {},
+      sheet(null,
+        empty(
+          S.peopleNote && byId
+            ? (S.peopleNote.includes('not a valid') ? 'That iD does not check out' : 'Nothing is filed under that iD')
+            : 'No one by that name in the author index',
+          byId
+            ? ''
+            : 'OpenAlex lists a person only once it has matched them across several indexed works. Someone early in their career, or publishing mainly in books, often has no entry even though their work is there.'
+        ),
+        S.peopleNote ? el('p', { class: 'note', style: 'margin-top:12px', text: S.peopleNote }) : null),
+      looseResults(root, ctx)
+    );
+  }
   return sheet('Which one',
     el('p', { class: 'note', style: 'margin-bottom:6px', text: 'A name is not an identifier. Pick the person and their works are fetched by id, so what comes back is theirs rather than everything that mentions the name.' }),
     S.peopleNote ? el('p', { class: 'note', style: 'margin-bottom:16px', text: S.peopleNote }) : null,
@@ -297,7 +310,11 @@ async function openPerson(p, root, ctx) {
   S.picked.clear();
   render(root, ctx);
   try {
-    S.personWorks = await worksByAuthor(p.ids || p.id);
+    /* Someone resolved from an iD that OpenAlex never attached to an author
+       record has no author id to fetch by, only the iD itself. */
+    S.personWorks = p.crossrefOnly
+      ? await worksByOrcid(p.fromOrcid)
+      : await worksByAuthor(p.ids && p.ids.length ? p.ids : p.id);
   } catch (err) {
     toast(err.message);
     S.person = null;
@@ -328,7 +345,9 @@ async function run(root, ctx) {
        * books, has none. Rather than stopping at "no one by that name", the
        * looser text search runs too and is shown underneath, labelled.
        */
-      if (!S.people.length) S.loose = await worksMentioningName(q);
+      /* Not for an iD: running "0000-0002-…" through a text search returns
+         whatever happens to quote it, which is noise dressed as a result. */
+      if (!S.people.length && !parseOrcid(q)) S.loose = await worksMentioningName(q);
     } else {
       const fromYear = S.fromYear ? Number(S.fromYear) : null;
       const [oa, cr, ex] = await Promise.allSettled([

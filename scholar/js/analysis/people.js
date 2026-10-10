@@ -228,15 +228,22 @@ export async function findPeople(name, { signal, perPage = 25 } = {}) {
   if (!typed) return { people: [], tried: [], note: '' };
 
   /* An ORCID iD is an identifier, not a name: no guessing required. */
-  const orcid = typed.match(/\b(\d{4}-\d{4}-\d{4}-\d{3}[\dX])\b/i);
-  if (orcid) {
-    const found = await byOrcid(orcid[1], { signal });
+  const asOrcid = parseOrcid(typed);
+  if (asOrcid) {
+    if (!asOrcid.valid) {
+      return {
+        people: [],
+        tried: [`ORCID ${asOrcid.id}`],
+        invalidOrcid: asOrcid.id,
+        note: `${asOrcid.id} is not a valid ORCID iD. The last character is a check digit computed from the other fifteen, and for these it should be ${orcidCheckDigit(asOrcid.id)}. Two digits transposed is the usual cause. Nothing was searched, because there is nothing to search for.`
+      };
+    }
+    const { person, routes } = await byOrcid(asOrcid.id, { signal });
     return {
-      people: found ? [found] : [],
-      tried: [`ORCID ${orcid[1]}`],
-      note: found
-        ? 'Resolved from the ORCID iD, so this is the right person with no guessing.'
-        : `No OpenAlex record carries ORCID ${orcid[1]}. The iD may be valid and simply unlinked to any indexed work.`
+      people: person ? [person] : [],
+      tried: [`ORCID ${asOrcid.id}`],
+      routes,
+      note: orcidNote(person, routes, asOrcid.id)
     };
   }
 
@@ -289,17 +296,234 @@ export async function findPeople(name, { signal, perPage = 25 } = {}) {
   };
 }
 
-/* An ORCID iD resolves to exactly one person, through OpenAlex, with no key. */
+/*
+ * What to say about an iD, in the reader's terms.
+ *
+ * The three cases are genuinely different and the distinction is the useful
+ * part: a valid iD that no catalogue knows is a fact about the catalogues,
+ * not about the person, and saying so stops the search looking broken.
+ */
+function orcidNote(person, routes, id) {
+  const knew = routes.filter((r) => r.ok && r.found).map((r) => r.label);
+  const silent = routes.filter((r) => r.ok && !r.found).map((r) => r.label);
+  const broke = routes.filter((r) => !r.ok);
+  const bits = [];
+  if (person) {
+    bits.push(`Resolved from the iD itself, so this is the right person with no guessing. ${knew.join(' and ')} ${knew.length === 1 ? 'knows' : 'know'} it.`);
+    if (silent.length) bits.push(`${silent.join(' and ')} ${silent.length === 1 ? 'has' : 'have'} nothing filed under it, which is common and says nothing about the person.`);
+  } else if (silent.length === routes.length) {
+    bits.push(`${id} is a valid iD, and neither OpenAlex nor Crossref has anything filed under it. That happens when the iD is new, or when the publisher did not pass it on with the work — most Turkish journals and almost all monographs do not. Try the name instead.`);
+  } else {
+    bits.push(`${id} is a valid iD. Nothing was found, but not every catalogue answered.`);
+  }
+  if (broke.length) {
+    bits.push(broke.map((r) => `${r.label} did not answer: ${r.reason}`).join('. ') + '.');
+  }
+  return bits.join(' ');
+}
+
+/* ------------------------------------------------------------- ORCID iDs */
+
+/*
+ * An ORCID iD is an identifier with a check digit, so three different
+ * answers are possible and the old code gave the same one to all three.
+ *
+ *   The iD is mistyped        — provable here, with no network at all.
+ *   The iD is real but no author record carries it — OpenAlex builds author
+ *                               records by inference, and links an ORCID
+ *                               only where it was deposited on the work.
+ *   The iD is real and linked — the easy case.
+ *
+ * Telling someone "the iD may be valid and simply unlinked" when they have
+ * actually transposed two digits is the kind of answer that makes a tool
+ * feel broken, and it was the only answer this could give.
+ *
+ * It also searched one catalogue and stopped. Crossref indexes ORCIDs on
+ * the works publishers deposited, which is a different set from the ones
+ * OpenAlex managed to attach to an author record, so an iD that fails in
+ * one can still succeed in the other. Both are now asked.
+ */
+
+/* Any of the forms an iD gets pasted in: bare, hyphenated, as a URL, with a
+   label in front of it. 16 characters with a trailing digit or X is the
+   whole of the format. */
+export function parseOrcid(raw) {
+  const t = String(raw || '').trim();
+  const stripped = t
+    .replace(/^orcid\s*(?:id|iD)?\s*[:=]?\s*/i, '')
+    .replace(/^https?:\/\/(?:www\.|sandbox\.)?orcid\.org\//i, '')
+    .trim();
+  const digits = stripped.replace(/[\s-]/g, '').toUpperCase();
+  if (!/^\d{15}[\dX]$/.test(digits)) return null;
+  const id = digits.match(/.{4}/g).join('-');
+  return { id, valid: orcidCheckDigit(digits) === digits[15] };
+}
+
+/*
+ * The check digit, ISO 7064 MOD 11-2, as the ORCID specification defines it.
+ * Local arithmetic: a mistyped iD is caught before a request goes out.
+ */
+export function orcidCheckDigit(sixteenOrFifteen) {
+  const base = String(sixteenOrFifteen).replace(/[\s-]/g, '').slice(0, 15);
+  let total = 0;
+  for (const ch of base) total = (total + Number(ch)) * 2;
+  const result = (12 - (total % 11)) % 11;
+  return result === 10 ? 'X' : String(result);
+}
+
+/*
+ * Resolve an iD to a person, asking both catalogues.
+ *
+ * Returns { person, routes } rather than one candidate, so the page can say
+ * which catalogue knew them — "Crossref had works, OpenAlex had no author
+ * record" is the difference between a thin career and a thin index, and the
+ * reader cannot tell them apart otherwise.
+ */
 export async function byOrcid(id, { signal } = {}) {
-  const clean = String(id).trim().replace(/^https?:\/\/orcid\.org\//, '');
+  const parsed = parseOrcid(id);
+  if (!parsed) return { person: null, routes: [], malformed: true };
+  const clean = parsed.id;
+
+  const [oa, cr] = await Promise.allSettled([
+    orcidViaOpenAlex(clean, { signal }),
+    orcidViaCrossref(clean, { signal })
+  ]);
+
+  const routes = [
+    { id: 'openalex', label: 'OpenAlex', ...settled(oa) },
+    { id: 'crossref', label: 'Crossref', ...settled(cr) }
+  ];
+
+  /* OpenAlex's author record is the better description of a person when it
+     exists — affiliation, topics, a first year. Crossref gives a name and a
+     pile of works, which is enough to go on when it does not. */
+  const fromOa = oa.status === 'fulfilled' ? oa.value : null;
+  const fromCr = cr.status === 'fulfilled' ? cr.value : null;
+  const person = fromOa || fromCr || null;
+  if (person && fromOa && fromCr) {
+    /* Both knew them: keep OpenAlex's description, but do not let its work
+       count stand as the total when Crossref deposited more. */
+    person.crossrefWorks = fromCr.works;
+  }
+  return { person, routes, valid: parsed.valid, id: clean };
+}
+
+const settled = (r) => (r.status === 'fulfilled'
+  ? { ok: true, found: Boolean(r.value), works: r.value ? r.value.works : 0 }
+  : { ok: false, reason: String((r.reason && r.reason.message) || r.reason) });
+
+async function orcidViaOpenAlex(clean, { signal }) {
   const params = withMail(new URLSearchParams({ filter: `orcid:${clean}`, 'per-page': '5' }));
   const res = await fetch(`${AUTHORS}?${params}`, { signal });
   if (!res.ok) throw await catalogueError(res, 'OpenAlex');
   const data = await res.json();
   const list = (data.results || []).map(toCandidate);
   if (!list.length) return null;
-  const merged = mergeCandidates(list);
-  return merged[0];
+  return mergeCandidates(list)[0];
+}
+
+/*
+ * Crossref, filtered on the iD itself.
+ *
+ * There is no author record to fetch: Crossref holds works, so the person is
+ * assembled from the by-lines of the works deposited against their iD. The
+ * name taken is the longest form found, for the same reason the merge takes
+ * the longest: it is the one carrying the middle or maiden name.
+ */
+async function orcidViaCrossref(clean, { signal }) {
+  const params = withMail(new URLSearchParams({
+    filter: `orcid:${clean}`,
+    rows: '100',
+    select: 'DOI,title,author,issued,container-title,type,URL,is-referenced-by-count'
+  }));
+  const res = await fetch(`${CROSSREF}?${params}`, { signal });
+  if (!res.ok) throw await catalogueError(res, 'Crossref');
+  const data = await res.json();
+  const items = (data.message && data.message.items) || [];
+  if (!items.length) return null;
+
+  const names = [];
+  let cited = 0;
+  const venues = new Map();
+  const years = [];
+  for (const it of items) {
+    cited += it['is-referenced-by-count'] || 0;
+    const y = ((it.issued || {})['date-parts'] || [[null]])[0][0];
+    if (y) years.push(y);
+    const v = (it['container-title'] || [])[0];
+    if (v) venues.set(v, (venues.get(v) || 0) + 1);
+    for (const a of it.author || []) {
+      const aid = String(a.ORCID || '').replace(/^https?:\/\/orcid\.org\//, '');
+      if (aid === clean) {
+        const full = [a.given, a.family].filter(Boolean).join(' ').trim();
+        if (full) names.push(full);
+      }
+    }
+  }
+  const name = names.sort((a, b) => b.length - a.length)[0] || '';
+  return {
+    id: `orcid:${clean}`,
+    ids: [],
+    name,
+    alternatives: [...new Set(names)].filter((n) => n !== name).slice(0, 4),
+    orcid: clean,
+    works: items.length,
+    cited,
+    /* Crossref deposits carry no affiliation worth trusting, so none is
+       claimed rather than one being guessed from a journal. */
+    affiliation: '',
+    topics: [...venues.entries()].sort((a, b) => b[1] - a[1]).slice(0, 4).map(([v]) => v),
+    firstYear: years.sort()[0] || null,
+    merged: 1,
+    /* So the works step knows to go by the iD rather than an author id. */
+    crossrefOnly: true,
+    fromOrcid: clean
+  };
+}
+
+/*
+ * The works of someone who has no author record anywhere.
+ *
+ * Crossref filters works on the iD directly, so this needs no author id and
+ * works for exactly the person the old code gave up on: a real iD that
+ * OpenAlex never attached to an author.
+ */
+export async function worksByOrcid(orcid, { signal, rows = 100 } = {}) {
+  const parsed = parseOrcid(orcid);
+  if (!parsed) return [];
+  const params = withMail(new URLSearchParams({
+    filter: `orcid:${parsed.id}`,
+    rows: String(rows),
+    sort: 'is-referenced-by-count',
+    order: 'desc',
+    select: 'DOI,title,author,issued,container-title,type,URL,abstract,is-referenced-by-count'
+  }));
+  const res = await fetch(`${CROSSREF}?${params}`, { signal });
+  if (!res.ok) throw await catalogueError(res, 'Crossref');
+  const data = await res.json();
+  const items = (data.message && data.message.items) || [];
+  /* Same shape as worksByAuthor, { total, works }, because the view reads
+     one shape and a bare array silently rendered nothing. */
+  const works = items.map((it) => {
+    const authors = (it.author || []).map((a) => [a.given, a.family].filter(Boolean).join(' ')).filter(Boolean);
+    return {
+      source: 'crossref',
+      id: it.DOI,
+      title: (it.title || [])[0] || '',
+      authors,
+      /* Filtered on the iD, so the by-line is theirs by construction. */
+      byline: true,
+      year: ((it.issued || {})['date-parts'] || [[null]])[0][0] || null,
+      venue: (it['container-title'] || [])[0] || '',
+      doi: it.DOI || null,
+      url: it.URL || (it.DOI ? `https://doi.org/${it.DOI}` : null),
+      citedBy: it['is-referenced-by-count'] || 0,
+      openAccess: false,
+      abstract: String(it.abstract || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim(),
+      concepts: []
+    };
+  }).filter((w) => w.title);
+  return { total: (data.message && data.message['total-results']) || works.length, works };
 }
 
 /*
