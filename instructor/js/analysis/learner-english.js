@@ -8,8 +8,12 @@
  * downloaded server and a terminal window left open. A literature professor
  * is not going to do that, so in practice the second engine does not exist.
  *
- * What does exist is a cohort of Turkish speakers writing English. That is a
- * well-described error profile, and most of it is invisible to both engines:
+ * What does exist is a cohort of Turkish speakers writing English, and a set
+ * of contrasts between the two languages that predict where English will go
+ * wrong. The contrasts below are plain facts about Turkish grammar; the claim
+ * that they are the *most frequent* errors is not made, because this project
+ * has measured no cohort. What matters is that each is invisible to both of
+ * the other engines:
  *
  *   Turkish has no articles at all, so a/an/the are omitted, inserted and
  *   confused more than anything else.
@@ -54,8 +58,9 @@ const MASS_NOUNS = {
 
 /*
  * Verbs that take a direct object in English and a case ending in Turkish, so
- * the preposition is carried over. "discuss about the novel" is the single
- * most common sentence-level error in this population.
+ * the preposition is carried over: "discuss about the novel". How often that
+ * happens is not something this project has measured, and the rule does not
+ * need it to be true — the construction is wrong either way.
  */
 const NO_PREPOSITION = [
   ['discuss', 'about'], ['mention', 'about'], ['emphasise', 'on'], ['emphasize', 'on'],
@@ -165,8 +170,8 @@ export function analyseLearnerEnglish(doc) {
      *
      * The test cannot be "ends in s", because that is also every third-person
      * verb. "three student was late" and "two book reveals" were both being
-     * waved through by this guard — the commonest error in the cohort,
-     * silently missed whenever a verb happened to follow.
+     * waved through by this guard, silently, whenever a verb happened to
+     * follow.
      */
     const after = body.slice(m.index + m[0].length, m.index + m[0].length + 40).match(/^\s+([a-z]+)/i);
     if (after && /(s|es)$/i.test(after[1]) && !VERB_AFTER.test(after[1])) return;
@@ -175,7 +180,7 @@ export function analyseLearnerEnglish(doc) {
       severity: 'medium',
       start: m.index,
       end: m.index + m[0].length,
-      message: `“${m[0]}” — English marks the plural on the noun even after a number. Turkish does not, which is why this is the commonest slip in the cohort.`,
+      message: `“${m[0]}” — English marks the plural on the noun even after a number, where Turkish leaves it unmarked: üç kitap is literally “three book”.`,
       suggestion: `${m[1]} ${m[2]}s`
     });
   });
