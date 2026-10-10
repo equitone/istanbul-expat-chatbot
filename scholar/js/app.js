@@ -1,5 +1,6 @@
 import { el, mount, toast } from './ui.js';
-import { getState, subscribe, storageState } from './store.js';
+import { getState, subscribe, storageState, dismissWarning } from './store.js';
+import { dueWarnings, urgency } from './analysis/feeds.js';
 import { BUILD } from './version.js';
 import { setContactEmail } from './analysis/verify.js';
 import { setContactEmail as setPeopleEmail } from './analysis/people.js';
@@ -46,6 +47,48 @@ function drawStorageWarning() {
     el('p', { text: 'This browser will not store data for a page opened straight from a folder. Add a source or write a draft and it is gone when the window closes.' }),
     el('p', { text: 'Either open this same file in Chrome or Firefox, which do store it, or start the served version (start.command, then http://localhost:8130) and work there.' }),
     el('p', { class: 'why', text: s.reason })
+  );
+  document.body.insertBefore(note, document.getElementById('main'));
+}
+
+/*
+ * Deadlines, where you cannot miss them.
+ *
+ * A deadline tracked on a tab you are not looking at is a deadline missed,
+ * so the warning sits above every tab until it is dealt with. It fires once
+ * a month out, once a week out, and once on the last day, and dismissing
+ * one window does not silence the next — waving away "a month to go" must
+ * not also cost you the warning on the final morning.
+ *
+ * Not a modal. An interruption you have to click through to reach your own
+ * work gets dismissed unread within a week, and then it is worse than
+ * nothing, because you have stopped seeing it and still believe you would
+ * be told.
+ */
+function drawDeadlines() {
+  const existing = document.getElementById('due');
+  const s = getState();
+  const due = dueWarnings(s.calls, s.dismissed);
+  if (existing) existing.remove();
+  if (!due.length) return;
+
+  const worst = due[0];
+  const note = el('div', { id: 'due', class: `due${worst.days <= 1 ? ' now' : ''}`, role: 'status' },
+    el('div', { class: 'due-body' },
+      el('strong', { text: due.length === 1 ? 'A deadline is coming up.' : `${due.length} deadlines are coming up.` }),
+      el('ul', {}, due.slice(0, 4).map((w) => el('li', {},
+        el('span', { class: 'when', text: urgency(w.call.deadline).label }),
+        ' \u00b7 ',
+        w.call.url
+          ? el('a', { href: w.call.url, target: '_blank', rel: 'noopener', text: w.call.title })
+          : el('span', { text: w.call.title }),
+        el('button', {
+          class: 'bare sm', text: 'dismiss',
+          title: `Hide this until it is ${w.window === 'month' ? 'a week away' : w.window === 'week' ? 'the last day' : 'gone'}`,
+          onClick: () => { dismissWarning(w.token); drawDeadlines(); }
+        })))),
+      due.length > 4 ? el('p', { class: 'more', text: `and ${due.length - 4} more.` }) : null),
+    el('button', { class: 'sm', text: 'Open Calls', onClick: () => go('calls') })
   );
   document.body.insertBefore(note, document.getElementById('main'));
 }
@@ -99,12 +142,22 @@ function syncContact() {
 }
 syncContact();
 
-subscribe(() => { syncContact(); drawStorageWarning(); draw(current); });
+subscribe(() => { syncContact(); drawStorageWarning(); drawDeadlines(); draw(current); });
 window.addEventListener('hashchange', () => {
   const id = location.hash.replace('#', '');
   if (id && id !== current && VIEWS.some((v) => v.id === id)) go(id);
 });
 
 drawStorageWarning();
+drawDeadlines();
 go(current);
 window.__toast = toast;
+
+/*
+ * The app is left open for days at a time, so "today" has to be re-read
+ * rather than fixed at load. Checked hourly and whenever the window is
+ * brought back to the front, which is what actually catches the morning a
+ * deadline turns from tomorrow into today.
+ */
+setInterval(drawDeadlines, 3600000);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) drawDeadlines(); });

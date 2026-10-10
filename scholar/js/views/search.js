@@ -25,6 +25,7 @@ const S = {
   person: null,
   personWorks: null,
   loose: null,
+  peopleNote: '',
   error: null,
   picked: new Set()
 };
@@ -43,7 +44,7 @@ export default function render(root, ctx) {
       ),
       el('form', { class: 'row', onSubmit: (e) => { e.preventDefault(); run(root, ctx); } },
         el('input', { id: 'find-q', style: 'max-width:420px', value: S.q,
-          placeholder: S.mode === 'works' ? 'modernist fiction and empire' : 'e.g. Azade Seyhan',
+          placeholder: S.mode === 'works' ? 'modernist fiction and empire' : 'Günseli İşçi, or an ORCID iD',
           onInput: (e) => { S.q = e.target.value; } }),
         S.mode === 'works'
           ? el('input', { style: 'max-width:110px', type: 'number', placeholder: 'from year', value: S.fromYear,
@@ -146,20 +147,29 @@ function peopleResults(root, ctx) {
     looseResults(root, ctx)
   );
   return sheet('Which one',
-    el('p', { class: 'note', style: 'margin-bottom:16px', text: 'A name is not an identifier. Pick the person and their works are fetched by id, so what comes back is theirs rather than everything that mentions the name.' }),
+    el('p', { class: 'note', style: 'margin-bottom:6px', text: 'A name is not an identifier. Pick the person and their works are fetched by id, so what comes back is theirs rather than everything that mentions the name.' }),
+    S.peopleNote ? el('p', { class: 'note', style: 'margin-bottom:16px', text: S.peopleNote }) : null,
     S.people.map((p) => el('div', { class: 'item' },
       el('div', { class: 'head' },
         el('span', { text: `${p.works} works` }),
         el('span', { text: `${p.cited.toLocaleString()} citations` }),
         p.firstYear ? el('span', { text: `since ${p.firstYear}` }) : null,
-        p.orcid ? tag('ORCID') : null
+        p.orcid ? tag('ORCID') : null,
+        /* Say when a candidate is several catalogue records folded together,
+           because the summed counts below it are otherwise unexplained. */
+        p.merged > 1 ? tag(`${p.merged} records folded`, 'firm') : null
       ),
       el('div', { class: 'title', text: p.name }),
       p.affiliation ? el('div', { class: 'meta', text: p.affiliation }) : null,
+      p.alternatives && p.alternatives.length
+        ? el('div', { class: 'meta', text: `also filed as ${p.alternatives.join(', ')}` }) : null,
       p.topics.length ? el('div', { class: 'meta', text: p.topics.join(' · ') }) : null,
-      el('div', { style: 'margin-top:8px' },
-        el('button', { class: 'sm', text: 'Show their work', onClick: () => openPerson(p, root, ctx) }))
-    ))
+      el('div', { class: 'row tight', style: 'margin-top:8px' },
+        el('button', { class: 'sm', text: 'Show their work', onClick: () => openPerson(p, root, ctx) }),
+        p.orcid ? el('a', { href: `https://orcid.org/${p.orcid}`, target: '_blank', rel: 'noopener',
+          class: 'note', text: `orcid.org/${p.orcid} ↗` }) : null)
+    )),
+    el('p', { class: 'note', style: 'margin-top:16px', text: 'Not here? Paste their ORCID iD in the box above and it resolves to exactly one person. Failing that, try the surname on its own: a middle or maiden name recorded in one catalogue and not the other is the usual reason someone is missing.' })
   );
 }
 
@@ -174,9 +184,9 @@ function looseResults(root, ctx) {
   if (!S.loose.works.length) return sheet(null, empty('Nothing under that name either',
     'No indexed work mentions it. Try the surname alone, or the spelling used on the publication.'));
   const onByline = S.loose.works.filter((w) => w.byline).length;
-  return sheet('Anything mentioning that name',
+  return sheet('Anything under that name',
     el('p', { class: 'note', style: 'margin-bottom:14px',
-      text: `A plain text search, not a resolved person: ${S.loose.total.toLocaleString()} works mention it, ${S.loose.works.length} shown, ${onByline} with the name on the by-line. The rest cite it or discuss it.` }),
+      text: `Searched by name rather than resolved to a person, in ${S.loose.catalogues || 'the catalogues'}: ${S.loose.works.length} shown of ${S.loose.total.toLocaleString()}, ${onByline} with the name on the by-line${S.loose.fromCrossref ? `, ${S.loose.fromCrossref} of them from Crossref alone` : ''}. The rest cite it or merely mention it.` }),
     S.loose.works.map((w, i) => el('div', { class: 'item' },
       el('div', { class: 'head' },
         el('span', { text: w.year || 'n.d.' }),
@@ -247,7 +257,7 @@ async function openPerson(p, root, ctx) {
   S.picked.clear();
   render(root, ctx);
   try {
-    S.personWorks = await worksByAuthor(p.id);
+    S.personWorks = await worksByAuthor(p.ids || p.id);
   } catch (err) {
     toast(err.message);
     S.person = null;
@@ -268,7 +278,9 @@ async function run(root, ctx) {
   render(root, ctx);
   try {
     if (S.mode === 'people') {
-      S.people = await findPeople(q);
+      const found = await findPeople(q);
+      S.people = found.people;
+      S.peopleNote = found.note;
       /*
        * No author record is not the same as nothing published. OpenAlex only
        * creates one once it has disambiguated someone across a few indexed

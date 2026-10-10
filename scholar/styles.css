@@ -323,3 +323,30 @@ mark.weak { border-bottom-style: dotted; }
   text-indent: -2.2em;
 }
 .biblio em { font-style: italic; }
+
+/* --------------------------------------------------------- deadlines due
+ *
+ * Above the tabs, inverted on the last day. It has to outrank whatever you
+ * were reading, and go away when dealt with rather than becoming furniture.
+ */
+.due {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 12px 18px;
+  border-bottom: 1px solid var(--rule-firm);
+  background: var(--paper-mark);
+  font-family: var(--sans);
+  font-size: 13.5px;
+}
+.due.now { background: var(--ink); color: var(--paper); }
+.due.now a, .due.now button { color: var(--paper); border-color: var(--paper); }
+.due-body { flex: 1; min-width: 0; }
+.due strong { display: block; margin-bottom: 4px; }
+.due ul { margin: 0; padding: 0; list-style: none; }
+.due li { display: flex; align-items: baseline; gap: 6px; padding: 1px 0; }
+.due .when { font-family: var(--mono); font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.04em; white-space: nowrap; }
+.due li a, .due li span:not(.when) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.due .more { margin: 4px 0 0; opacity: 0.7; }
+.due li button { margin-left: auto; opacity: 0.6; font-size: 11px; }
+.due li button:hover { opacity: 1; }

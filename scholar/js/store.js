@@ -5,6 +5,26 @@
  * so the tools that reason about "the literature" are reasoning about a real
  * set of documents rather than about whatever a model remembers.
  */
+/*
+ * Places that carry literature calls. Links, not data: nothing is fetched
+ * until you ask, and the Calls tab says which of them can be read by a
+ * browser at all. Addresses go stale; delete the ones that do.
+ */
+const SEED_FEEDS = [
+  { name: 'UPenn Calls for Papers', site: 'https://call-for-papers.sas.upenn.edu/', feed: 'https://call-for-papers.sas.upenn.edu/rss.xml',
+    about: 'The standing list for literature and the humanities. Conferences, journal issues, edited volumes.' },
+  { name: 'H-Net announcements', site: 'https://www.h-net.org/announce/', feed: 'https://www.h-net.org/announce/rss.php',
+    about: 'CFPs, fellowships, prizes and funding across the humanities.' },
+  { name: 'WikiCFP \u2014 humanities', site: 'http://www.wikicfp.com/cfp/call?conference=humanities', feed: '',
+    about: 'Conference deadlines across fields, searchable by subject.' },
+  { name: 'MLA', site: 'https://www.mla.org/', feed: '',
+    about: 'Modern Language Association: prizes, grants and the convention call.' },
+  { name: 'ACLA annual meeting', site: 'https://www.acla.org/annual-meeting', feed: '',
+    about: 'American Comparative Literature Association. Seminar calls open each autumn.' },
+  { name: 'ESSE', site: 'https://essenglish.org/', feed: '',
+    about: 'European Society for the Study of English: conferences and bursaries.' }
+];
+
 const KEY = 'scholar-desk:v1';
 
 /*
@@ -43,7 +63,10 @@ const blank = () => ({
   sources: [],   /* papers you have kept: title, authors, year, abstract, full text */
   drafts: [],    /* essays in progress */
   calls: [],     /* submission deadlines you are tracking */
-  feeds: [],     /* places you check for new ones */
+  feeds: null,   /* places you check for new ones; null means never set up */
+  /* Deadline warnings you have dismissed, so one does not come back every
+     time the app opens. Keyed by call id and the window it fired in. */
+  dismissed: [],
   updatedAt: null
 });
 
@@ -53,13 +76,17 @@ const listeners = new Set();
 function load() {
   try {
     const raw = localStorage.getItem(KEY);
-    if (!raw) return blank();
+    /* A fresh install goes through migrate() too. It is not only an upgrade
+       step: it is where the defaults that cannot sit in blank() are filled
+       in, and skipping it on first run left the app in a state no upgrade
+       path ever produces, which is the state nobody tests. */
+    if (!raw) return migrate(blank());
     const parsed = JSON.parse(raw);
     const b = blank();
     return migrate({ ...b, ...parsed, settings: { ...b.settings, ...(parsed.settings || {}) } });
   } catch (err) {
     console.error('Could not read saved data; starting empty.', err);
-    return blank();
+    return migrate(blank());
   }
 }
 
@@ -67,7 +94,19 @@ function migrate(s) {
   s.sources ||= [];
   s.drafts ||= [];
   s.calls ||= [];
-  s.feeds ||= [];
+  s.dismissed ||= [];
+  /*
+   * Seed the sources on first run.
+   *
+   * An empty Sources tab reads as "this feature does nothing". It is a list
+   * of places to check, so it may as well arrive with the places already in
+   * it; they are links, nothing is fetched until asked, and any of them can
+   * be removed. `null` rather than `[]` distinguishes a new install from
+   * someone who deleted them all and does not want them back.
+   */
+  if (s.feeds === null || s.feeds === undefined) {
+    s.feeds = SEED_FEEDS.map((f, i) => ({ id: `feed_seed${i}`, ...f, lastChecked: null }));
+  }
   s.settings.ai ||= blank().settings.ai;
   s.settings.languageTool ||= blank().settings.languageTool;
   return s;
@@ -252,3 +291,7 @@ export const updateFeed = (id, patch) =>
 
 export const removeFeed = (id) =>
   update((s) => { s.feeds = s.feeds.filter((x) => x.id !== id); });
+
+/* A warning seen and waved away, so it does not return on every visit. */
+export const dismissWarning = (token) =>
+  update((s) => { if (!s.dismissed.includes(token)) s.dismissed.push(token); });

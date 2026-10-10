@@ -9,6 +9,9 @@ set -u
 HERE="$(cd "$(dirname "$0")" && pwd)"
 SRC="$HERE/../instructor/js/analysis"
 FILES="text.js lexicons.js bloom.js gaps.js argument.js verify.js grammar.js mechanics.js learner-english.js languagetool.js"
+# turkish.js sits a level up in both apps, not under analysis/.
+ROOT_SRC="$HERE/../instructor/js"
+ROOT_FILES="turkish.js"
 mode="${1:-check}"
 status=0
 for f in $FILES; do
@@ -17,6 +20,16 @@ for f in $FILES; do
     [ "$mode" = check ] && echo "  same   $f"
   elif [ "$mode" = pull ]; then
     cp "$SRC/$f" "$HERE/js/analysis/$f"; echo "  pulled $f"
+  else
+    echo "  DRIFT  $f  (run ./sync-shared.sh pull, or reconcile by hand)"; status=1
+  fi
+done
+for f in $ROOT_FILES; do
+  if [ ! -f "$ROOT_SRC/$f" ]; then echo "missing in instructor: $f"; status=1; continue; fi
+  if diff -q "$ROOT_SRC/$f" "$HERE/js/$f" >/dev/null 2>&1; then
+    [ "$mode" = check ] && echo "  same   $f"
+  elif [ "$mode" = pull ]; then
+    cp "$ROOT_SRC/$f" "$HERE/js/$f"; echo "  pulled $f"
   else
     echo "  DRIFT  $f  (run ./sync-shared.sh pull, or reconcile by hand)"; status=1
   fi

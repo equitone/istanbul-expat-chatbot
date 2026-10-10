@@ -129,22 +129,33 @@ export async function readFeed(url, { signal } = {}) {
   return { ok: true, items, reason: '' };
 }
 
-/* Days from today, negative once it has passed. */
+/*
+ * Days from today, negative once it has passed.
+ *
+ * Counted in calendar days, not elapsed hours. Subtracting timestamps makes
+ * "tomorrow" come out as two days whenever the deadline is treated as the
+ * end of its day and the clock has not yet reached that hour, which is most
+ * of the time. Both sides are flattened to local midnight so the answer is
+ * the one a person would give: today is 0, tomorrow is 1.
+ */
 export function daysUntil(isoDate) {
   if (!isoDate) return null;
-  const then = new Date(`${isoDate}T23:59:59`);
+  const m = String(isoDate).match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!m) return null;
+  const then = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
   if (Number.isNaN(then.getTime())) return null;
   const now = new Date();
-  return Math.ceil((then - now) / 86400000);
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  return Math.round((then - today) / 86400000);
 }
 
 export function urgency(isoDate) {
   const d = daysUntil(isoDate);
   if (d === null) return { label: 'no date', kind: '' };
-  if (d < 0) return { label: `closed ${-d} day${-d === 1 ? '' : 's'} ago`, kind: 'past' };
+  if (d < 0) return { label: d === -1 ? 'closed yesterday' : `closed ${-d} days ago`, kind: 'past' };
   if (d === 0) return { label: 'closes today', kind: 'firm' };
-  if (d <= 7) return { label: `${d} day${d === 1 ? '' : 's'} left`, kind: 'firm' };
-  if (d <= 30) return { label: `${d} days left`, kind: '' };
+  if (d === 1) return { label: 'closes tomorrow', kind: 'firm' };
+  if (d <= 7) return { label: `${d} days left`, kind: 'firm' };
   return { label: `${d} days left`, kind: '' };
 }
 
@@ -170,3 +181,54 @@ export const SUGGESTED_SOURCES = [
   { name: 'IASPM / literature and culture grants', site: 'https://www.h-net.org/announce/', feed: 'https://www.h-net.org/announce/rss.php',
     about: 'H-Net announcements: CFPs, fellowships, prizes, funding.' }
 ];
+
+/*
+ * Which deadlines deserve an interruption.
+ *
+ * A warning that fires for everything is a warning nobody reads, so there
+ * are three windows and a deadline announces itself once in each: a month
+ * out, which is when an abstract has to be started; a week out, which is
+ * the last point a draft can be written; and the final day. Something
+ * already submitted or let pass never warns.
+ *
+ * The window is part of the dismissal token, so waving away the month
+ * warning does not also silence the one that matters on the last day.
+ */
+const WINDOWS = [
+  { id: 'day', max: 1, word: 'today or tomorrow' },
+  { id: 'week', max: 7, word: 'within a week' },
+  { id: 'month', max: 30, word: 'within a month' }
+];
+
+export function dueWarnings(calls, dismissed = []) {
+  const skip = new Set(dismissed);
+  const out = [];
+  (calls || []).forEach((c) => {
+    if (['submitted', 'accepted', 'declined', 'passed'].includes(c.status)) return;
+    const d = daysUntil(c.deadline);
+    if (d === null || d < 0) return;
+    const win = WINDOWS.find((w) => d <= w.max);
+    if (!win) return;
+    const token = `${c.id}:${win.id}`;
+    if (skip.has(token)) return;
+    out.push({ call: c, days: d, window: win.id, word: win.word, token });
+  });
+  /* Soonest first: the one closing tomorrow outranks the one closing in a
+     month, however they were entered. */
+  return out.sort((a, b) => a.days - b.days);
+}
+
+/*
+ * Deadlines that have quietly gone by.
+ *
+ * Separate from the warnings, and never a pop-up, because there is nothing
+ * to do about them in a hurry. They are worth surfacing once so the list
+ * does not silently fill with things that closed while you were not looking.
+ */
+export function justClosed(calls, withinDays = 14) {
+  return (calls || []).filter((c) => {
+    if (['submitted', 'accepted', 'declined', 'passed'].includes(c.status)) return false;
+    const d = daysUntil(c.deadline);
+    return d !== null && d < 0 && d >= -withinDays;
+  }).sort((a, b) => b.deadline.localeCompare(a.deadline));
+}
