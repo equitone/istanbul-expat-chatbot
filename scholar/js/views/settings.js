@@ -9,10 +9,41 @@
  * and the page says what changed and what it is now using.
  */
 import { el, mount, sheet, field, toast } from '../ui.js';
-import { getState, setSettings, setAi, setLanguageTool } from '../store.js';
+import { getState, setSettings, setAi, setLanguageTool, removeWord } from '../store.js';
 import { isConfigured, testModel, listModels } from '../ai.js';
 import { LANGUAGES, isConfigured as ltConfigured, testConnection as testLt } from '../analysis/languagetool.js';
 import { STYLES as PUNCT_STYLES } from '../analysis/punctuation.js';
+import { DIALECTS as SPELL_DIALECTS } from '../analysis/spelling.js';
+
+/*
+ * The writer's own dictionary, listed so it can be pruned.
+ *
+ * It exists because no general dictionary holds the vocabulary of literary
+ * criticism — interiority, diegesis, ekphrasis, focalisation and
+ * intertextuality are absent from SCOWL at every size — nor the name of a
+ * single Turkish scholar or town. Word and LibreOffice answer this the same
+ * way, and so does this: the writer knows and the dictionary does not.
+ *
+ * Shown as a list with a way to take a word back out, because a word added
+ * by accident silently stops being checked, and an unprunable list is one
+ * nobody will trust enough to add to.
+ *
+ * It is not part of the draft form: adding a word takes effect at once,
+ * since it is a fact about the writer rather than a setting being weighed.
+ */
+function personalDictionary(root, ctx) {
+  const words = getState().settings.personalWords || [];
+  if (!words.length) {
+    return el('p', { class: 'note', style: 'margin-top:14px', text: 'Your own dictionary is empty. On the Grammar tab, a word the dictionary does not have is offered with a button to add it; after that it is never reported again, and it travels in your backup.' });
+  }
+  return el('div', { style: 'margin-top:16px' },
+    el('div', { class: 'note', style: 'margin-bottom:8px', text: `Your own dictionary, ${words.length} word${words.length === 1 ? '' : 's'}. These are never reported. Click one to take it back out.` }),
+    el('div', { class: 'row tight' }, words.map((w) => el('button', {
+      class: 'sm', title: `Remove \u201C${w}\u201D from your dictionary`, text: `${w} \u00d7`,
+      onClick: () => { removeWord(w); toast(`\u201C${w}\u201D will be checked again.`); render(root, ctx); }
+    })))
+  );
+}
 
 /* The working copy, kept across redraws of this view. */
 const S = { howTo: false, models: null, listing: false };
@@ -23,7 +54,7 @@ let ltProbe = null;   /* the result of the LanguageTool test */
 let testing = false;
 let ltTesting = false;
 
-const clone = (s) => ({ contactEmail: s.contactEmail || '', punctuationStyle: s.punctuationStyle || 'mla', ai: { ...s.ai }, languageTool: { ...s.languageTool } });
+const clone = (s) => ({ contactEmail: s.contactEmail || '', punctuationStyle: s.punctuationStyle || 'mla', spellDialect: s.spellDialect || 'en_GB', ai: { ...s.ai }, languageTool: { ...s.languageTool } });
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 
 export default function render(root, ctx) {
@@ -126,6 +157,16 @@ export default function render(root, ctx) {
       el('p', { class: 'note', style: 'margin-top:12px', text: inUse(saved) })
     ),
 
+    sheet('Spelling',
+      el('p', { text: 'Spelling is checked with Hunspell against the SCOWL dictionaries \u2014 the same .aff and .dic files LibreOffice, Firefox and Thunderbird read. They sit in vendor/dict beside the app with their licences, and nothing is sent anywhere to check a word.' }),
+      el('p', { class: 'note', style: 'margin-bottom:14px', text: 'Pick the spelling you write in. SCOWL\u2019s normal dictionaries carry one spelling per word, so British prose checked against the American dictionary makes a misspelling of every \u201canalyse\u201d, and the reverse. Mixing the two inside one document is reported separately, as a consistency figure rather than an error.' }),
+      field('Which spelling you write in', el('select', {
+        id: 'spell-dialect',
+        onChange: (e) => touch(() => { d.spellDialect = e.target.value; })
+      }, SPELL_DIALECTS.map((x) => el('option', { value: x.id, selected: d.spellDialect === x.id, text: `${x.label} \u2014 ${x.about}` })))),
+      personalDictionary(root, ctx)
+    ),
+
     sheet('Punctuation',
       el('p', { text: 'The punctuation rules on the Grammar tab come from one book — June Casagrande, The Best Punctuation Book, Period — and every finding names the chapter behind it, so a disagreement can be settled by opening it rather than by arguing with this app.' }),
       el('p', { class: 'note', style: 'margin-bottom:14px', text: 'The four major styles disagree in real places, and the book marks which rules belong to which. A rule from the wrong style would tell you to break your own, so pick yours. The en dash, for one, exists only in book style: in academic writing a hyphenated date range is correct.' }),
@@ -210,6 +251,7 @@ export default function render(root, ctx) {
 function pendingSummary(before, after) {
   const moved = [];
   if (before.punctuationStyle !== after.punctuationStyle) moved.push('punctuation style');
+  if (before.spellDialect !== after.spellDialect) moved.push('which spelling');
   if (before.contactEmail !== after.contactEmail) moved.push('contact address');
   if (before.ai.enabled !== after.ai.enabled) moved.push(after.ai.enabled ? 'model switched on' : 'model switched off');
   if (before.ai.provider !== after.ai.provider) moved.push('where the model runs');
@@ -301,7 +343,7 @@ function apply(root, ctx) {
   const before = clone(getState().settings);
   const d = draft;
   setSettings({ contactEmail: String(d.contactEmail || '').trim() });
-  setSettings({ punctuationStyle: d.punctuationStyle });
+  setSettings({ punctuationStyle: d.punctuationStyle, spellDialect: d.spellDialect });
   setLanguageTool({
     enabled: d.languageTool.enabled,
     endpoint: String(d.languageTool.endpoint || '').trim(),
@@ -330,6 +372,9 @@ function describe(before, after) {
   const moved = [];
   if (before.punctuationStyle !== after.punctuationStyle) {
     moved.push(`punctuation style is now ${(PUNCT_STYLES.find((x) => x.id === after.punctuationStyle) || {}).label || after.punctuationStyle}`);
+  }
+  if (before.spellDialect !== after.spellDialect) {
+    moved.push(`spelling is now checked as ${(SPELL_DIALECTS.find((x) => x.id === after.spellDialect) || {}).label || after.spellDialect}`);
   }
   if (before.contactEmail !== after.contactEmail) {
     moved.push(after.contactEmail ? `contact address is now ${after.contactEmail}` : 'contact address cleared');

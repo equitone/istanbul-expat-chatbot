@@ -63,6 +63,20 @@ const blank = () => ({
     /* Which style's punctuation rules to run. The reference behind them
        tags every rule by style, and the four disagree in real places. */
     punctuationStyle: 'mla',
+    /*
+     * Which spelling the dictionary should hold the writer to. British by
+     * default: this app is used in a Turkish English department, where the
+     * house spelling is British, and checking British prose against the
+     * American dictionary makes a misspelling of every "analyse".
+     */
+    spellDialect: 'en_GB',
+    /*
+     * The writer's own dictionary. No general dictionary holds the
+     * vocabulary of literary criticism or the name of a single Turkish
+     * scholar, so this is where those go, and it travels in the backup
+     * because losing it means marking the same hundred words again.
+     */
+    personalWords: [],
     ai: { enabled: false, provider: 'local', model: '', apiKey: '', endpoint: 'http://localhost:11434/v1', contextTokens: 32768 },
     /* Optional second opinion on the Grammar tab. Off by default: the public
        server means sending text somewhere, and that is a choice to make
@@ -124,6 +138,8 @@ function migrate(s) {
   s.settings.languageTool ||= blank().settings.languageTool;
   if (typeof s.settings.offlineLock !== 'boolean') s.settings.offlineLock = false;
   s.settings.punctuationStyle ||= 'mla';
+  s.settings.spellDialect ||= 'en_GB';
+  if (!Array.isArray(s.settings.personalWords)) s.settings.personalWords = [];
   return s;
 }
 
@@ -242,6 +258,31 @@ export const removeDraft = (id) => update((s) => { s.drafts = s.drafts.filter((d
 export const setSettings = (patch) => update((s) => Object.assign(s.settings, patch));
 export const setAi = (patch) => update((s) => { s.settings.ai = { ...s.settings.ai, ...patch }; });
 export const setLanguageTool = (patch) => update((s) => { s.settings.languageTool = { ...s.settings.languageTool, ...patch }; });
+
+/*
+ * The writer's own dictionary.
+ *
+ * Folded case for the comparison but stored as typed, so a name keeps its
+ * capitals when it is shown back in Settings. Sorted, because a list of a
+ * few hundred words that nobody can scan is a list nobody will prune.
+ */
+export const addWords = (words) => update((s) => {
+  const have = new Set((s.settings.personalWords || []).map((w) => w.toLowerCase()));
+  const add = [];
+  for (const raw of words) {
+    const w = String(raw || '').trim();
+    if (!w || have.has(w.toLowerCase())) continue;
+    have.add(w.toLowerCase());
+    add.push(w);
+  }
+  s.settings.personalWords = [...(s.settings.personalWords || []), ...add]
+    .sort((a, b) => a.localeCompare(b, 'tr'));
+});
+
+export const removeWord = (word) => update((s) => {
+  const k = String(word).toLowerCase();
+  s.settings.personalWords = (s.settings.personalWords || []).filter((w) => w.toLowerCase() !== k);
+});
 
 /* ------------------------------------------------------------------ calls
  *

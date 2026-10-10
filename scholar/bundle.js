@@ -127,11 +127,43 @@ const html = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
  * would ship a dead offline switch.
  */
 const netguard = fs.readFileSync(path.join(ROOT, 'js/netguard.js'), 'utf8');
+
+/*
+ * The spelling engine and the dictionaries go in the head too, and for a
+ * reason that is not a preference: a page opened from a folder cannot load
+ * an ES module and cannot fetch its own neighbours. Served, the engine is a
+ * script tag and the dictionary is fetched on first use. Here there is
+ * nothing to fetch, so both dictionaries are carried in the file.
+ *
+ * That is about a megabyte of word list in a local file that loads from
+ * disk in milliseconds, which is the right trade against the alternative:
+ * a single-file build whose spelling check cannot run. The analyser reads
+ * them off window.__DICTS, and the check below fails the build if they are
+ * not there, because the failure would otherwise be a silent one that only
+ * shows up as a document with no spelling mistakes in it.
+ */
+const nspell = fs.readFileSync(path.join(ROOT, 'vendor/nspell.global.js'), 'utf8');
+const dicts = {};
+for (const id of ['en_US', 'en_GB']) {
+  dicts[id] = {
+    aff: fs.readFileSync(path.join(ROOT, `vendor/dict/${id}.aff`), 'utf8'),
+    dic: fs.readFileSync(path.join(ROOT, `vendor/dict/${id}.dic`), 'utf8')
+  };
+}
+const dictScript = `window.__DICTS = ${JSON.stringify(dicts)};`;
+
 const head = html.match(/<head>([\s\S]*?)<\/head>/)[1]
   .replace(/<link rel="stylesheet"[^>]*>/, '')
   .replace(/<script src="js\/netguard\.js"><\/script>/, `<script>\n${netguard}\n</script>`)
+  .replace(/<script src="vendor\/nspell\.global\.js"><\/script>/,
+    `<script>\n${nspell}\n</script>\n<script>${dictScript}</script>`)
   .replace(/<title>[\s\S]*?<\/title>/, '<title>Scholar Desk</title>');
 if (!/__offlineLock/.test(head)) throw new Error('bundle: netguard was not inlined into the head');
+if (!/__nspell\s*=/.test(head)) throw new Error('bundle: the spelling engine was not inlined into the head');
+if (!/__DICTS/.test(head)) throw new Error('bundle: the dictionaries were not inlined into the head');
+for (const id of ['en_US', 'en_GB']) {
+  if (!head.includes(`"${id}"`)) throw new Error(`bundle: the ${id} dictionary is missing from the head`);
+}
 const body = html.match(/<body>([\s\S]*?)<\/body>/)[1].replace(/<script[\s\S]*?<\/script>/g, '');
 
 const outHtml = `<!doctype html>

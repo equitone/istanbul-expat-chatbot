@@ -22,9 +22,11 @@ APP="$STAGE/ScholarDesk"
 "$DIR/sync-shared.sh" >/dev/null || { echo "Shared analysis modules have drifted from ../instructor."; "$DIR/sync-shared.sh"; exit 1; }
 
 mkdir -p "$APP"
-# vendor/ holds the PDF and Word parsers. Without them the app would fetch
-# them from a CDN on first use, which fails on a machine with no internet and
-# makes an outbound request the app otherwise never makes.
+# vendor/ holds the PDF and Word parsers, the Hunspell engine and the two
+# SCOWL dictionaries with their licences. Without the parsers the app would
+# fetch them from a CDN on first use, which fails on a machine with no
+# internet and makes an outbound request the app otherwise never makes;
+# without the dictionaries the spelling check says it could not run.
 cp -R "$DIR/index.html" "$DIR/styles.css" "$DIR/js" "$DIR/vendor" "$DIR/serve.js" "$DIR/serve.rb" "$DIR/start.sh" "$APP/"
 cp "$DIR/Start Scholar Desk.command" "$DIR/start.bat" "$DIR/start.ps1" "$APP/"
 chmod +x "$APP/start.sh" "$APP/Start Scholar Desk.command"

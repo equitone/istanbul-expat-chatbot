@@ -119,6 +119,28 @@ rule into a consistency check. Anything the book calls the writer's
 judgement — commas around "however", commas between short independent
 clauses — is not checked at all.
 
+Spelling is checked with Hunspell against the SCOWL dictionaries — the same
+`.aff` and `.dic` files LibreOffice, Firefox and Thunderbird read, held in
+`vendor/dict` with their licences. Both the British and the American
+dictionary ship, because SCOWL's normal lists carry one spelling per word
+and British prose checked against the American one makes a misspelling of
+every "analyse"; Settings picks which.
+
+No general dictionary holds the vocabulary of literary criticism —
+*interiority*, *diegesis*, *ekphrasis*, *focalisation* and
+*intertextuality* are absent from SCOWL at every size — nor the name of any
+Turkish scholar. So a word used three times or more is taken as the
+writer's own and listed rather than reported, a capitalised word that never
+appears in lower case is read as a name, headings and the reference list are
+not checked at all, and anything the writer adds to their own dictionary is
+never reported again. That last is what Word and LibreOffice do, and it is
+the only honest answer: the writer knows and the dictionary does not.
+
+No finding says a word is misspelled. The dictionary can tell you a word is
+not in it; it cannot tell you that you meant a different one, and
+"interiority" is exactly as far from "inferiority" as "seperate" is from
+"separate". The suggestion is offered as a question.
+
 Nothing needs a model, and nothing leaves the computer: the rules run in the
 page. LanguageTool is an optional second pass that catches more, and it can
 also be run on this computer — Settings has the Docker and Java commands, and

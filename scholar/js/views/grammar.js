@@ -30,7 +30,7 @@
  * you have pointed LanguageTool at a server yourself.
  */
 import { el, mount, sheet, tag, toast, empty, figure, escapeHtml } from '../ui.js';
-import { getState } from '../store.js';
+import { getState, addWords } from '../store.js';
 import { buildDocument } from '../analysis/text.js';
 import { analyseGrammar } from '../analysis/grammar.js';
 import { analyseMechanics } from '../analysis/mechanics.js';
@@ -38,6 +38,7 @@ import { analyseLearnerEnglish } from '../analysis/learner-english.js';
 import { checkText, isConfigured as ltConfigured, merge } from '../analysis/languagetool.js';
 import { buildSegments, dominantIssue } from '../analysis/segments.js';
 import { analysePunctuation, STYLES as PUNCT_STYLES } from '../analysis/punctuation.js';
+import { analyseSpelling, DIALECTS as SPELL_DIALECTS, isReady as dictReady } from '../analysis/spelling.js';
 import { buildGrammarReport, openPrintable, downloadReport } from '../export/grammar-report.js';
 
 const S = {
@@ -222,6 +223,7 @@ function results(r, root, ctx) {
               r.dialect.total ? 'consistent' : 'nothing to tell from')
       ),
       el('p', { class: 'note', text: `Punctuation checked against ${(PUNCT_STYLES.find((x) => x.id === r.punctuationStyle) || {}).label || r.punctuationStyle} rules, from The Best Punctuation Book, Period. Change the style in Settings; the four disagree in real places, and a rule from the wrong one would tell you to break your own.` }),
+      spellingNote(r, root, ctx),
       r.ltNote ? el('p', { class: 'note', text: r.ltNote }) : null,
       !real
         ? el('p', { class: 'note', text: 'Nothing flagged. These rules are deliberately cautious, so this means nothing they test for is wrong, not that the writing is beyond improvement.' })
@@ -367,6 +369,38 @@ function copyList(r) {
     .catch(() => toast('This browser would not let the page copy. Select the text instead.'));
 }
 
+/*
+ * What the spelling check rests on, and what it decided to leave alone.
+ *
+ * Two things have to be on screen for this to be trustworthy. First, which
+ * dictionary — a spelling claim with no named dictionary behind it is the
+ * thing this replaced. Second, the words it treated as the writer's own, so
+ * nobody has to wonder whether silence meant "correct" or "given up on".
+ *
+ * And if the dictionary did not load, that is said instead of nothing.
+ * Spelling quietly going unchecked looks exactly like spelling being right.
+ */
+function spellingNote(r, root, ctx) {
+  const sp = r.spelling;
+  if (!sp) return null;
+  if (!sp.ran) {
+    return el('div', { class: 'verdict bad', role: 'status' },
+      el('strong', { text: 'Spelling was not checked.' }), ' ',
+      `The dictionary did not load (${sp.reason}). Everything else on this page ran; spelling alone is missing, and no news here is not good news.`);
+  }
+  const label = (SPELL_DIALECTS.find((d) => d.id === sp.dialect) || {}).label || sp.dialect;
+  const own = sp.ownWords || [];
+  return el('div', {},
+    el('p', { class: 'note', text: `Spelling checked with Hunspell against the SCOWL ${label} dictionary \u2014 the same files LibreOffice and Firefox use, held beside the app. Change which one in Settings.` }),
+    own.length
+      ? el('p', { class: 'note' },
+          `Used more than twice and not in the dictionary, so taken as your own vocabulary rather than reported: ${own.join(', ')}. `,
+          el('button', { class: 'sm', text: own.length === 1 ? 'Add it to my dictionary' : 'Add them to my dictionary',
+            onClick: () => { addWords(own); toast(`${own.length} word(s) added to your dictionary.`); run(root, ctx); } }))
+      : null
+  );
+}
+
 async function run(root, ctx) {
   const s = getState();
   const text = S.text.trim();
@@ -385,7 +419,47 @@ async function run(root, ctx) {
   /* Punctuation is checked against one named reference, per the style set
      in Settings, and every finding carries its chapter. */
   const punct = analysePunctuation(doc, { style: s.settings.punctuationStyle });
-  let issues = [...g.issues, ...m.issues, ...l.issues, ...punct.issues]
+
+  /*
+   * Spelling comes from the dictionary, not from a list.
+   *
+   * The dictionary has to be parsed the first time, which takes about a
+   * tenth of a second, so this says what it is doing rather than appearing
+   * to hang. mechanics.js still carries the old hand-written table of 246
+   * misspellings for the instructor app, which checks synchronously; here
+   * its findings are dropped, because the dictionary is a superset of them
+   * and two authorities for one word is how a finding gets reported twice.
+   */
+  const dialect = s.settings.spellDialect || SPELL_DIALECTS[0].id;
+  if (!dictReady(dialect)) {
+    S.busy = 'Loading the dictionary\u2026';
+    render(root, ctx);
+  }
+  const sp = await analyseSpelling(doc, {
+    dialect,
+    personal: s.settings.personalWords || []
+  });
+
+  const fromRules = [...g.issues, ...m.issues, ...l.issues]
+    .filter((i) => i.rule !== 'misspelling');
+  const rulesAndPunct = [...fromRules, ...punct.issues];
+
+  /*
+   * A word the rules already explained is not also an unknown word.
+   *
+   * "literatures" is in the dictionary's bad books and in lexicons.js as an
+   * uncountable noun, so it came back twice: once saying the word does not
+   * exist and once explaining that literature has no plural. The second is
+   * the better finding, so anything the dictionary flags over a span another
+   * analyser has already covered is dropped.
+   */
+  const covered = (i) => rulesAndPunct.some((o) =>
+    i.start < o.end && o.start < i.end
+    /* Only a finding about the same word counts. Without this, a
+       sentence-length finding swallows every unknown word inside it: one
+       resumptive-pronoun spanning a clause was quietly eating "seperate". */
+    && (o.end - o.start) <= (i.end - i.start) + 6);
+  let issues = [...rulesAndPunct, ...sp.issues.filter((i) => !covered(i))]
     .filter((i) => SHOWN.has(i.category))
     .sort((a, b) => a.start - b.start);
   let ltNote = '';
@@ -410,7 +484,8 @@ async function run(root, ctx) {
     text, issues, ltNote,
     words: text.split(/\s+/).length,
     dialect: m.dialect,
-    punctuationStyle: punct.style
+    punctuationStyle: punct.style,
+    spelling: sp
   };
   S.busy = null;
   render(root, ctx);

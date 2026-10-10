@@ -8,6 +8,10 @@
 <!-- Before everything else, and deliberately not a module: the offline
      switch must be in force before a line of the app can run. -->
 <script src="js/netguard.js"></script>
+  <!-- The spelling engine: a classic script, so the single-file build can
+       inline it the way it inlines netguard. Hunspell, reading the SCOWL
+       dictionaries in vendor/dict. -->
+  <script src="vendor/nspell.global.js"></script>
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
