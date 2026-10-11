@@ -29,7 +29,10 @@ const path = require('path');
  * working tree. Bundling the working tree there would give the single file a
  * different build marker from the served version beside it in the same zip.
  */
-const ROOT = path.resolve(process.argv[3] || __dirname);
+/* Flags are filtered out of the positional arguments, or --fragment lands
+   where package.sh passes the staging directory and nothing resolves. */
+const ARGS = process.argv.slice(2).filter((a) => !a.startsWith('--'));
+const ROOT = path.resolve(ARGS[1] || __dirname);
 const ENTRY = 'js/app.js';
 
 /* The single file has no folder to be dated by, so it carries its own stamp.
@@ -166,7 +169,18 @@ for (const id of ['en_US', 'en_GB']) {
 }
 const body = html.match(/<body>([\s\S]*?)<\/body>/)[1].replace(/<script[\s\S]*?<\/script>/g, '');
 
-const outHtml = `<!doctype html>
+/*
+ * A second shape, for a host that supplies the document itself.
+ *
+ * Some places this app gets opened wrap whatever they are given in their own
+ * <!doctype>, <head> and <body>. Handing one of those a complete document
+ * nests a document inside a document, which browsers paper over in ways
+ * nobody should rely on. So `--fragment` emits the same app without the
+ * outer shell: the title, the styles, the scripts that must run first, the
+ * markup, and the app. Same bytes otherwise, same build stamp.
+ */
+const FRAGMENT = process.argv.includes('--fragment');
+const bodyOpen = FRAGMENT ? '' : `<!doctype html>
 <html lang="en">
 <head>
 ${head.trim()}
@@ -174,7 +188,24 @@ ${head.trim()}
 ${css}
 </style>
 </head>
-<body>
+<body>`;
+/*
+ * In fragment form the head is rebuilt rather than copied: the host already
+ * supplies the charset and the viewport, and its viewport carries
+ * viewport-fit=cover, which ours does not. What has to come across is the
+ * title, then the scripts that must run before any module — the offline
+ * guard, the spelling engine, the dictionaries — then the styles.
+ */
+const fragmentHead = () => {
+  const title = (head.match(/<title>[\s\S]*?<\/title>/i) || [''])[0];
+  const scripts = head.match(/<script[\s\S]*?<\/script>/gi) || [];
+  if (!title) throw new Error('bundle: no title to carry into the fragment');
+  if (!scripts.length) throw new Error('bundle: no head scripts to carry into the fragment');
+  return [title, ...scripts, `<style>\n${css}\n</style>`].join('\n');
+};
+const inlineHead = FRAGMENT ? fragmentHead() : '';
+
+const outHtml = `${bodyOpen}${inlineHead}
 ${body.trim()}
 <script>
 /* Scholar Desk, bundled into one file so it runs from the Finder with no
@@ -196,10 +227,25 @@ ${modules}
   __req(${JSON.stringify(ENTRY)});
 })();
 </script>
-</body>
-</html>
+${FRAGMENT ? '' : '</body>\n</html>'}
 `;
 
-const target = process.argv[2] || path.join(ROOT, 'ScholarDesk.html');
+/*
+ * Only the file's own edges are inspected. The app itself writes HTML into
+ * strings — the grammar report is a self-contained page — so searching the
+ * whole bundle for "<html" finds the exporter and fails a correct build.
+ */
+if (FRAGMENT) {
+  const head200 = outHtml.slice(0, 200);
+  const tail200 = outHtml.slice(-200);
+  if (/<!doctype|<html[\s>]/i.test(head200) || /<\/(html|body)>\s*$/i.test(tail200)) {
+    throw new Error('bundle: the fragment still carries a document shell');
+  }
+  if (!/^\s*<title>/i.test(head200)) {
+    throw new Error('bundle: the fragment does not open with its title');
+  }
+}
+
+const target = ARGS[0] || path.join(ROOT, 'ScholarDesk.html');
 fs.writeFileSync(target, outHtml);
 console.log(`Bundled ${seen.size} modules -> ${target} (${Math.round(outHtml.length / 1024)}K)`);

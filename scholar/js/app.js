@@ -186,10 +186,17 @@ let current = null;
  * bookmark all land where they were. A bare tab name in the hash still
  * works, from an older link: the door it belongs to is worked out from it.
  */
+/*
+ * The hash is written with a dot, not a slash: #check.grammar.
+ *
+ * Some hosts that embed this page only pass through a plain anchor — letters,
+ * digits, dot, dash, underscore — and drop anything else, which would make
+ * every deep link land on the entrance instead.
+ */
 function readHash() {
   const raw = location.hash.replace('#', '');
   if (!raw || raw === 'doors') return { door: null, view: null };
-  const [a, b] = raw.split('/');
+  const [a, b] = raw.split(/[.\/]/);
   const d = DOORS.find((x) => x.id === a);
   if (d) return { door: d.id, view: d.tabs.includes(b) ? b : d.land };
   const owner = DOORS.find((x) => x.tabs.includes(a));
@@ -275,7 +282,7 @@ function go(id) {
   if (owner && owner.id !== door) { openDoor(owner.id, id); return; }
   current = id;
   foyer.classList.remove('active');
-  location.hash = `${door}/${id}`;
+  location.hash = `${door}.${id}`;
   VIEWS.forEach((v) => {
     document.getElementById(`view-${v.id}`).classList.toggle('active', v.id === id);
     document.getElementById(`tab-${v.id}`).setAttribute('aria-selected', String(v.id === id));
@@ -309,7 +316,15 @@ syncContact();
 subscribe(() => { syncContact(); drawStorageWarning(); drawDeadlines(); if (current) draw(current); });
 window.addEventListener('hashchange', () => {
   const want = readHash();
-  if (!want.door) { if (door) showFoyer(); return; }
+  /*
+   * An empty hash is ignored rather than treated as "go back to the doors".
+   * A host that strips the hash would otherwise bounce the reader out of
+   * whatever tab they were working in. Only the wordmark opens the foyer.
+   */
+  if (!want.door) {
+    if (door && location.hash.replace('#', '') === 'doors') showFoyer();
+    return;
+  }
   if (want.door !== door) openDoor(want.door, want.view);
   else if (want.view && want.view !== current) go(want.view);
 });
