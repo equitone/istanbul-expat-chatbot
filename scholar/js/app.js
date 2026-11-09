@@ -12,6 +12,7 @@ import renderGaps from './views/gaps.js';
 import renderEvaluate from './views/evaluate.js';
 import renderWrite from './views/write.js';
 import renderAbstract from './views/abstract.js';
+import renderRevise from './views/revise.js';
 import renderGrammar from './views/grammar.js';
 import renderCalls from './views/calls.js';
 import renderReferences from './views/references.js';
@@ -40,15 +41,15 @@ const DOORS = [
     title: 'Write',
     blurb: 'Build the argument. Find who has written on it, see what is missing, and draft against your own notes.',
     doing: ['Your library', 'Who has published on it', 'Where the gaps are', 'Drafting', 'Abstracts', 'Calls for papers'],
-    tabs: ['library', 'search', 'gaps', 'write', 'abstract', 'calls', 'references', 'settings'],
+    tabs: ['library', 'search', 'gaps', 'write', 'abstract', 'revise', 'calls', 'references', 'settings'],
     land: 'library'
   },
   {
     id: 'check',
     title: 'Check',
     blurb: 'Go over something already written. Grammar, spelling and punctuation, how the argument holds up, and whether the citations match the style.',
-    doing: ['Grammar and spelling', 'Punctuation', 'How the argument holds', 'Citations against APA or MLA'],
-    tabs: ['grammar', 'evaluate', 'references', 'settings'],
+    doing: ['Grammar and spelling', 'Punctuation', 'Revising a passage', 'How the argument holds', 'Citations against APA or MLA'],
+    tabs: ['grammar', 'revise', 'evaluate', 'references', 'settings'],
     land: 'grammar'
   }
 ];
@@ -60,6 +61,7 @@ const VIEWS = [
   { id: 'evaluate', label: 'Evaluate', render: renderEvaluate },
   { id: 'write', label: 'Write', render: renderWrite },
   { id: 'abstract', label: 'Abstract', render: renderAbstract },
+  { id: 'revise', label: 'Revise', render: renderRevise },
   { id: 'grammar', label: 'Grammar', render: renderGrammar },
   { id: 'calls', label: 'Calls', render: renderCalls },
   { id: 'references', label: 'References', render: renderReferences },

@@ -18,7 +18,7 @@ export const CATEGORY = 'tell';
 
 /* Words the essay names outright. Each carries what to do instead, because
    "avoid this word" without an alternative just produces a thesaurus crawl. */
-const WORDS = [
+export const WORDS = [
   ['delve', 'go into, examine'], ['delves', 'goes into'], ['delving', 'going into'],
   ['intricate', 'complicated, detailed'], ['intricacies', 'details'],
   ['tapestry', 'name the thing itself'],
