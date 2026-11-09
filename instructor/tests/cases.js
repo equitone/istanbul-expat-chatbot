@@ -12,6 +12,11 @@
  */
 
 export const POSITIVE = [
+  /* A prepositional phrase between the subject and the verb: the agreement
+     is still wrong, and it is wrong about the noun before the preposition,
+     which is what the finding has to name. */
+  ['subject-verb-agreement', 'The scholarship on this topic were reviewed.'],
+  ['subject-verb-agreement', 'The readings of that novel is contested.'],
   // --- subject / verb agreement ---
   ['subject-verb-agreement', 'The participants was interviewed in June.'],
   ['subject-verb-agreement', 'The findings has been reported in Table 2.'],
@@ -102,6 +107,13 @@ export const POSITIVE = [
  * the `grammar` and `typo` categories. Style observations are allowed.
  */
 export const NEGATIVE = [
+  /* A noun inside a prepositional phrase is not the subject. Academic prose
+     puts one between the subject and its verb constantly, and every one of
+     these was read as an agreement error. */
+  'I argue that the room in these stories is a character.',
+  'The reading of these novels was contested at the time.',
+  'The effect on those readers is the subject of the chapter.',
+  'A study among the participants was published the following year.',
   'The participants were interviewed in June and their responses were coded independently.',
   'The findings have been reported in Table 2, alongside the confidence intervals.',
   'The criteria are not met by any of the four cases examined here.',

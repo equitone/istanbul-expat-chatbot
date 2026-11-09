@@ -11,6 +11,7 @@ import renderSearch from './views/search.js';
 import renderGaps from './views/gaps.js';
 import renderEvaluate from './views/evaluate.js';
 import renderWrite from './views/write.js';
+import renderAbstract from './views/abstract.js';
 import renderGrammar from './views/grammar.js';
 import renderCalls from './views/calls.js';
 import renderReferences from './views/references.js';
@@ -38,8 +39,8 @@ const DOORS = [
     id: 'write',
     title: 'Write',
     blurb: 'Build the argument. Find who has written on it, see what is missing, and draft against your own notes.',
-    doing: ['Your library', 'Who has published on it', 'Where the gaps are', 'Drafting', 'Calls for papers'],
-    tabs: ['library', 'search', 'gaps', 'write', 'calls', 'references', 'settings'],
+    doing: ['Your library', 'Who has published on it', 'Where the gaps are', 'Drafting', 'Abstracts', 'Calls for papers'],
+    tabs: ['library', 'search', 'gaps', 'write', 'abstract', 'calls', 'references', 'settings'],
     land: 'library'
   },
   {
@@ -58,6 +59,7 @@ const VIEWS = [
   { id: 'gaps', label: 'Gaps', render: renderGaps },
   { id: 'evaluate', label: 'Evaluate', render: renderEvaluate },
   { id: 'write', label: 'Write', render: renderWrite },
+  { id: 'abstract', label: 'Abstract', render: renderAbstract },
   { id: 'grammar', label: 'Grammar', render: renderGrammar },
   { id: 'calls', label: 'Calls', render: renderCalls },
   { id: 'references', label: 'References', render: renderReferences },

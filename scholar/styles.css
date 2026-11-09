@@ -909,3 +909,15 @@ body:not(.has-door) main { padding: 0; }
   :root:not([data-theme="light"]) .door:hover .door-list { color: rgba(0, 0, 0, 0.66); }
   :root:not([data-theme="light"]) .door:hover .door-go { color: #14140f; }
 }
+
+/* The assembled abstract: read as the paragraph it will be submitted as,
+   not as a form field, so it gets the body face and real measure. */
+.abstract-out {
+  font-family: var(--serif);
+  font-size: 17px;
+  line-height: 1.62;
+  margin: 0;
+  max-width: 62ch;
+  white-space: pre-wrap;
+}
+.abstract-out:empty { display: none; }

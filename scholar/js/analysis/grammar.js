@@ -45,11 +45,24 @@ const NOT_PARTICIPLE = new Set(['need', 'indeed', 'exceed', 'proceed', 'succeed'
 export function analyseGrammar(doc) {
   const issues = [];
   const { text } = doc;
-  const add = (o) => issues.push({
-    ...o,
-    category: STYLE_RULES.has(o.rule) ? 'style' : categoryForRule(o.rule, CATEGORY),
-    excerpt: text.slice(o.start, o.end)
-  });
+  /*
+   * One finding per rule per span.
+   *
+   * Two agreement rules can match the same three words from different
+   * starting points, and the reader then sees the same mistake reported
+   * twice with two different explanations of it.
+   */
+  const seen = new Set();
+  const add = (o) => {
+    const key = `${o.rule}:${o.start}:${o.end}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    issues.push({
+      ...o,
+      category: STYLE_RULES.has(o.rule) ? 'style' : categoryForRule(o.rule, CATEGORY),
+      excerpt: text.slice(o.start, o.end)
+    });
+  };
 
   let passiveCount = 0;
   let finiteVerbTotal = 0;
@@ -61,10 +74,92 @@ export function analyseGrammar(doc) {
     const prose = s.lead ? s.text.slice(s.lead) : s.text;
     const lowers = w.map((x) => x.lower);
 
-    /* ------------------------------------------ subject–verb agreement */
+    /*
+     * ------------------------------------------ subject-verb agreement
+     *
+     * A noun inside a prepositional phrase is not the subject, and academic
+     * prose puts one between the subject and its verb constantly: "the room
+     * in these stories is a character" is correct, and every rule below
+     * read it as "these stories is". Walking back through the determiners
+     * and adjectives to see whether a preposition opens the phrase costs
+     * four comparisons and removes the whole class.
+     */
+    /*
+     * The walk must not leave the clause.
+     *
+     * "The participants were interviewed in June and their responses were
+     * coded" walked back across "and" from the second clause, found the
+     * "in" of the first, and then took "interviewed" for the subject. A
+     * conjunction or any punctuation between two words ends a clause, and
+     * the walk stops at both.
+     */
+    const stops = (k) => {
+      if (CLAUSE_BREAK.has(lowers[k])) return true;
+      /* Punctuation between this word and the next: a comma, a dash, a
+         semicolon. Only spaces may separate words inside one phrase. */
+      return k + 1 < w.length && !/^[ \t]*$/.test(text.slice(w[k].end, w[k + 1].start));
+    };
+
+    const governed = (idx) => {
+      for (let k = idx; k >= 0 && k >= idx - 4; k--) {
+        if (k < idx && stops(k)) return -1;
+        if (PREPOSITIONS.has(lowers[k])) return k;
+        /* Anything that is not part of the noun phrase ends the walk. */
+        if (k < idx && !DET_OR_MOD.has(lowers[k]) && !/^[\p{L}'\u2019-]+$/u.test(w[k].text)) return -1;
+      }
+      return -1;
+    };
+
+    /*
+     * The head of the phrase the preposition hangs off: the word just before
+     * it, skipping any adjectives. "The scholarship on this topic were
+     * reviewed" is still wrong, and this is what it is wrong about — so
+     * rather than drop the finding, the agreement is checked against the
+     * real subject and reported against that. Suppressing it outright
+     * traded a true positive for the false ones; this keeps both.
+     */
+    const headBefore = (pk) => {
+      for (let k = pk - 1; k >= 0 && k >= pk - 4; k--) {
+        if (stops(k) || CLAUSE_BREAK.has(lowers[k])) return null;
+        if (DET_OR_MOD.has(lowers[k])) continue;
+        if (!/^[\p{L}'\u2019-]+$/u.test(w[k].text)) return null;
+        /* A past participle is not the subject. Without a verb lexicon the
+           only safe move is to decline rather than guess, which costs a
+           finding and never invents one. */
+        if (PARTICIPLE_ISH.test(w[k].text) || PLURAL_VERB.has(lowers[k]) || SINGULAR_VERB.has(lowers[k])) return null;
+        return w[k];
+      }
+      return null;
+    };
+
+    /* Plural by the only test available without a lexicon: a final s that is
+       not one of the singular nouns that happen to end in one. */
+    const looksPlural = (word) => /s$/i.test(word) && !isSingularLookingS(word.toLowerCase());
+
     for (let i = 0; i < w.length - 1; i++) {
       const a = lowers[i];
       const b = lowers[i + 1];
+      const pk = governed(i);
+      if (pk >= 0) {
+        /* Inside a prepositional phrase: check the real subject instead. */
+        const verb = PLURAL_VERB.has(b) ? b : (i + 2 < w.length && PLURAL_VERB.has(lowers[i + 2]) ? lowers[i + 2] : null);
+        const singVerb = SINGULAR_VERB.has(b) ? b : (i + 2 < w.length && SINGULAR_VERB.has(lowers[i + 2]) ? lowers[i + 2] : null);
+        const head = (verb || singVerb) ? headBefore(pk) : null;
+        if (head) {
+          const vIdx = verb ? (PLURAL_VERB.has(b) ? i + 1 : i + 2) : (SINGULAR_VERB.has(b) ? i + 1 : i + 2);
+          const vWord = w[vIdx];
+          if (verb && !looksPlural(head.text)) {
+            add({ rule: 'subject-verb-agreement', severity: 'high', start: head.start, end: vWord.end,
+              message: `The subject is \u201C${head.text}\u201D, which is singular; \u201C${vWord.text}\u201D is a plural verb form. The words between them are a prepositional phrase and do not govern the verb.`,
+              suggestion: SINGULARISE[verb] || '' });
+          } else if (singVerb && looksPlural(head.text)) {
+            add({ rule: 'subject-verb-agreement', severity: 'high', start: head.start, end: vWord.end,
+              message: `The subject is \u201C${head.text}\u201D, which is plural; \u201C${vWord.text}\u201D is a singular verb form. The words between them are a prepositional phrase and do not govern the verb.`,
+              suggestion: PLURALISE[singVerb] || '' });
+          }
+        }
+        continue;
+      }
       if (SINGULAR_SUBJ.has(a) && PLURAL_VERB.has(b)) {
         add({ rule: 'subject-verb-agreement', severity: 'high', start: w[i].start, end: w[i + 1].end, message: `“${w[i].text}” is singular but “${w[i + 1].text}” is a plural verb form.`, suggestion: SINGULARISE[b] || '' });
       }
@@ -101,8 +196,18 @@ export function analyseGrammar(doc) {
     scanIn(s, /\b(criterion|phenomenon|medium|stratum|bacterium)\s+(are|were|have)\b/gi, (m, off) =>
       add({ rule: 'latin-plural', severity: 'high', start: off, end: off + m[0].length, message: `“${m[1]}” is singular.`, suggestion: '' })
     );
-    /* Plural noun subject + singular verb: "the results has been reported". */
-    scanIn(s, /\b(the|these|those|many|several|few|all|both|most|two|three|four|various|numerous|our|their)\s+([a-z]+s)\s+(is|was|has|does)\b/gi, (m, off) => {
+    /*
+     * Plural noun subject + singular verb: "the results has been reported".
+     *
+     * The lookbehind is the whole difficulty. Academic prose puts a
+     * prepositional phrase between the subject and its verb constantly, and
+     * the noun inside it is not the subject: "the room in these stories is
+     * a character" is correct English that this rule called an agreement
+     * error. A preposition immediately before the determiner means the
+     * phrase is governed by it, so the verb is answering to something
+     * earlier in the sentence that this rule cannot see.
+     */
+    scanIn(s, /(?<!\b(?:in|on|of|at|to|for|with|from|by|about|among|amongst|between|across|through|throughout|within|without|against|during|beyond|behind|beside|besides|under|over|above|below|into|onto|upon|alongside|despite|towards|toward|unlike)\s)\b(the|these|those|many|several|few|all|both|most|two|three|four|various|numerous|our|their)\s+([a-z]+s)\s+(is|was|has|does)\b/gi, (m, off) => {
       if (isSingularLookingS(m[2].toLowerCase())) return;
       add({ rule: 'subject-verb-agreement', severity: 'high', start: off, end: off + m[0].length, message: `“${m[2]}” is plural but “${m[3]}” is singular.`, suggestion: `${m[1]} ${m[2]} ${PLURALISE[m[3].toLowerCase()]}` });
     });
@@ -255,6 +360,28 @@ export function analyseGrammar(doc) {
 
 const SINGULAR_SUBJ = new Set(['he', 'she', 'it', 'this', 'one', 'each', 'everyone', 'someone', 'nobody', 'everybody', 'anyone', 'nothing']);
 const PLURAL_SUBJ = new Set(['they', 'we', 'these', 'those', 'both', 'many', 'several']);
+/* A noun after one of these heads a prepositional phrase, not the sentence,
+   so it cannot be the subject the verb has to agree with. */
+const PREPOSITIONS = new Set([
+  'in', 'on', 'of', 'at', 'to', 'for', 'with', 'from', 'by', 'about',
+  'among', 'amongst', 'between', 'across', 'through', 'throughout',
+  'within', 'without', 'against', 'during', 'beyond', 'behind', 'beside',
+  'besides', 'under', 'over', 'above', 'below', 'into', 'onto', 'upon',
+  'alongside', 'despite', 'towards', 'toward', 'like', 'unlike'
+]);
+/* A conjunction opens a new clause, so the subject of what follows is not
+   to be found before it. */
+const CLAUSE_BREAK = new Set(['and', 'but', 'or', 'nor', 'so', 'yet', 'because',
+  'although', 'though', 'while', 'whereas', 'if', 'unless', 'that', 'which', 'who']);
+/* -ed and -ing endings: a participle more often than a noun, and the rule
+   declines rather than treat one as the subject. */
+const PARTICIPLE_ISH = /(?:ed|ing)$/i;
+/* Walked over on the way back to a preposition. */
+const DET_OR_MOD = new Set([
+  'the', 'a', 'an', 'these', 'those', 'this', 'that', 'his', 'her', 'their',
+  'its', 'our', 'my', 'your', 'such', 'other', 'same', 'own', 'both', 'all',
+  'many', 'most', 'some', 'few', 'several', 'two', 'three', 'four'
+]);
 const PLURAL_VERB = new Set(['are', 'were', 'have', 'do']);
 const SINGULAR_VERB = new Set(['is', 'was', 'has', 'does']);
 const SINGULARISE = { are: 'is', were: 'was', have: 'has', do: 'does' };
